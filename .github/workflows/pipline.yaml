@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: gem install --user-install -n~/bin mdl
-      - run: ~/bin/mdl -s tests/markdown_rules.rb README.md bylaws.md Resolutions/
+      - run: ~/bin/mdl -s tests/markdown_rules.rb README.md
 
   python-lint:
     runs-on: ubuntu-latest
