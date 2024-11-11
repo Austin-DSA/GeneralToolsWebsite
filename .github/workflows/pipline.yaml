@@ -1,0 +1,19 @@
+name: tests
+on: push
+
+
+jobs:
+
+  markdown-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: gem install --user-install -n~/bin mdl
+      - run: ~/bin/mdl -s tests/markdown_rules.rb README.md bylaws.md Resolutions/
+
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: >-
+           black --target-version py310 --check --verbose --include '\.py$' --exclude '\.(md|txt|pdf)$' . 
