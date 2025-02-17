@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>{% block title %}Austin DSA Tools{% endblock title %}</title>
+    {% load static %}
+    <link
+      rel="stylesheet"
+      href="{% static 'css/output.css' %}"
+    />
+  </head>
+  <body class="font-display text-dark max-w-full">
+    <header class="bg-primary w-full tools-header">
+      <div class="flex justify-start items-center">
+        <div class="bat-logo flex-none">
+          <img src="{% static 'images\ATXDSA Circle Logo with Chapter Black.png' %}">
+        </div>
+        <div class="app-title text-2xl flex-auto">
+          <h1><a href="/">Austin DSA Tools</a></h1>
+        </div>
+      </div>
+    </header>
+    <div class="flex justify-center">
+      <div class="w-xl px-8">
+        {% block page_content %}{% endblock page_content %}
+      </div>
+    </div>
+  </body>
+</html>
