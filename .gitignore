@@ -1,0 +1,9 @@
+venv
+**/__pycache__
+**/tailwindcss-windows-x64.exe
+**/tailwindcss-linux-arm64
+**/tailwindcss-linux-arm64-musl
+**/tailwindcss-linux-x64
+**/tailwindcss-linux-x64-musl
+**/tailwindcss-macos-arm64
+**/tailwindcss-macos-x64 

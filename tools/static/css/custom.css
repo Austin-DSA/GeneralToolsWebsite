@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@theme {
+  --color-primary: #ec1f27;
+  --color-secondary: #605c5c;
+  --color-success: #00a02a;
+  --color-info: #fbd2d4;
+  --color-danger: #a00a10;
+  --color-warning: #ffe45e;
+  --color-dark: #231f20;
+  --color-gray-med: #8c8989;
+  --font-display: "StyreneB", "ManifoldDSA", "sans-serif";
+}
+
+@font-face {
+  font-family: ManifoldDSA;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/ManifoldDSA-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: StyreneB;
+  font-style: normal;
+  font-display: swap;
+  src: url("../fonts/StyreneB-Regular.otf") format("opentype");
+}
+
+.tools-header {
+  height: 60px;
+}
+
+.bat-logo {
+  height: 60px;
+  width: 60px;
+}
+
+.app-title {
+  padding-left: 20px;
+}
+
+.form-field {
+  border: 1px solid var(--color-gray-med);
+  padding: 5px;
+  min-width: 200px;
+}

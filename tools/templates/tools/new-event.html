@@ -1,0 +1,49 @@
+{% extends "tools/base.html" %} {% block page_content %}
+<h1 class="text-xl py-8">Create an Event</h1>
+<form
+  action=""
+  method="post"
+>
+  {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
+  <div>
+    <div class="py-2">
+      <div>{{ field.label_tag }}</div>
+      <div>{{ field }}</div>
+    </div>
+    <div class="text-danger">{{ field.errors }}</div>
+  </div>
+  {% endfor %}
+  <!-- <table>
+    {{ form.as_table }}
+  </table> -->
+  <!-- {{ form.renewal_date.errors }} -->
+  <!-- <div class="test-border">{{ form.title.as_field_group }}</div>
+  <div class="test-border">{{ form.title.errors }}</div>
+  <div class="test-border">{{ form.description.as_field_group }}</div>
+  <div class="test-border">{{ form.description.errors }}</div>
+  <div class="test-border">
+    <div class="test-border">{{ form.startTime.as_field_group }}</div>
+    <div class="test-border">{{ form.endTime.as_field_group }}</div>
+  </div>
+  <div class="test-border">{{ form.instructions.as_field_group }}</div>
+  <div class="test-border">{{ form.locationName.as_field_group }}</div>
+  <div class="test-border">{{ form.address.as_field_group }}</div>
+  <div class="test-border">
+    <div class="test-border">{{ form.city.as_field_group }}</div>
+    <div class="test-border">{{ form.state.as_field_group }}</div>
+    <div class="test-border">{{ form.country.as_field_group }}</div>
+    <div class="test-border">{{ form.zipcode.as_field_group }}</div>
+  </div> -->
+  <!-- <button
+    class="btn-primary"
+    type="submit"
+    value="Submit"
+  ></button> -->
+  <input
+    type="submit"
+    name="submit-new-event"
+    value="Submit"
+    class="bg-primary text-white p-2 my-3"
+  />
+</form>
+{% endblock page_content %}
