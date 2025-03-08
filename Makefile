@@ -9,12 +9,12 @@ help:
 # Build the Docker images
 .PHONY: build
 build:
-	docker-compose build
+	docker-compose -f docker/docker-compose.yml build
 
 # Start the containers (builds them if needed)
 .PHONY: up
 up:
-	docker-compose up --build
+	docker-compose -f docker/docker-compose.yml up --build
 
 # Stop and remove the containers
 .PHONY: down
