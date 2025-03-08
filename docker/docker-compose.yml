@@ -1,11 +1,9 @@
-version: "3.8"
-
 services:
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/app
+      - ..:/app
     ports:
       - "8000:8000"
     environment:
@@ -14,6 +12,7 @@ services:
       - db
   
   db:
+    build: .
     image: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data

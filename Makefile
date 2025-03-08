@@ -14,9 +14,9 @@ build:
 # Start the containers (builds them if needed)
 .PHONY: up
 up:
-	docker-compose -f docker/docker-compose.yml up --build
+	docker-compose -f docker/docker-compose.yml up
 
 # Stop and remove the containers
 .PHONY: down
 down:
-	docker-compose down
+	docker-compose -f docker/docker-compose.yml down
