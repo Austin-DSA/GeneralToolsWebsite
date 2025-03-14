@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy requirements file first to install dependencies early and take advantage of Docker layer caching
+# Copy project files to container
 COPY . /app/ 
 
 # Install any required dependencies
