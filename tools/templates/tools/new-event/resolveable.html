@@ -1,0 +1,24 @@
+{% extends "tools/base.html" %} {% block page_content %}
+<p> Your event could not be published due to the following RESOLVEABLE conflicts. <br>
+    If you still want this event published go back to the new event form, re-enter the details, and check "Ignore Resolveable Conflicts"
+</p>
+<hr>
+<p>
+    <ul>
+    {% for conflict in conflicts %}
+    <li>
+        {% if conflict.type == 0 %}
+            Zoom  
+            {%if conflict.zoomUser %} 
+                ({{conflict.zoomUser}})
+            {% endif %}
+            :
+        {% else %}
+            Gcal: 
+        {% endif %}
+        {{ conflict.title }} - {{ conflict.start }} - {{ conflict.end }}
+    </li>
+    {% endfor %}
+    </ul>
+</p>
+{% endblock page_content %}
