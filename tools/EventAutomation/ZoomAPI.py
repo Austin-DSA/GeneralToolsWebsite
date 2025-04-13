@@ -8,6 +8,8 @@ import base64
 import pytz
 import requests.auth
 
+logger = logging.getLogger(__name__)
+
 # MARK: Constants
 
 class Constants:
@@ -142,7 +144,7 @@ class ZoomAPI:
 
     # Shouldn't call on these directly instead use _accessTokenRequired as a decorator
     def _refreshAccessToken(self) -> None:
-        logging.info("ZoomAPI: Refreshing Access Token")
+        logger.info("ZoomAPI: Refreshing Access Token")
         authSecretsBase64 = base64.standard_b64encode(f"{self._clientId}:{self._clientSecret}".encode())
         auth = requests.auth.HTTPBasicAuth(self._clientId,self._clientSecret)
         body = {
@@ -159,7 +161,7 @@ class ZoomAPI:
             scope=responseDict[Constants.AccessToken.RESPONSE_SCOPE],
             apiUrl=responseDict[Constants.AccessToken.RESPONSE_API_URL]
             )
-        logging.info("ZoomAPI: Refreshed Access Token. Will expire at %s", str(self._accessToken.expireTime))
+        logger.info("ZoomAPI: Refreshed Access Token. Will expire at %s", str(self._accessToken.expireTime))
 
 
     # If the token exists and is within its lifetime it is valid
@@ -171,7 +173,7 @@ class ZoomAPI:
     def _accessTokenRequired(func):
         def inner(self, *args, **kwargs):
             if not self._isAccessTokenValid():
-                logging.info("ZoomAPI: Access token invalid")
+                logger.info("ZoomAPI: Access token invalid")
                 self._refreshAccessToken()
             return func(self,*args, **kwargs)
         return inner
@@ -182,7 +184,7 @@ class ZoomAPI:
     def _fetchAccounts(self) -> list[ZoomUser]:
         def processJsonResponseIntoUsers(responseDict: dict) -> list[ZoomUser]:
             if Constants.Users.RESPONSE_USERS_KEY not in responseDict:
-                logging.error("ZoomAPI: No users list in response, returning empty account list")
+                logger.error("ZoomAPI: No users list in response, returning empty account list")
                 return []
             users = []
             for user in responseDict[Constants.Users.RESPONSE_USERS_KEY]:
@@ -191,10 +193,10 @@ class ZoomAPI:
                                    status=user[Constants.Users.RESPONSE_USERS_STATUS_KEY])
 
                 if newUser.status != Constants.Users.RESPONSE_USER_STATUS_ACTIVE:
-                    logging.info("ZoomAPI: User %s is not active, instead %s. Skipping.", newUser.email, newUser.status)
+                    logger.info("ZoomAPI: User %s is not active, instead %s. Skipping.", newUser.email, newUser.status)
                     continue
                 
-                logging.info("ZoomAPI: Found user %s, getting features", newUser.email)
+                logger.info("ZoomAPI: Found user %s, getting features", newUser.email)
                 req = requests.get(Constants.Users.Features.SETTINGS_ENDPOINT(newUser.id), headers=self._headersForRequest())
                 req.raise_for_status()
                 responseDict = req.json()
@@ -203,7 +205,7 @@ class ZoomAPI:
                 users.append(newUser)
             return users
 
-        logging.info("ZoomAPI: Fetching accounts")
+        logger.info("ZoomAPI: Fetching accounts")
         accounts = []
         req = requests.get(Constants.Users.LIST_USERS_ENDPOINT, headers=self._headersForRequest())
         req.raise_for_status()
@@ -211,22 +213,22 @@ class ZoomAPI:
         accounts.extend(processJsonResponseIntoUsers(responseDict=responseDict))
         
         while Constants.NEXT_PAGE_TOKEN_KEY in responseDict and responseDict[Constants.NEXT_PAGE_TOKEN_KEY] != "":
-            logging.info("ZoomAPI: Moving onto next page of account list")
+            logger.info("ZoomAPI: Moving onto next page of account list")
             params = {Constants.NEXT_PAGE_TOKEN_KEY : responseDict[Constants.NEXT_PAGE_TOKEN_KEY]}
             req = requests.get(Constants.Users.LIST_USERS_ENDPOINT, headers=self._headersForRequest(), params=params)
             req.raise_for_status()
             responseDict = req.json()
             accounts.extend(processJsonResponseIntoUsers(responseDict=responseDict))
         
-        logging.info("ZoomAPI: No next page, finishing fetching accounts")
+        logger.info("ZoomAPI: No next page, finishing fetching accounts")
         return accounts
 
     def _accounts(self) -> list[ZoomUser]:
         if self._cachedAccounts is None:
-            logging.info("ZoomAPI: No accounts in cache")
+            logger.info("ZoomAPI: No accounts in cache")
             self._cachedAccounts = self._fetchAccounts()
         else:
-            logging.info("ZoomAPI: Returning Cached ids")
+            logger.info("ZoomAPI: Returning Cached ids")
         return self._cachedAccounts
 
 # MARK: Meetings
@@ -234,14 +236,14 @@ class ZoomAPI:
     def _fetchMeetingsForAccountAndTime(self, account: ZoomUser, fromDate: datetime.datetime, toDate: datetime.datetime) -> list[ZoomMeeting]:
         def processJsonResponIntoMeetings(responseDict: dict) -> list[ZoomMeeting]:
             if Constants.Meetings.RESPONSE_MEETING_LIST_KEY not in responseDict:
-                logging.error("ZoomAPI: No meeting list in response, returning empty meeting list")
+                logger.error("ZoomAPI: No meeting list in response, returning empty meeting list")
                 return []
             meetings = []
             for meeting in responseDict[Constants.Meetings.RESPONSE_MEETING_LIST_KEY]:
                 # We don't care about instant meetings or recurring meetings with no fixed time
                 meetingType = meeting[Constants.Meetings.RESPONSE_TYPE_KEY]
                 if meetingType == Constants.Meetings.TYPE_INSTANT or meetingType == Constants.Meetings.TYPE_RECURRING_NO_FIXED:
-                    logging.info("ZoomAPI: Found meeting %s that is type %d, has no scheduled time so skipping", meeting[Constants.Meetings.RESPONSE_TOPIC_KEY], meetingType)
+                    logger.info("ZoomAPI: Found meeting %s that is type %d, has no scheduled time so skipping", meeting[Constants.Meetings.RESPONSE_TOPIC_KEY], meetingType)
                     continue
 
                 startTime = datetime.datetime.fromisoformat(meeting[Constants.Meetings.RESPONSE_START_TIME_KEY])
@@ -254,11 +256,11 @@ class ZoomAPI:
                                          ownerUserId=account.id,
                                          topic=meeting[Constants.Meetings.RESPONSE_TOPIC_KEY])
                 
-                logging.info("ZoomAPI: Found meeting %s at %s, getting features", newMeeting.topic, startTime)
+                logger.info("ZoomAPI: Found meeting %s at %s, getting features", newMeeting.topic, startTime)
                 meetings.append(newMeeting)
             return meetings
         
-        logging.info("ZoomAPI: Fetching meetings for %s from %s to %s", account.email, fromDate, toDate)
+        logger.info("ZoomAPI: Fetching meetings for %s from %s to %s", account.email, fromDate, toDate)
         meetings = []
         params = { Constants.Meetings.QUERY_PARAM_FROM_DATE : fromDate.isoformat(),
                    Constants.Meetings.QUERY_PARAM_TO_DATE : toDate.isoformat(),
@@ -270,14 +272,14 @@ class ZoomAPI:
         meetings.extend(processJsonResponIntoMeetings(responseDict=responseDict))
         
         while Constants.NEXT_PAGE_TOKEN_KEY in responseDict and responseDict[Constants.NEXT_PAGE_TOKEN_KEY] != "":
-            logging.info("ZoomAPI: Moving onto next page of meeting list")
+            logger.info("ZoomAPI: Moving onto next page of meeting list")
             params[Constants.NEXT_PAGE_TOKEN_KEY] = responseDict[Constants.NEXT_PAGE_TOKEN_KEY]
             req = requests.get(Constants.Meetings.MEETING_ENDPOINT(account.id), headers=self._headersForRequest(), params=params)
             req.raise_for_status()
             responseDict = req.json()
             meetings.extend(processJsonResponIntoMeetings(responseDict=responseDict))
         
-        logging.info("ZoomAPI: No next page, finishing fetching meetings")
+        logger.info("ZoomAPI: No next page, finishing fetching meetings")
         return meetings
 
 
@@ -289,16 +291,16 @@ class ZoomAPI:
     def getAccountsAndAvailablilityForTime(self, time: datetime.datetime, duration: datetime.timedelta) -> list[tuple[ZoomUser,list[ZoomMeeting]]]:
         # Require timezone aware objects 
         if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
-            logging.error("ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
+            logger.error("ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
             raise Exception("ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
         # Can't check for conflicts in the past 
         # Return false as if there is a conflict
         if time < datetime.datetime.now(tz=time.tzinfo):
-            logging.error("ZoomAPI: Passed in time %s that is in the past", str(time))
+            logger.error("ZoomAPI: Passed in time %s that is in the past", str(time))
             raise Exception(f"ZoomAPI: Passed in time {time} that is in the past") # ??
         
         # Look for potential conflicts within 3 hours on each side
-        logging.info("ZoomAPI: Check availability for meeting starting at %s for duration %s", time, duration)
+        logger.info("ZoomAPI: Check availability for meeting starting at %s for duration %s", time, duration)
         fromDate = time - datetime.timedelta(hours=3)
         toDate = time + datetime.timedelta(hours=3)+duration
         results = []
@@ -307,7 +309,7 @@ class ZoomAPI:
             potentialConflicts = self._fetchMeetingsForAccountAndTime(account=account, fromDate=fromDate, toDate=toDate)
             confirmedConflicts = []
             # Check for conflicts
-            logging.info("ZoomAPI: Checking conflicts for account %s", account.email)
+            logger.info("ZoomAPI: Checking conflicts for account %s", account.email)
             for potentialConflict in potentialConflicts:
                 # If the potential conflict ends before the meeting starts then there is no conflict
                 if potentialConflict.startTime+potentialConflict.duration < time:
@@ -316,18 +318,18 @@ class ZoomAPI:
                 if time+duration < potentialConflict.startTime:
                     continue
                 # Otherwise there must be overlap and so we have a conflict
-                logging.info("ZoomAPI: Found conflict by meeting %s at %s for %s duration", potentialConflict.topic, potentialConflict.startTime, potentialConflict.duration)
+                logger.info("ZoomAPI: Found conflict by meeting %s at %s for %s duration", potentialConflict.topic, potentialConflict.startTime, potentialConflict.duration)
                 confirmedConflicts.append(potentialConflict)
             results.append((account,confirmedConflicts))
-        logging.info("ZoomAPI: Done checking availability")
+        logger.info("ZoomAPI: Done checking availability")
         return results
     
     @_accessTokenRequired
     def createMeeting(self, title: str, start: datetime.datetime, duration: datetime.timedelta, user: ZoomUser) -> str:
         if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
-            logging.error("ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
+            logger.error("ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
             raise Exception("ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
-        logging.info("ZoomAPI: Creating meeting %s at %s that lasts %s for user %s", title, str(time), str(duration), user.email)
+        logger.info("ZoomAPI: Creating meeting %s at %s that lasts %s for user %s", title, str(time), str(duration), user.email)
         # headers = self._headersForRequest()
         # headers[Content-Type: application/json]
         req = requests.post(Constants.Meetings.MEETING_ENDPOINT(user.id), headers=self._headersForRequest(), json={
@@ -338,7 +340,7 @@ class ZoomAPI:
             Constants.Meetings.CREATE_TYPE : Constants.Meetings.TYPE_SCHEDULED
         })
         req.raise_for_status()
-        logging.info("ZoomAPI: Created meeting")
+        logger.info("ZoomAPI: Created meeting")
         return req.json()[Constants.Meetings.RESPONSE_JOIN_URL_KEY]
 
 

@@ -1,51 +1,71 @@
-from django.shortcuts import render
-from django.http import HttpResponseRedirect
-from .forms import NewEventForm
 import datetime
 import time
 import logging
 import dataclasses
 import pytz
 
+from django.shortcuts import render
+from django.http import HttpResponseRedirect
+from django.contrib.auth.decorators import permission_required, login_required
+from django.contrib.auth.models import User
+
 from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
+from .forms import NewEventForm
+from .EmailApi import EmailApi
 
+logger = logging.getLogger(__name__)
+
+@login_required
 def index(request):
     return render(request, "tools/home.html", {})
 
-
+@permission_required("tools.publishEvent")
 def new_event(request):
     # TODO: Should maybe split displaying form from processing to different views?
-    # TODO: Email confirmation
     if request.method == "POST":
-        logging.info("PublishEvent: Recieved submission of event to publish.")
+        logger.info("PublishEvent: Recieved submission of event to publish.")
         form = NewEventForm(request.POST)
         if not form.is_valid():
-            logging.error("PublishEvent: Submitted Form is not valid")
+            logger.error("PublishEvent: Submitted Form is not valid")
             return HttpResponseRedirect("/")
         
         eventInfo = form.convertToEventInfo()
-        logging.info("PublishEvent: Recieved event data %s", str(eventInfo))
+        logger.info("PublishEvent: Recieved event data %s", str(eventInfo))
         
-        logging.info("PublishEvent: Getting configuration")
+        logger.info("PublishEvent: Getting configuration")
         zoomConfig = SecretManager.getZoomConfig()
         anConfig = SecretManager.getANAutomatorConfig()
         gCalConfig = SecretManager.getGCalConfig()
 
         ignoreResolveableConflicts = form.cleaned_data[NewEventForm.Keys.IGNORE_RESOLVEABLE_CONFLICTS]
 
-        logging.info("PublishEvent: Attempting to publish event")
+        logger.info("PublishEvent: Attempting to publish event")
         result = EventAutomationDriver.publishEvent(eventInfo=eventInfo, 
                                                     config=EventAutomationDriver.Config(zoomConfig=zoomConfig, anConfig=anConfig, gCalConfig=gCalConfig, ignoreResolveableConflicts=ignoreResolveableConflicts))
-        
+        # Left around for debugging, useful if you want to test thigns out without having to actuall publish a bunch of stuff
+        # result = EventAutomationDriver.Result(EventAutomationDriver.Result.ResultType.PUBLISHED, anManageLink="manageLink", anShareLink="shareLink", gCalLink="gCalLink", zoomAccount="Account", zoomLink="zoomLink")
         if result.type == EventAutomationDriver.Result.ResultType.PUBLISHED:
             # Return success and links back to user
-            # TODO: Send confirmation email to user email - need to get user emails set up, can re-use email api from membership upload list
-            logging.info("PublishEvent: Event Publish sucessfully with result %s", str(result))
+            logger.info("PublishEvent: Event Publish sucessfully with result %s", str(result))
+            logger.info("PublishEvent: Sending confirmation email to user %s", str(request.user.email))
+            try:
+                # TODO: potentially replace with Django built in mail module
+                messageText = f""" Your event {eventInfo.title} was published successfully. Here are the links.
+                Zoom Link ({result.zoomAccount}): {result.zoomLink}
+                AN Share Link: {result.anShareLink}
+                AN Manage Link: {result.anManageLink}
+                Google Calendar Link: {result.gCalLink}"""
+                EmailApi.sendEmailFromWebsiteAccount(toAddress=request.user.email, 
+                                                     subject=f"Published {eventInfo.title} event succesfully",
+                                                     messageText=messageText)
+            except Exception as err:
+                logger.error("PublishEvent: Failed to send confrimation email due to exception")
+                logger.exception(err)
             return render(request, "tools/new-event/published.html", dataclasses.asdict(result))
         elif result.type == EventAutomationDriver.Result.ResultType.UNRESOLVEABLE_CONFLICT:
             # Let the user know about the unresolveable conflict
-            logging.info("PublishEvent: Event Publish Failed with Unresolveable Conflict %s", str(result))
+            logger.info("PublishEvent: Event Publish Failed with Unresolveable Conflict %s", str(result))
             # Convert conflict times to timezone specified in form, then make naiive
             timezone = pytz.timezone(form.cleaned_data[NewEventForm.Keys.TIMEZONE])
             for i in range(len(result.conflicts)):
@@ -56,7 +76,7 @@ def new_event(request):
             return render(request, "tools/new-event/unresolveable.html", dataclasses.asdict(result))
         elif result.type == EventAutomationDriver.Result.ResultType.CONFLICT:
             # Let the user know about the conflict and ask if they want to ignore it
-            logging.info("PublishEvent: Event Publish Failed with Unresolveable Conflict %s", str(result))
+            logger.info("PublishEvent: Event Publish Failed with Unresolveable Conflict %s", str(result))
             # Convert conflict times to timezone specified in form, , then make naiive
             timezone = pytz.timezone(form.cleaned_data[NewEventForm.Keys.TIMEZONE])
             for i in range(len(result.conflicts)):
@@ -67,7 +87,7 @@ def new_event(request):
             return render(request, "tools/new-event/resolveable.html", dataclasses.asdict(result))
         else:
             # Some unkown error occured, show the user all informaiton we have 
-            logging.error("PublishEvent: Unexpected error when publishing event %s", str(result))
+            logger.error("PublishEvent: Unexpected error when publishing event %s", str(result))
             return render(request, "tools/new-event/unknown.html", dataclasses.asdict(result))
 
         return HttpResponseRedirect("/")

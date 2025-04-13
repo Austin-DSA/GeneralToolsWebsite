@@ -10,6 +10,8 @@ from . import ActionNetworkAutomation
 from . import GoogleCalendarAPI
 from . import ZoomAPI
 
+logger = logging.getLogger(__name__)
+
 @dataclasses.dataclass
 class Conflict:
     class ConflictType:
@@ -81,13 +83,13 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
     try:
         # Guards
         if eventInfo.start.tzinfo is None or eventInfo.start.tzinfo.utcoffset(eventInfo.start) is None:
-            logging.error("EventPublisher: The argument for the eventInfo.start  must be timezone aware. Passed in unaware object.")
+            logger.error("EventPublisher: The argument for the eventInfo.start  must be timezone aware. Passed in unaware object.")
             raise Exception("EventPublisher: The argument for the  eventInfo.start must be timezone aware. Passed in unaware object.")
         if eventInfo.end.tzinfo is None or eventInfo.end.tzinfo.utcoffset(eventInfo.end) is None:
-            logging.error("EventPublisher: The argument for the eventInfo.end  must be timezone aware. Passed in unaware object.")
+            logger.error("EventPublisher: The argument for the eventInfo.end  must be timezone aware. Passed in unaware object.")
             raise Exception("EventPublisher: The argument for the  eventInfo.end must be timezone aware. Passed in unaware object.")
         if eventInfo.end < eventInfo.start:
-            logging.error("EventPublisher: eventInfo.end must be after eventInfo.start")
+            logger.error("EventPublisher: eventInfo.end must be after eventInfo.start")
             raise Exception("EventPublisher: eventInfo.end must be after eventInfo.start")
         
         # Check for conflicts on Zoom
@@ -97,7 +99,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
         zoomConflicts = []
         for (account, conflicts) in availablility:
             if len(conflicts) == 0:
-                logging.info("EventPublisher: Found available zoom account %s", account.email)
+                logger.info("EventPublisher: Found available zoom account %s", account.email)
                 zoomAccount = account
                 break
             zoomConflicts.extend([Conflict(type=Conflict.ConflictType.ZOOM,
@@ -118,12 +120,12 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
         # TODO: Should we combine zoom and google conflicts for unresolveable???
         # A Zoom conflict is unresolveable
         if zoomAccount is None:
-            logging.error("EventPublisher: Found unresolveable zoom conflicts or no zoom account %s ", str(zoomConflicts))
+            logger.error("EventPublisher: Found unresolveable zoom conflicts or no zoom account %s ", str(zoomConflicts))
             result.type = Result.ResultType.UNRESOLVEABLE_CONFLICT
             result.conflicts = zoomConflicts
             return result
         if len(gCalConflicts) > 0 and not config.ignoreResolveableConflicts:
-            logging.error("EventPublisher: Found gCal conflicts %s ", str(gCalConflicts))
+            logger.error("EventPublisher: Found gCal conflicts %s ", str(gCalConflicts))
             result.type = Result.ResultType.CONFLICT
             result.conflicts = gCalConflicts
             return result
@@ -134,7 +136,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
                                          duration=eventInfo.end-eventInfo.start, 
                                          user=zoomAccount)
         result.zoomLink = zoomLink
-        result.zoomAccount = zoomAccount
+        result.zoomAccount = zoomAccount.email
         # Schedule Action Network
         anEventConfirmInfo = ActionNetworkAutomation.ANAutomator.createEvent(eventInfo=ActionNetworkAutomation.EventInfo(title=eventInfo.title,
                                                                                                                          startTime=eventInfo.start,

@@ -14,3 +14,9 @@ def getANAutomatorConfig() -> ANAutomatorConfig:
 
 def getGCalConfig() -> GoogleCalendarConfig:
     return GoogleCalendarConfig(serviceKeyPath=GoogleServiceKeyPath(), calendarId=GoogleCalId(),delegateAccount=GoogleDelegateAccount())
+
+def getWebsiteEmailAccountUserName() -> str:
+    return WebsiteEmailAccountUsername()
+
+def getWebsiteEmailAccountPassword() -> str:
+    return WebsiteEmailAccountPassword()

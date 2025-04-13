@@ -11,6 +11,8 @@ import typing
 import pytz
 import os
 
+logger = logging.getLogger(__name__)
+
 class Constants:
     SCOPES = ["https://www.googleapis.com/auth/calendar"]
     CALENDAR_SEVRVICE = "calendar"
@@ -43,7 +45,7 @@ class Event:
     def convertDatetimeToDict(date: datetime.datetime) -> dict:
         # Require timezone aware objects 
         if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
-            logging.error("GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
+            logger.error("GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
             raise Exception("GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
         # Through painful expirmentation I discovered if you use the iso format with the timezone aware object it returns the wrong time, like an hour ahead
         # So I found out you can delete the timezone and then pass it as the timezone argument and that works
@@ -105,9 +107,9 @@ class GoogleCalendarConfig:
 # 5. Choose an account it can delegate that has access to calendar
 class GoogleCalendarAPI:
     def __init__(self, config: GoogleCalendarConfig):
-        logging.info("GoogleCalendarAPI: Logging in with provided credential file")
+        logger.info("GoogleCalendarAPI: Logging in with provided credential file")
         if not os.path.exists(config.serviceKeyPath):
-            logging.error("GoogleCalendarAPI: Service Key path does not exist %s", config.serviceKeyPath)
+            logger.error("GoogleCalendarAPI: Service Key path does not exist %s", config.serviceKeyPath)
             raise Exception(f"GoogleCalendarAPI: Service Key path does not exist {config.serviceKeyPath}")
         self.config = config
         self.serviceAccountCreds = google.oauth2.service_account.Credentials.from_service_account_file(self.config.serviceKeyPath, scopes=Constants.SCOPES)
@@ -115,19 +117,19 @@ class GoogleCalendarAPI:
         self.delegatedCreds.refresh(google.auth.transport.requests.Request())
         # Unclear from docs if we need to refresh these
         # if not self.delegatedCreds or not self.delegatedCreds.valid:
-        #     logging.error("GoogleCalendarAPI: Could not create credentials")
+        #     logger.error("GoogleCalendarAPI: Could not create credentials")
         #     raise Exception("GoogleCalendarAPI: Could not create credentials")
 
     # https://googleapis.github.io/google-api-python-client/docs/dyn/calendar_v3.events.html#list
     def findConflicts(self, start: datetime.datetime, duration: datetime.timedelta) -> list[Event]:
         # Require timezone aware objects 
         if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
-            logging.error("GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
+            logger.error("GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
             raise Exception("GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object.")
         
         end = start+duration+datetime.timedelta(minutes=15) # Give 15 min runway between events
         start = start-datetime.timedelta(minutes=15)
-        logging.info("GoogleCalendarAPI: Looking for conflicts from %s to %s", str(start), str(end))
+        logger.info("GoogleCalendarAPI: Looking for conflicts from %s to %s", str(start), str(end))
         with googleapiclient.discovery.build(Constants.CALENDAR_SEVRVICE, Constants.CALENDAR_SERVICE_VERSION, credentials=self.delegatedCreds) as service:
             result = []
             pageToken = None
@@ -142,7 +144,7 @@ class GoogleCalendarAPI:
     
     # https://googleapis.github.io/google-api-python-client/docs/dyn/calendar_v3.events.html#insert
     def createEvent(self, event: Event) -> str:
-        logging.info("GoogleCalendarAPI: Adding Event %s starting at %s", event.title, str(event.start))
+        logger.info("GoogleCalendarAPI: Adding Event %s starting at %s", event.title, str(event.start))
         with googleapiclient.discovery.build(Constants.CALENDAR_SEVRVICE, Constants.CALENDAR_SERVICE_VERSION, credentials=self.delegatedCreds) as service:
             body = event.toApiDict()
             response = service.events().insert(calendarId = self.config.calendarId, body = body).execute()

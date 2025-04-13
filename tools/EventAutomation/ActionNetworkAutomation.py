@@ -12,6 +12,9 @@ import pytz
 
 import selenium.webdriver.support
 import selenium.webdriver.support.select
+
+logger = logging.getLogger(__name__)
+
 @dataclasses.dataclass
 class EventInfo:
     title : str
@@ -77,7 +80,7 @@ class LoginScreen(Screen):
             _ = self._submitButton()
             return True
         except Exception as e:
-            logging.info("LoginScreen: Does not exist %s", str(e))
+            logger.info("LoginScreen: Does not exist %s", str(e))
             return False
     
     def _emailBox(self):
@@ -92,7 +95,7 @@ class LoginScreen(Screen):
         passwordBox = self._passwordBox()
         submitButton = self._submitButton()
 
-        logging.info("LoginScreen: Logging in with user %s", email)
+        logger.info("LoginScreen: Logging in with user %s", email)
         emailBox.clear()
         emailBox.send_keys(email)
 
@@ -136,7 +139,7 @@ class DashboardScreen(Screen):
                     found = True
                     break
             if not found: 
-                logging.error("DashboardScreen: Couldn't find currently managing text")
+                logger.error("DashboardScreen: Couldn't find currently managing text")
                 return False
             
             h2s = containgDiv.find_elements(By.TAG_NAME, "h2")
@@ -146,13 +149,13 @@ class DashboardScreen(Screen):
                     found = True
                     break
             if not found: 
-                logging.error("DashboardScreen: Couldn't find group text %s", self.groupText)
+                logger.error("DashboardScreen: Couldn't find group text %s", self.groupText)
                 return False
             
-            logging.info("DashboardScreen: Exists")
+            logger.info("DashboardScreen: Exists")
             return True
         except Exception as e:
-            logging.info("DashboardScreen: Does not exist %s", str(e))
+            logger.info("DashboardScreen: Does not exist %s", str(e))
             return False
     
     def selectFromCreateActionMenu(self, action):
@@ -211,7 +214,7 @@ class EditEventScreen(Screen):
         # The end one is second so we need to grab all and return the second
         pickers = self.driver.find_elements(By.CLASS_NAME, EditEventScreen.Classes.DATETIME_PICKER)
         if len(pickers) < 2:
-            logging.error("EditEventScreen: Couldn't find the end time datepicker in list")
+            logger.error("EditEventScreen: Couldn't find the end time datepicker in list")
             raise Exception("EditEventScreen: Couldn't find the end time datepicker in list")
         return pickers[1]
     def _locationInputBox(self):
@@ -247,7 +250,7 @@ class EditEventScreen(Screen):
             _ = self._nextStepButton()
             return True
         except Exception as e:
-            logging.info("EditEventScreen: Does not exist %s", str(e))
+            logger.info("EditEventScreen: Does not exist %s", str(e))
             return False
         
     def _fillOutDatePicker(self, time: datetime.datetime, dateTimePicker):
@@ -257,16 +260,16 @@ class EditEventScreen(Screen):
             currentMonthYearElem = dateTimePicker.find_element(By.CLASS_NAME, EditEventScreen.Classes.DATETIME_PICKER_SWITCH)
             currentMonthYear = datetime.datetime.strptime(currentMonthYearElem.text, "%B %Y")
             if currentMonthYear.month == time.month and currentMonthYear.year == time.year:
-                logging.info("EditEventScreen: Date Picker is in correct month-year %s", currentMonthYearElem.text)
+                logger.info("EditEventScreen: Date Picker is in correct month-year %s", currentMonthYearElem.text)
                 inCorrectMonthYear = True
             elif currentMonthYear < time:
-                logging.info("EditEventScreen: Date Picker is in %s which is BEFORE %s, going forwards", currentMonthYearElem.text, wantedMonthYearText)
+                logger.info("EditEventScreen: Date Picker is in %s which is BEFORE %s, going forwards", currentMonthYearElem.text, wantedMonthYearText)
                 dateTimePicker.find_element(By.CLASS_NAME, EditEventScreen.Classes.DATETIME_PICKER_FORWARD).click()
             else:
-                logging.info("EditEventScreen: Date Picker is in %s which is AFTER %s, going backwards", currentMonthYearElem.text, wantedMonthYearText)
+                logger.info("EditEventScreen: Date Picker is in %s which is AFTER %s, going backwards", currentMonthYearElem.text, wantedMonthYearText)
                 dateTimePicker.find_element(By.CLASS_NAME, EditEventScreen.Classes.DATETIME_PICKER_PREV).click()
         
-        logging.info("EditEventScren: Picking day %d from year month", time.day)
+        logger.info("EditEventScren: Picking day %d from year month", time.day)
         tdElements = dateTimePicker.find_elements(By.TAG_NAME, "td")
         foundDay = False
         dayString = str(time.day)
@@ -276,10 +279,10 @@ class EditEventScreen(Screen):
                 tdElem.click()
                 break
         if not foundDay:
-            logging.error("EditEventScreen: Could not find day %s", dayString)
+            logger.error("EditEventScreen: Could not find day %s", dayString)
             raise Exception("Couldn't set date %s", str(time))
         
-        logging.info("EditEventScreen: Setting hour to %s", str(time.hour))
+        logger.info("EditEventScreen: Setting hour to %s", str(time.hour))
         isAM = time.hour < 12
         hourStr = time.strftime("%I")
         # Get rid of leading 0
@@ -294,7 +297,7 @@ class EditEventScreen(Screen):
                 spanElem.click()
                 break
         if not foundHour:
-            logging.error("EditEventScreen: Couldn't find hour %s", hourStr)
+            logger.error("EditEventScreen: Couldn't find hour %s", hourStr)
             raise Exception("Couldn't find hour")
 
         # TODO: Start time should be before, end time should be after
@@ -307,7 +310,7 @@ class EditEventScreen(Screen):
             hourAndMinStr += ":30"
         else:
             hourAndMinStr += ":45"
-        logging.info("EditEventScreen: Selecting minute for %s, choosing closest 15min before which is %s", str(time.minute), hourAndMinStr)
+        logger.info("EditEventScreen: Selecting minute for %s, choosing closest 15min before which is %s", str(time.minute), hourAndMinStr)
         spanElems = dateTimePicker.find_elements(By.XPATH, f"//span[contains(@class, 'minute')]")
         foundMinute = False
         for spanElem in spanElems:
@@ -316,47 +319,47 @@ class EditEventScreen(Screen):
                 spanElem.click()
                 break
         if not foundMinute:
-            logging.error("EditEventScreen: Couldn't find minute %s", hourAndMinStr)
+            logger.error("EditEventScreen: Couldn't find minute %s", hourAndMinStr)
             raise Exception("Couldn't find minute")
         
-        logging.info("EditEventScreen: Done filling out date picker for %s", str(time))
+        logger.info("EditEventScreen: Done filling out date picker for %s", str(time))
 
 
         
         
     def fillOutEventInfo(self, eventInfo: EventInfo):
-        logging.info("EditEventScreen: Setting title to %s", eventInfo.title)
+        logger.info("EditEventScreen: Setting title to %s", eventInfo.title)
         Utils.typeTextIntoElement(self._titleInputBox(), eventInfo.title)
 
-        logging.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
+        logger.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
         Utils.typeTextIntoElement(self._locationInputBox(), eventInfo.locationName)
 
-        logging.info("EditEventScreen: Setting Address to %s", eventInfo.address)
+        logger.info("EditEventScreen: Setting Address to %s", eventInfo.address)
         Utils.typeTextIntoElement(self._addressInputBox(), eventInfo.address)
 
-        logging.info("EditEventScreen: Setting City to %s", eventInfo.city)
+        logger.info("EditEventScreen: Setting City to %s", eventInfo.city)
         Utils.typeTextIntoElement(self._cityInputBox(), eventInfo.city)
 
-        logging.info("EditEventScreen: Setting Zip to %s", eventInfo.zip)
+        logger.info("EditEventScreen: Setting Zip to %s", eventInfo.zip)
         Utils.typeTextIntoElement(self._zipInputBox(), eventInfo.zip)
 
-        logging.info("EditEventScreen: Setting Description to %s", eventInfo.description)
+        logger.info("EditEventScreen: Setting Description to %s", eventInfo.description)
         Utils.typeTextIntoElement(self._descriptionInputBox(), eventInfo.description)
 
-        logging.info("EditEventScreen: Setting State to %s", eventInfo.state)
+        logger.info("EditEventScreen: Setting State to %s", eventInfo.state)
         stateSelectDropdown = selenium.webdriver.support.select.Select(self._stateInputDropdown())
         stateSelectDropdown.select_by_value(eventInfo.state)
 
-        logging.info("EditEventScreen: Setting Country to %s", eventInfo.country)
+        logger.info("EditEventScreen: Setting Country to %s", eventInfo.country)
         countrySelectDropdown = selenium.webdriver.support.select.Select(self._countryInputDropdown())
         countrySelectDropdown.select_by_value(eventInfo.country)
 
-        logging.info("EditEventScreen: Setting start date to %s", str(eventInfo.startTime))
+        logger.info("EditEventScreen: Setting start date to %s", str(eventInfo.startTime))
         self._startDateInputBox().click()
         self._fillOutDatePicker(eventInfo.startTime, self._startDateTimePicker())
 
         if eventInfo.endTime is not None:
-            logging.info("EditEventScreen: Setting end date to %s", str(eventInfo.endTime))
+            logger.info("EditEventScreen: Setting end date to %s", str(eventInfo.endTime))
             self._hasEndTimeICheckBox().click()
             self._endDateInputBox().click()
             self._fillOutDatePicker(eventInfo.endTime, self._endDateTimePicker())
@@ -387,14 +390,14 @@ class EditEventThankYouScreen(Screen):
                 found = True
                 break
         if not found: 
-            logging.error("EditEventThankYouScreen: Couldn't find instructions text")
+            logger.error("EditEventThankYouScreen: Couldn't find instructions text")
             return False
         try:
             _ = self._publishButton()
             _ = self._instructionsInputBox()
             return True
         except Exception as e:
-            logging.info("EditEventThankYouScreen: Does not exist %s", str(e))
+            logger.info("EditEventThankYouScreen: Does not exist %s", str(e))
             return False
     
     def addInstructions(self,text: str):
@@ -421,13 +424,13 @@ class EventConfirmationScreen(Screen):
                 found = True
                 break
         if not found: 
-            logging.error("EventConfirmationScreen: Couldn't find currently managing text text")
+            logger.error("EventConfirmationScreen: Couldn't find currently managing text text")
             return False
         try:
             _ = self._directLinkBox()
             return True
         except Exception as e:
-            logging.info("EventConfirmationScreen: Does not exist %s", str(e))
+            logger.info("EventConfirmationScreen: Does not exist %s", str(e))
             return False
     
     def getManagerLink(self) -> str:
@@ -451,55 +454,55 @@ class ANAutomator:
         eventInfo.startTime = noTzStart
         eventInfo.endTime = noTzEnd
         
-        logging.info("ANAutomator: Starting Driver")
+        logger.info("ANAutomator: Starting Driver")
         options = selenium.webdriver.ChromeOptions()
         options.add_argument("--headless")
         driver = selenium.webdriver.Chrome(options)
         driver.implicitly_wait(2)
         driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
 
-        logging.info("ANAutomator: Checking if we need to login")
+        logger.info("ANAutomator: Checking if we need to login")
         loginScreen = LoginScreen.tryToCreate(driver)
         if loginScreen is not None:
-            logging.info("ANAutomator: LoginScreen detected, logging in")
+            logger.info("ANAutomator: LoginScreen detected, logging in")
             loginScreen.login(email=config.email, password=config.password)        
         
         dashboardScreen = DashboardScreen.tryToCreate(driver)
         if dashboardScreen is None:
-            logging.error("ANAutomator: Can't find dashboard screen")
+            logger.error("ANAutomator: Can't find dashboard screen")
             raise Exception("Not in Dashboard")
         
-        logging.info("ANAutomator: Selecting Create Event Item")
+        logger.info("ANAutomator: Selecting Create Event Item")
         dashboardScreen.selectFromCreateActionMenu(DashboardScreen.ActionsInCreateActionMenu.EVENT)
 
         editEventScreen = EditEventScreen.tryToCreate(driver)
         if editEventScreen is None:
-            logging.error("ANAutomator: Can't find edit event screen")
+            logger.error("ANAutomator: Can't find edit event screen")
             raise Exception("Not in edit event screen")
-        logging.info("ANAutomator: Filling out event info")
+        logger.info("ANAutomator: Filling out event info")
         editEventScreen.fillOutEventInfo(eventInfo)
 
-        logging.info("ANAutomator: Moving to action thank you screen")
+        logger.info("ANAutomator: Moving to action thank you screen")
         editEventScreen.goToNextStep()
 
         editEventThankYouScreen = EditEventThankYouScreen.tryToCreate(driver)
         if editEventThankYouScreen is None:
-            logging.error("ANAutomator: Can't find edit event thank you screen")
+            logger.error("ANAutomator: Can't find edit event thank you screen")
             raise Exception("Not in edit event thank you screen")
-        logging.info("ANAutomator: Filling out edit event thank you screen")
+        logger.info("ANAutomator: Filling out edit event thank you screen")
         editEventThankYouScreen.addInstructions(eventInfo.insturctions)
 
-        logging.info("ANAutomator: Publishing Event")
+        logger.info("ANAutomator: Publishing Event")
         editEventThankYouScreen.publishEvent()
 
         eventConfirmationScreen = EventConfirmationScreen.tryToCreate(driver)
         if eventConfirmationScreen is None:
-            logging.error("ANAutomator: Can't find event confirmation screen")
+            logger.error("ANAutomator: Can't find event confirmation screen")
             raise Exception("Not in event confrimation screen")
-        logging.info("ANAutomator: Getting Event info")
+        logger.info("ANAutomator: Getting Event info")
         eventConfirmInfo = EventConfirmationInfo(eventConfirmationScreen.getManagerLink(), eventConfirmationScreen.getDirectLink())
 
-        logging.info("ANAutomator: Done creating event, returning info %s", str(eventConfirmInfo))
+        logger.info("ANAutomator: Done creating event, returning info %s", str(eventConfirmInfo))
         return eventConfirmInfo
         
 

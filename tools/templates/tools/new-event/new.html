@@ -1,4 +1,4 @@
-{% extends "tools/base.html" %} {% block page_content %}
+{% extends "base.html" %} {% block page_content %}
 {% comment %} {% load tz %}
 {% get_current_timezone as TIME_ZONE %}
 <form action="{% url 'set_timezone' %}" method="POST">
