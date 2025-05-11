@@ -1,5 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+    <script>
+      // Saves the users timezone in a cookie
+      // Timezone settings
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. "America/New_York"
+      document.cookie = "django_timezone=" + timezone;
+    </script>
   <head>
     <meta charset="utf-8" />
     <meta

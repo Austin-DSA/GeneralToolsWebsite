@@ -7,3 +7,5 @@ venv
 **/tailwindcss-linux-x64-musl
 **/tailwindcss-macos-arm64
 **/tailwindcss-macos-x64 
+tools/SecretManager/devSecrets.py
+scratch/

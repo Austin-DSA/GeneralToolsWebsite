@@ -1,0 +1,23 @@
+{% extends "base.html" %} {% block page_content %}
+<h1 class="text-xl py-8">Event Published</h1>
+<p>Your event was published successfully and a confirmation email was sent to your email. Here are your links.</p>
+<hr>
+<p>
+    Action Network Share Link: <a href="{{anShareLink}}">{{anShareLink}}</a><br>
+    <br>
+    Action Network Manage Link: <a href="{{anManageLink}}">{{anManageLink}}</a><br>
+    <br>
+    {% comment %} Some events may not have a zoom link  {% endcomment %}
+    {% if zoomLink %}
+    Zoom 
+    {% if zoomAccount %}
+    ({{zoomAccount}})
+    {% endif %}
+    : <a href="{{zoomLink}}">{{zoomLink}}</a><br>
+    <br>
+    {% endif %}
+    Google Calendar Link: <a href="{{gCalLink}}">{{gCalLink}}</a><br>
+    <br>
+
+</p>
+{% endblock page_content %}
