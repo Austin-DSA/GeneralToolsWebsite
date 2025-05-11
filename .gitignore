@@ -8,3 +8,4 @@ venv
 **/tailwindcss-macos-arm64
 **/tailwindcss-macos-x64 
 tools/SecretManager/devSecrets.py
+scratch/

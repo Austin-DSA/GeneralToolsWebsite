@@ -66,7 +66,6 @@ STATES = [
 
 
 class NewEventForm(forms.Form):
-
     class Keys:
         TITLE = "title"
         DESCRIPTION = "description"
@@ -95,13 +94,15 @@ class NewEventForm(forms.Form):
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
         choices={timezone: timezone for timezone in pytz.all_timezones},
-        initial="America/Chicago"
+        initial="America/Chicago",
     )
     startTime = forms.DateTimeField(
-        label="Start time", widget=forms.DateTimeInput(attrs={"class": "form-field w-full"})
+        label="Start time",
+        widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
     )
     endTime = forms.DateTimeField(
-        label="End time", widget=forms.DateTimeInput(attrs={"class": "form-field w-full"})
+        label="End time",
+        widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
     )
     instructions = forms.CharField(
         label="Instructions",
@@ -115,7 +116,9 @@ class NewEventForm(forms.Form):
         label="Address", widget=forms.TextInput(attrs={"class": "form-field w-full"})
     )
     city = forms.CharField(
-        label="City", widget=forms.TextInput(attrs={"class": "form-field w-full"}), initial="Austin"
+        label="City",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+        initial="Austin",
     )
     choices = {state: state for state in STATES}
     state = forms.ChoiceField(
@@ -124,13 +127,17 @@ class NewEventForm(forms.Form):
         initial="TX",
     )
     country = forms.CharField(
-        label="Country", widget=forms.TextInput(attrs={"class": "form-field w-full"}), initial="US"
+        label="Country",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+        initial="US",
     )
     zipcode = forms.IntegerField(
         label="Zip code", widget=forms.NumberInput(attrs={"class": "form-field w-full"})
     )
     ignoreResolveableConflics = forms.BooleanField(
-        label="Ignore Resolveable Conflicts", widget=forms.CheckboxInput(), required=False
+        label="Ignore Resolveable Conflicts",
+        widget=forms.CheckboxInput(),
+        required=False,
     )
 
     # TODO: Figure out how to get these validators to show up on screen when filling out the form
@@ -141,16 +148,16 @@ class NewEventForm(forms.Form):
     #     return data
 
     # TODO: Fix
-    # This kept forgetting the timezone info and replacing it with UTC, it was probably fine but until we can figure it out leaving out 
-    # The automator will also check for this and print an error, its just uglier    
+    # This kept forgetting the timezone info and replacing it with UTC, it was probably fine but until we can figure it out leaving out
+    # The automator will also check for this and print an error, its just uglier
     # def clean_startTime(self):
     #     start = self.cleaned_data[NewEventForm.Keys.START_TIME]
     #     # Copy so we don't lose timezone info
-    #     startCopy = copy.deepcopy(start)        
+    #     startCopy = copy.deepcopy(start)
     #     if startCopy.astimezone(pytz.utc) < datetime.datetime.now(tz=pytz.utc):
     #         raise ValidationError(_("Start Time must be in the future"))
     #     return start
-    
+
     # def clean_endTime(self):
     #     end = self.cleaned_data[NewEventForm.Keys.END_TIME]
     #     # Copy so we don't lose timezone info
@@ -158,7 +165,7 @@ class NewEventForm(forms.Form):
     #     if endCopy.astimezone(pytz.utc) < datetime.datetime.now(tz=pytz.utc):
     #         raise ValidationError(_("End Time must be in the future"))
     #     return end
-    
+
     def clean_zipcode(self):
         data = self.cleaned_data[NewEventForm.Keys.ZIP_CODE]
         zip_str = str(data)
@@ -168,15 +175,15 @@ class NewEventForm(forms.Form):
 
         else:
             raise ValidationError(_("Zip code must be five digits long"))
-        
+
     def convertToEventInfo(self) -> typing.Optional[EventAutomationDriver.EventInfo]:
         if not self.is_valid():
             return None
         formData = self.cleaned_data
         timezoneStr = formData[NewEventForm.Keys.TIMEZONE]
         timezone = pytz.timezone(timezoneStr)
-        start : datetime.datetime = formData[NewEventForm.Keys.START_TIME]
-        end : datetime.datetime = formData[NewEventForm.Keys.END_TIME]
+        start: datetime.datetime = formData[NewEventForm.Keys.START_TIME]
+        end: datetime.datetime = formData[NewEventForm.Keys.END_TIME]
         # Django apparently does so auto-magic and will make the date times timezone aware based on the existence of the timezone field in the form
         # Defensively we will set the timezone only if the dates are naive
         # Update - Its no longer doing it, no idea what I changed but giving up for now, just going to localize if its naive and convert otherwise
@@ -189,16 +196,18 @@ class NewEventForm(forms.Form):
             end = timezone.localize(end)
         else:
             end = end.replace(tzinfo=timezone)
-        
-        eventInfo = EventAutomationDriver.EventInfo(title=formData[NewEventForm.Keys.TITLE], 
-                                                    start=start,
-                                                    end=end,
-                                                    locationName=formData[NewEventForm.Keys.LOCATION_NAME],
-                                                    streetAddress=formData[NewEventForm.Keys.ADDRESS],
-                                                    city=formData[NewEventForm.Keys.CITY],
-                                                    state=formData[NewEventForm.Keys.STATE],
-                                                    zip=formData[NewEventForm.Keys.ZIP_CODE],
-                                                    description=formData[NewEventForm.Keys.DESCRIPTION],
-                                                    instructions=formData[NewEventForm.Keys.INSTRUCTIONS],
-                                                    country=formData[NewEventForm.Keys.COUNTRY])
+
+        eventInfo = EventAutomationDriver.EventInfo(
+            title=formData[NewEventForm.Keys.TITLE],
+            start=start,
+            end=end,
+            locationName=formData[NewEventForm.Keys.LOCATION_NAME],
+            streetAddress=formData[NewEventForm.Keys.ADDRESS],
+            city=formData[NewEventForm.Keys.CITY],
+            state=formData[NewEventForm.Keys.STATE],
+            zip=formData[NewEventForm.Keys.ZIP_CODE],
+            description=formData[NewEventForm.Keys.DESCRIPTION],
+            instructions=formData[NewEventForm.Keys.INSTRUCTIONS],
+            country=formData[NewEventForm.Keys.COUNTRY],
+        )
         return eventInfo
