@@ -29,11 +29,10 @@ class Conflict:
 class Result:
     class ResultType:
         PUBLISHED = 0
-        UNRESOLVEABLE_CONFLICT = (
-            1  # A conflict that can't be ignored, aka a zoom conflict
-        )
+        UNRESOLVEABLE_CONFLICT = 1  # A conflict that can't be ignored, aka a zoom conflict
         CONFLICT = 2  # A conflict that could be ignored if needed, like a gCal
-        UNEXPECTED = 3
+        NO_CONFLICTS = 3 # For when we are only checking if there are conflicts
+        UNEXPECTED = 4
 
     type: int
     # Results if valid, if UNKOWN occurs, some of these results may be filled and the caller should check
@@ -77,6 +76,7 @@ class Config:
     gCalConfig: GoogleCalendarAPI.GoogleCalendarConfig
     # This should be used to force a publish after showing the user the potential conflicts
     ignoreResolveableConflicts: bool = False
+    onlyCheckConflicts: bool = False
 
 
 # TODO: Handle partial results
@@ -168,6 +168,11 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
             logger.error("EventPublisher: Found gCal conflicts %s ", str(gCalConflicts))
             result.type = Result.ResultType.CONFLICT
             result.conflicts = gCalConflicts
+            return result
+        
+        if config.onlyCheckConflicts:
+            logger.info("EventPublisher: Only looking for conflicts, returning no conflicts")
+            result.type = Result.ResultType.NO_CONFLICTS
             return result
 
         # Schedule Zoom Meeting
