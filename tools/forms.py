@@ -386,3 +386,17 @@ class NewDelegatedEventForm(forms.Form):
             country=formData[NewEventForm.Keys.COUNTRY],
         )
         return eventInfo
+    
+class ApproveDelegatedEventForm(forms.Form):
+    class Keys:
+        APPROVE = "approve"
+        REASON = "reason"
+    approve = forms.ChoiceField(
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+        choices={x: x for x in ["YES", "NO"]},
+        initial="YES",
+    )
+    reason = forms.CharField(
+        forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
+        min_length=1
+    )

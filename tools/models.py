@@ -1,8 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from .EventAutomation.EventAutomationDriver import EventInfo
+import datetime
+import pytz
 
 class User(AbstractUser):
-    pass
+    
+    def getUserNameString(self) -> str:
+        return f"{self.first_name} {self.last_name} - {self.email}"
 
 class EventOwners(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -16,6 +21,7 @@ class PostedEvents(models.Model):
     title = models.CharField(max_length=500)
     start = models.DateTimeField()
     end = models.DateTimeField()
+    timezone = models.CharField(max_length=50)
 
     locationName = models.CharField(max_length=500)
     streetAddress = models.CharField(max_length=500)
@@ -42,6 +48,54 @@ class PostedEvents(models.Model):
     reasonApproved = models.TextField()
 
     owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True)
+
+    def getCreatorName(self) -> str:
+        if self.creator is None:
+            return ""
+        return self.creator.getUserNameString()
+    
+    def getApproverName(self) -> str:
+        if self.approver is None:
+            return ""
+        return self.approver.getUserNameString()
+    
+    def getOwnerName(self) -> str:
+        if self.owner is None:
+            return ""
+        return self.owner.name
+    
+    def getStartLocalized(self) -> datetime.datetime:
+        utcTime = self.start
+        # If naiive add in the UTC info
+        if utcTime.tzinfo is None or utcTime.tzinfo.utcoffset(utcTime) is None:
+            utcTimezone = pytz.utc
+            utcTime = utcTimezone.localize(utcTime)
+        timezone = pytz.timezone(self.timezone)
+        localTime = utcTime.replace(tzinfo=timezone)
+        return localTime
+    
+    def getEndLocalized(self) -> datetime.datetime:
+        utcTime = self.end
+        # If naiive add in the UTC info
+        if utcTime.tzinfo is None or utcTime.tzinfo.utcoffset(utcTime) is None:
+            utcTimezone = pytz.utc
+            utcTime = utcTimezone.localize(utcTime)
+        timezone = pytz.timezone(self.timezone)
+        localTime = utcTime.replace(tzinfo=timezone)
+        return localTime
+    
+    def getEventInfo(self) -> EventInfo:
+        return EventInfo(title=self.title,
+                         start=self.getStartLocalized(),
+                         end=self.getEndLocalized(),
+                         locationName=self.locationName,
+                         streetAddress=self.streetAddress,
+                         city=self.city,
+                         state=self.state,
+                         zip=self.zip,
+                         description=self.description,
+                         instructions=self.instructions,
+                         country=self.country)
 
 # List of events that were denied to be created
 # Originally thought about moving events from delegated events from tables based on when they are approved/denied
@@ -79,6 +133,7 @@ class DelegatedEvents(models.Model):
     title = models.CharField(max_length=500)
     start = models.DateTimeField()
     end = models.DateTimeField()
+    timezone = models.CharField(max_length=50)
 
     locationName = models.CharField(max_length=500)
     streetAddress = models.CharField(max_length=500)
@@ -91,9 +146,69 @@ class DelegatedEvents(models.Model):
     instructions = models.TextField()
 
     dateCreated = models.DateTimeField()
+    dateReviewed = models.DateTimeField(null=True, blank=True, default=None)
 
     creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
     owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True)
+    approver = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
 
     state = models.IntegerField()
     reason = models.TextField()
+
+    def getStateAsString(self) -> str:
+        if self.state == DelegatedEvents.State.REQUESTED:
+            return "Requested"
+        elif self.state == DelegatedEvents.State.DENIED:
+            return "Denied"
+        elif self.state == DelegatedEvents.State.APPROVED:
+            return "Approved"
+        else:
+            return f"Unkown {self.state}"
+    
+    def getCreatorName(self) -> str:
+        if self.creator is None:
+            return ""
+        return self.creator.getUserNameString()
+    
+    def getApproverName(self) -> str:
+        if self.approver is None:
+            return ""
+        return self.approver.getUserNameString()
+    
+    def getOwnerName(self) -> str:
+        if self.owner is None:
+            return ""
+        return self.owner.name
+    
+    def getStartLocalized(self) -> datetime.datetime:
+        utcTime = self.start
+        # If naiive add in the UTC info
+        if utcTime.tzinfo is None or utcTime.tzinfo.utcoffset(utcTime) is None:
+            utcTimezone = pytz.utc
+            utcTime = utcTimezone.localize(utcTime)
+        timezone = pytz.timezone(self.timezone)
+        localTime = utcTime.replace(tzinfo=timezone)
+        return localTime
+    
+    def getEndLocalized(self) -> datetime.datetime:
+        utcTime = self.end
+        # If naiive add in the UTC info
+        if utcTime.tzinfo is None or utcTime.tzinfo.utcoffset(utcTime) is None:
+            utcTimezone = pytz.utc
+            utcTime = utcTimezone.localize(utcTime)
+        timezone = pytz.timezone(self.timezone)
+        localTime = utcTime.replace(tzinfo=timezone)
+        return localTime
+    
+    def getEventInfo(self) -> EventInfo:
+        return EventInfo(title=self.title,
+                         start=self.getStartLocalized(),
+                         end=self.getEndLocalized(),
+                         locationName=self.locationName,
+                         streetAddress=self.streetAddress,
+                         city=self.city,
+                         state=self.state,
+                         zip=self.zip,
+                         description=self.description,
+                         instructions=self.instructions,
+                         country=self.country)
