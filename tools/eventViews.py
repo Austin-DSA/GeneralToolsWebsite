@@ -16,20 +16,20 @@ from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
 from .forms import NewEventForm, NewDelegatedEventForm, ApproveDelegatedEventForm
 from .EmailApi import EmailApi
-import permissions
+from .permissions import *
 import dataclasses
-import models
+from .models import *
 
 logger = logging.getLogger(__name__)
 
 
 class DelegatedEventDetailView(DetailView):
-    model = models.DelegatedEvents
+    model = DelegatedEvents
     template_name = "tools/delegated-events/details.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        obj : models.DelegatedEvents = self.get_object()
+        obj : DelegatedEvents = self.get_object()
         context["state"] = obj.getStateAsString()
         context["creator"] = obj.getCreatorName()
         context["owner"] = obj.getOwnerName()
@@ -39,16 +39,16 @@ class DelegatedEventDetailView(DetailView):
         return context
 
 class DelegatedEventListView(ListView):
-    model = models.DelegatedEvents
+    model = DelegatedEvents
     template_name = "tools/delegated-events/list.html"
 
 class PostedEventDetailView(DetailView):
-    model = models.PostedEvents
+    model = PostedEvents
     template_name = "tools/events/details.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        obj : models.DelegatedEvents = self.get_object()
+        obj : DelegatedEvents = self.get_object()
         context["state"] = obj.getStateAsString()
         context["creator"] = obj.getCreatorName()
         context["owner"] = obj.getOwnerName()
@@ -58,11 +58,11 @@ class PostedEventDetailView(DetailView):
         return context
 
 class PostedEventListView(ListView):
-    model = models.PostedEvents
+    model = PostedEvents
     template_name = "tools/events/list.html"
 
 @login_required
-@permission_required(permissions.PUBLISH_EVENT)
+@permission_required(PUBLISH_EVENT)
 def new_event(request):
     if request.method == "POST":
         logger.info("PublishEvent: Recieved submission of event to publish.")
@@ -77,7 +77,7 @@ def new_event(request):
         logger.info("PublishEvent: Getting Owner")
         formOwner = form.cleaned_data[NewEventForm.Keys.OWNER]
         try:
-            owner = models.EventOwners.objects.get(name = formOwner)
+            owner = EventOwners.objects.get(name = formOwner)
         except Exception as err:
             logger.exception("PublishEvent: Could not get event owner")
             raise err
@@ -126,7 +126,7 @@ def new_event(request):
             utcStart = eventInfo.start.astimezone(pytz.utc)
             utcEnd = eventInfo.start.astimezone(pytz.utc)
             utcNow = datetime.datetime.now(datetime.UTC)
-            e = models.PostedEvents.objects.create(title = eventInfo.title)
+            e = PostedEvents.objects.create(title = eventInfo.title)
             e.start = utcStart
             e.end = utcEnd
             e.timezone = form.cleaned_data[NewEventForm.Keys.TIMEZONE]
@@ -242,7 +242,7 @@ def new_event(request):
         return render(request, "tools/new-event/new.html", {"form": form})
 
 @login_required
-@permission_required(permissions.REQUEST_DELEGATED_EVENT)
+@permission_required(REQUEST_DELEGATED_EVENT)
 def new_delegated_event(request):
     if request.method == "POST":
         logger.info("PublishDelegatedEvent: Recieved submission of event to publish.")
@@ -257,7 +257,7 @@ def new_delegated_event(request):
         logger.info("PublishDelegatedEvent: Getting Owner")
         formOwner = form.cleaned_data[NewEventForm.Keys.OWNER]
         try:
-            owner = models.EventOwners.objects.get(name = formOwner)
+            owner = EventOwners.objects.get(name = formOwner)
         except Exception as err:
             logger.exception("PublishDelegatedEvent: Could not get event owner")
             raise err
@@ -289,7 +289,7 @@ def new_delegated_event(request):
             utcStart = eventInfo.start.astimezone(pytz.utc)
             utcEnd = eventInfo.start.astimezone(pytz.utc)
             utcNow = datetime.datetime.now(datetime.UTC)
-            e = models.DelegatedEvents.objects.create(title = eventInfo.title)
+            e = DelegatedEvents.objects.create(title = eventInfo.title)
             e.start = utcStart
             e.end = utcEnd
             e.timezone = form.cleaned_data[NewDelegatedEventForm.Keys.TIMEZONE]
@@ -318,6 +318,14 @@ def new_delegated_event(request):
                         subject=f"Event {eventInfo.title} has been requested",
                         messageText=messageText
                     )
+                messageText = f"""
+                Your event request for {eventInfo.title} has been created and sent to {owner.name}. You will recieve an email when it has been approved.
+                """
+                EmailApi.sendEmailFromWebsiteAccount(
+                    toAddress=request.user.email,
+                    subject="Event Request Created",
+                    messageText=messageText
+                )
             except Exception as err:
                 logger.error(
                     "PublishDelegatedEvent: Failed to send authorization emails"
@@ -385,23 +393,23 @@ def new_delegated_event(request):
         return render(request, "tools/new-delegated-event/new.html", {"form": form})
     
 @login_required
-@permission_required(permissions.APPROVE_DELEGATED_EVENT)
+@permission_required(APPROVE_DELEGATED_EVENT)
 def approve_delegated_event(request, id):
     # Check if the delegated event exists
     event = None
     try:
-        event = models.DelegatedEvents.objects.get(id=id)
+        event = DelegatedEvents.objects.get(id=id)
     except Exception as err:
         logger.exception("ApproveDelegatedEvent: Could not retrieve delegated event request %s due to unexpected error %s", id, err)
         return render(request, "tools/approve-delegated-event/error.html", {"errorStr" : str(err)})
     
     # Check if the event had already been approved/denied, if so redirect to the page that views a delegated event
-    if event.state != models.DelegatedEvents.State.REQUESTED:
+    if event.state != DelegatedEvents.State.REQUESTED:
         logger.info("ApproveDelegatedEvent: Event %s is already approved or denied, redirecting to detail view", str(id))
         return redirect("tools:delegated-events", id=id)
     
     # Check if the current user is allowed to approve
-    if request.user not in event.owner.authorizers:
+    if request.user not in event.owner.authorizers.all():
         logger.error("ApproveDelegatedEvent: User %s does not have authorization to approve event %s for owner %s", request.user.email, str(event.id), event.owner.name)
         return render(request, "tools/approve-delegated-event/unauthorized.html", {"owner" : event.owner.name})
 
@@ -447,12 +455,12 @@ def approve_delegated_event(request, id):
                 )
                 # Save event to database
                 utcNow = datetime.datetime.now(datetime.UTC)
-                event.state = models.DelegatedEvents.State.APPROVED
+                event.state = DelegatedEvents.State.APPROVED
                 event.approver = request.user
                 event.dateReviewed = utcNow
                 event.reason = formData[ApproveDelegatedEventForm.Keys.REASON]
                 event.save()
-                e = models.PostedEvents.objects.create(title = eventInfo.title)
+                e = PostedEvents.objects.create(title = eventInfo.title)
                 e.start = event.start
                 e.end = event.end
                 e.timezone = event.timezone
@@ -542,7 +550,7 @@ def approve_delegated_event(request, id):
 
         else:
             logger.info("ApprovedDelegatedEvent: Authorizer %d denied the event %d", request.user.getUserNameString(), id)
-            event.state = models.DelegatedEvents.State.DENIED
+            event.state = DelegatedEvents.State.DENIED
             event.approver = request.user
             event.dateReviewed = datetime.datetime.now(datetime.UTC)
             event.reason = formData[ApproveDelegatedEventForm.Keys.REASON]
@@ -565,4 +573,4 @@ def approve_delegated_event(request, id):
             return redirect("tools:delegated-events", id=id)
     else:
         form = ApproveDelegatedEventForm()
-        return render(request, "tools/approve-delegated-event/approve.html", {"form": form})
+        return render(request, "tools/approve-delegated-event/approve.html", {"form": form, "object":DelegatedEvents.objects.get(id=id)})

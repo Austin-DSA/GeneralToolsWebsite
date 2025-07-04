@@ -3,9 +3,9 @@ from django.contrib.auth.models import AbstractUser
 from .EventAutomation.EventAutomationDriver import EventInfo
 import datetime
 import pytz
+from django.urls import reverse
 
 class User(AbstractUser):
-    
     def getUserNameString(self) -> str:
         return f"{self.first_name} {self.last_name} - {self.email}"
 
@@ -43,8 +43,8 @@ class PostedEvents(models.Model):
     zoomLink = models.TextField()
     zoomAccount = models.CharField(max_length=100)
 
-    creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
-    authorizer = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="postedEventCreator")
+    authorizer = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="postedEventAuthorizer")
     reasonApproved = models.TextField()
 
     owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True)
@@ -63,6 +63,9 @@ class PostedEvents(models.Model):
         if self.owner is None:
             return ""
         return self.owner.name
+    
+    def getUrl(self) -> str:
+        return reverse("event-detail", kwargs={"id" : self.id})
     
     def getStartLocalized(self) -> datetime.datetime:
         utcTime = self.start
@@ -148,22 +151,22 @@ class DelegatedEvents(models.Model):
     dateCreated = models.DateTimeField()
     dateReviewed = models.DateTimeField(null=True, blank=True, default=None)
 
-    creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="delegatedEventCreator")
     owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True)
-    approver = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
+    approver = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="delegatedEventApprover")
 
-    state = models.IntegerField()
-    reason = models.TextField()
+    status = models.IntegerField()
+    reason = models.TextField(blank=True)
 
-    def getStateAsString(self) -> str:
-        if self.state == DelegatedEvents.State.REQUESTED:
+    def getStatusAsString(self) -> str:
+        if self.status == DelegatedEvents.State.REQUESTED:
             return "Requested"
-        elif self.state == DelegatedEvents.State.DENIED:
+        elif self.status == DelegatedEvents.State.DENIED:
             return "Denied"
-        elif self.state == DelegatedEvents.State.APPROVED:
+        elif self.status == DelegatedEvents.State.APPROVED:
             return "Approved"
         else:
-            return f"Unkown {self.state}"
+            return f"Unkown {self.status}"
     
     def getCreatorName(self) -> str:
         if self.creator is None:
@@ -179,6 +182,11 @@ class DelegatedEvents(models.Model):
         if self.owner is None:
             return ""
         return self.owner.name
+    
+    def getUrl(self) -> str:
+        if self.state == DelegatedEvents.State.REQUESTED:
+            return reverse("approve-delegated-event", kwargs={ "id" :self.id})
+        return reverse("delegated-event-detail", kwargs={"id" : self.id})
     
     def getStartLocalized(self) -> datetime.datetime:
         utcTime = self.start

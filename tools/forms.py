@@ -98,10 +98,11 @@ class NewEventForm(forms.Form):
                 owners[eventOwner.name] = eventOwner.name
         return owners
 
-    owner = forms.ChoiceField(
+    owner = forms.ModelChoiceField(
         label="Event Owner",
         widget=forms.Select(attrs={"class": "form-field w-full"}),
-        choices={}
+        to_field_name="name",
+        queryset=EventOwners.objects.all()
     )
     title = forms.CharField(
         label="Event title",
@@ -253,10 +254,11 @@ class NewDelegatedEventForm(forms.Form):
         IGNORE_RESOLVEABLE_CONFLICTS = "ignoreResolveableConflics"
 
 
-    owner = forms.ChoiceField(
+    owner = forms.ModelChoiceField(
         label="Event Owner",
         widget=forms.Select(attrs={"class": "form-field w-full"}),
-        choices={ x.name : x.name for x in EventOwners.objects.all()}
+        to_field_name="name",
+        queryset=EventOwners.objects.all()
     )
     title = forms.CharField(
         label="Event title",
@@ -397,6 +399,6 @@ class ApproveDelegatedEventForm(forms.Form):
         initial="YES",
     )
     reason = forms.CharField(
-        forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
+        widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
         min_length=1
     )

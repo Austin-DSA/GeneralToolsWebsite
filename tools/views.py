@@ -4,7 +4,7 @@ import dataclasses
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 
-import permissions
+from . import permissions
 import dataclasses
 
 logger = logging.getLogger(__name__)
@@ -31,4 +31,4 @@ def getPagesForUser(user) -> list[dict[str,str]]:
 @login_required
 def index(request):
     options = getPagesForUser(request.user)
-    return render(request, "tools/home.html", {options : options})
+    return render(request, "tools/home.html", {"options" : options})
