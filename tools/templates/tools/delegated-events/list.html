@@ -16,7 +16,7 @@ table.center {
 <table border="1px solid black">
     <tr>
         <th>Title</th>
-        <th>State</th>
+        <th>Status</th>
         <th>StartDate</th>
         <th>EndDate</th>
         <th>Creator</th>
@@ -27,8 +27,8 @@ table.center {
         <tr>
             <td>{{event.title}}</td>
             <td>{{event.getStatusAsString}}</td>
-            <td>{{event.getStartLocalized|date:"c"}}</td>
-            <td>{{event.getEndLocalized|date:"c"}}</td>
+            <td>{{event.getStartLocalizedStr}}</td>
+            <td>{{event.getEndLocalizedStr}}</td>
             <td>{{event.getCreatorName}}</td>
             <td>{{event.getApproverName}}</td>
             <td><a href={{event.getUrl}}>Details</a></td>

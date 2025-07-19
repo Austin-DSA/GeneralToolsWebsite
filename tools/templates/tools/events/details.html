@@ -1,30 +1,23 @@
 {% extends "base.html" %} 
 {% block page_content %}
-<p> Title: {{ object.title }} <br>
-    Start: {{ localizedStart|date }} <br>
-    End: {{ localizedEnd|date }} <br>
-    <br>
-    State: {{ state }} <br>
-    Creator : {{ creator }} <br>
-    Owner : {{ owner }} <br>
-    Approver : {{ approver }} <br>
-    Date Created : {{ object.dateCreated|date }} <br>
-    Reason : {{ object.reason }} <br>
-    <br>
-    Location Name: {{ object.locationName }} <br>
-    Street Address: {{ object.streetAddress }} <br>
-    City: {{ object.city }} <br>
-    State: {{ object.state }} <br>
-    Zip: {{ object.zip }} <br>
-    Country : {{ object.country }} <br>
-    <br>
-    Description: {{ object.description }} <br>
-    Instructions: {{ object.instructions }} <br>
-    <br>
-    AN Manage Link: {{ object.anManageLink }} <br>
-    An Share Link : {{ object.anShareLink }} <br>
-    GCal Link : {{ object.gCalLink }} <br>
-    Zoom Link ({{ object.zoomAccount }}) : {{ object.zoomLink }} <br>
+
+<p>
+{% include "tools/common/commonEventDetails.html" %}
+{% if object.anManageLink %}
+<a href="{{ object.anManageLink }}"> AN Manage Link</a> <br>
+{% endif %}
+
+{% if object.anShareLink %}
+<a href="{{ object.anShareLink }}">An Share Link</a><br>
+{% endif %}
+
+{% if object.gCalLink %}
+<a href="{{ object.gCalLink }}">GCal Link</a><br>
+{% endif %}
+
+{% if object.zoomLink %}
+<a href="{{ object.zoomLink }}">Zoom Link ({{ object.zoomAccount }})</a><br>
+{% endif %}
 
 </p>
 {% endblock page_content %}

@@ -2,5 +2,7 @@
 {% block page_content %}
 <p>
 {% include "tools/common/commonEventDetails.html" %}
+Status: {{object.getStatusAsString}}<br>
+<br>
 </p>
 {% endblock page_content %}

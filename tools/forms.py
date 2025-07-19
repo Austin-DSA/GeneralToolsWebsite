@@ -85,18 +85,7 @@ class NewEventForm(forms.Form):
         ZIP_CODE = "zipcode"
         OWNER = "owner"
         IGNORE_RESOLVEABLE_CONFLICTS = "ignoreResolveableConflics"
-
-    def __init__(self, currentUser: User, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        owners = self.getOwners(currentUser=currentUser)
-        self.fields["owner"] = forms.ChoiceField(choices=owners, label="Event Owner", widget=forms.Select(attrs={"class": "form-field w-full"}))
-
-    def getOwners(self, currentUser: User):
-        owners = {}
-        for eventOwner in currentUser.eventAuthorizations:
-            if eventOwner.isActive:
-                owners[eventOwner.name] = eventOwner.name
-        return owners
+        ZOOM_REQUIRED = "zoomRequired"
 
     owner = forms.ModelChoiceField(
         label="Event Owner",
@@ -160,32 +149,12 @@ class NewEventForm(forms.Form):
         widget=forms.CheckboxInput(),
         required=False,
     )
-
-    # TODO: Figure out how to get these validators to show up on screen when filling out the form
-    # def clean_country(self):
-    #     data = self.cleaned_data[NewEventForm.Keys.COUNTRY]
-    #     if data != "US":
-    #         raise ValidationError(_("Only support US for country field"))
-    #     return data
-
-    # TODO: Fix
-    # This kept forgetting the timezone info and replacing it with UTC, it was probably fine but until we can figure it out leaving out
-    # The automator will also check for this and print an error, its just uglier
-    # def clean_startTime(self):
-    #     start = self.cleaned_data[NewEventForm.Keys.START_TIME]
-    #     # Copy so we don't lose timezone info
-    #     startCopy = copy.deepcopy(start)
-    #     if startCopy.astimezone(pytz.utc) < datetime.datetime.now(tz=pytz.utc):
-    #         raise ValidationError(_("Start Time must be in the future"))
-    #     return start
-
-    # def clean_endTime(self):
-    #     end = self.cleaned_data[NewEventForm.Keys.END_TIME]
-    #     # Copy so we don't lose timezone info
-    #     endCopy = copy.deepcopy(end)
-    #     if endCopy.astimezone(pytz.utc) < datetime.datetime.now(tz=pytz.utc):
-    #         raise ValidationError(_("End Time must be in the future"))
-    #     return end
+    zoomRequried = forms.BooleanField(
+        label="Zoom Meeting Required",
+        widget=forms.CheckboxInput(),
+        required=False,
+        initial=True
+    )
 
     def clean_zipcode(self):
         data = self.cleaned_data[NewEventForm.Keys.ZIP_CODE]
@@ -205,18 +174,19 @@ class NewEventForm(forms.Form):
         timezone = pytz.timezone(timezoneStr)
         start: datetime.datetime = formData[NewEventForm.Keys.START_TIME]
         end: datetime.datetime = formData[NewEventForm.Keys.END_TIME]
-        # Django apparently does so auto-magic and will make the date times timezone aware based on the existence of the timezone field in the form
-        # Defensively we will set the timezone only if the dates are naive
-        # Update - Its no longer doing it, no idea what I changed but giving up for now, just going to localize if its naive and convert otherwise
+        # The start and end dates in the form appear to assume UTC time zone
+        # We need to force localize to the input timezone
         # BTW I hate timezones
         if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
             start = timezone.localize(start)
         else:
-            start = start.replace(tzinfo=timezone)
+            start = start.replace(tzinfo=None)
+            start = timezone.localize(start)
         if end.tzinfo is None or end.tzinfo.utcoffset(end) is None:
             end = timezone.localize(end)
         else:
-            end = end.replace(tzinfo=timezone)
+            end = end.replace(tzinfo=None)
+            end = timezone.localize(end)
 
         eventInfo = EventAutomationDriver.EventInfo(
             title=formData[NewEventForm.Keys.TITLE],
@@ -230,6 +200,7 @@ class NewEventForm(forms.Form):
             description=formData[NewEventForm.Keys.DESCRIPTION],
             instructions=formData[NewEventForm.Keys.INSTRUCTIONS],
             country=formData[NewEventForm.Keys.COUNTRY],
+            zoomRequired=formData[NewEventForm.Keys.ZOOM_REQUIRED]
         )
         return eventInfo
 
@@ -252,6 +223,7 @@ class NewDelegatedEventForm(forms.Form):
         ZIP_CODE = "zipcode"
         OWNER = "owner"
         IGNORE_RESOLVEABLE_CONFLICTS = "ignoreResolveableConflics"
+        ZOOM_REQUIRED = "zoomRequired"
 
 
     owner = forms.ModelChoiceField(
@@ -316,32 +288,12 @@ class NewDelegatedEventForm(forms.Form):
         widget=forms.CheckboxInput(),
         required=False,
     )
-
-    # TODO: Figure out how to get these validators to show up on screen when filling out the form
-    # def clean_country(self):
-    #     data = self.cleaned_data[NewEventForm.Keys.COUNTRY]
-    #     if data != "US":
-    #         raise ValidationError(_("Only support US for country field"))
-    #     return data
-
-    # TODO: Fix
-    # This kept forgetting the timezone info and replacing it with UTC, it was probably fine but until we can figure it out leaving out
-    # The automator will also check for this and print an error, its just uglier
-    # def clean_startTime(self):
-    #     start = self.cleaned_data[NewEventForm.Keys.START_TIME]
-    #     # Copy so we don't lose timezone info
-    #     startCopy = copy.deepcopy(start)
-    #     if startCopy.astimezone(pytz.utc) < datetime.datetime.now(tz=pytz.utc):
-    #         raise ValidationError(_("Start Time must be in the future"))
-    #     return start
-
-    # def clean_endTime(self):
-    #     end = self.cleaned_data[NewEventForm.Keys.END_TIME]
-    #     # Copy so we don't lose timezone info
-    #     endCopy = copy.deepcopy(end)
-    #     if endCopy.astimezone(pytz.utc) < datetime.datetime.now(tz=pytz.utc):
-    #         raise ValidationError(_("End Time must be in the future"))
-    #     return end
+    zoomRequried = forms.BooleanField(
+        label="Zoom Meeting Required",
+        widget=forms.CheckboxInput(),
+        required=False,
+        initial=True
+    )
 
     def clean_zipcode(self):
         data = self.cleaned_data[NewEventForm.Keys.ZIP_CODE]
@@ -361,31 +313,33 @@ class NewDelegatedEventForm(forms.Form):
         timezone = pytz.timezone(timezoneStr)
         start: datetime.datetime = formData[NewEventForm.Keys.START_TIME]
         end: datetime.datetime = formData[NewEventForm.Keys.END_TIME]
-        # Django apparently does so auto-magic and will make the date times timezone aware based on the existence of the timezone field in the form
-        # Defensively we will set the timezone only if the dates are naive
-        # Update - Its no longer doing it, no idea what I changed but giving up for now, just going to localize if its naive and convert otherwise
+        # The start and end dates in the form appear to assume UTC time zone
+        # We need to force localize to the input timezone
         # BTW I hate timezones
         if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
             start = timezone.localize(start)
         else:
-            start = start.replace(tzinfo=timezone)
+            start = start.replace(tzinfo=None)
+            start = timezone.localize(start)
         if end.tzinfo is None or end.tzinfo.utcoffset(end) is None:
             end = timezone.localize(end)
         else:
-            end = end.replace(tzinfo=timezone)
+            end = end.replace(tzinfo=None)
+            end = timezone.localize(end)
 
         eventInfo = EventAutomationDriver.EventInfo(
-            title=formData[NewEventForm.Keys.TITLE],
+            title=formData[NewDelegatedEventForm.Keys.TITLE],
             start=start,
             end=end,
-            locationName=formData[NewEventForm.Keys.LOCATION_NAME],
-            streetAddress=formData[NewEventForm.Keys.ADDRESS],
-            city=formData[NewEventForm.Keys.CITY],
-            state=formData[NewEventForm.Keys.STATE],
-            zip=formData[NewEventForm.Keys.ZIP_CODE],
-            description=formData[NewEventForm.Keys.DESCRIPTION],
-            instructions=formData[NewEventForm.Keys.INSTRUCTIONS],
-            country=formData[NewEventForm.Keys.COUNTRY],
+            locationName=formData[NewDelegatedEventForm.Keys.LOCATION_NAME],
+            streetAddress=formData[NewDelegatedEventForm.Keys.ADDRESS],
+            city=formData[NewDelegatedEventForm.Keys.CITY],
+            state=formData[NewDelegatedEventForm.Keys.STATE],
+            zip=formData[NewDelegatedEventForm.Keys.ZIP_CODE],
+            description=formData[NewDelegatedEventForm.Keys.DESCRIPTION],
+            instructions=formData[NewDelegatedEventForm.Keys.INSTRUCTIONS],
+            country=formData[NewDelegatedEventForm.Keys.COUNTRY],
+            zoomRequired=formData[NewDelegatedEventForm.Keys.ZOOM_REQUIRED]
         )
         return eventInfo
     

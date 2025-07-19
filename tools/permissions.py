@@ -5,10 +5,15 @@ def _publicPermissionName(perm: str) -> str:
 
 _PUBLISH_EVENT = "publishEvent"
 PUBLISH_EVENT = _publicPermissionName(_PUBLISH_EVENT)
+_VIEW_PUBLISHED_EVENTS = "viewPublishedEventList"
+VIEW_PUBLISHED_EVENTS = _publicPermissionName(_VIEW_PUBLISHED_EVENTS)
+
 _REQUEST_DELEGATED_EVENT = "requestDelegatedEvent"
 REQUEST_DELEGATED_EVENT = _publicPermissionName(_REQUEST_DELEGATED_EVENT)
 _APPROVE_DELEGATED_EVENT = "approveDelegatedEvent"
 APPROVE_DELEGATED_EVENT = _publicPermissionName(_APPROVE_DELEGATED_EVENT)
+_VIEW_DELEGATED_EVENTS = "viewDelegatedEventList"
+VIEW_DELEGATED_EVENTS = _publicPermissionName(_VIEW_DELEGATED_EVENTS)
 
 class PermissionRights(models.Model):
     class Meta:
@@ -19,5 +24,7 @@ class PermissionRights(models.Model):
         permissions = (
             (_PUBLISH_EVENT, 'Allowed to publish events'),
             (_REQUEST_DELEGATED_EVENT, 'Allowed to request delegated events'),
-            (_APPROVE_DELEGATED_EVENT, 'Allowed to approve delegated events')
+            (_APPROVE_DELEGATED_EVENT, 'Allowed to approve delegated events'),
+            (_VIEW_DELEGATED_EVENTS, 'Allowed to view delegated events'),
+            (_VIEW_PUBLISHED_EVENTS, 'Allowed to view published events')
         )
