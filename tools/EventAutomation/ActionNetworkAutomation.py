@@ -209,8 +209,9 @@ class EditEventScreen(Screen):
     def _titleInputBox(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.TITLE_INPUT)
 
-    def _isVirtualICheckBox(self):
-        return self.driver.find_element(By.ID, EditEventScreen.IDs.IS_VIRTUAL_INPUT)
+    # See exists
+    # def _isVirtualICheckBox(self):
+    #     return self.driver.find_element(By.ID, EditEventScreen.IDs.IS_VIRTUAL_INPUT)
 
     def _hasEndTimeICheckBox(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.HAS_END_TIME_INPUT)
@@ -270,7 +271,8 @@ class EditEventScreen(Screen):
     def exists(self) -> bool:
         try:
             _ = self._titleInputBox()
-            _ = self._isVirtualICheckBox()
+            # TODO: Handle new input box or dont cause it defaults to in person which is fine
+            # _ = self._isVirtualICheckBox()
             _ = self._hasEndTimeICheckBox()
             _ = self._startDateInputBox()
             _ = self._locationInputBox()
@@ -550,6 +552,10 @@ class ANAutomator:
         if loginScreen is not None:
             logger.info("ANAutomator: LoginScreen detected, logging in")
             loginScreen.login(email=config.email, password=config.password)
+            # Logging in may bring the user to not the dashboard if they have multiple groups
+            # Instead of creating a new screen for that instead we can leverage we have the auth token
+            # So just regetting the url should be enough
+            driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
 
         dashboardScreen = DashboardScreen.tryToCreate(driver)
         if dashboardScreen is None:

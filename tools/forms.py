@@ -149,7 +149,7 @@ class NewEventForm(forms.Form):
         widget=forms.CheckboxInput(),
         required=False,
     )
-    zoomRequried = forms.BooleanField(
+    zoomRequired = forms.BooleanField(
         label="Zoom Meeting Required",
         widget=forms.CheckboxInput(),
         required=False,
@@ -288,7 +288,7 @@ class NewDelegatedEventForm(forms.Form):
         widget=forms.CheckboxInput(),
         required=False,
     )
-    zoomRequried = forms.BooleanField(
+    zoomRequired = forms.BooleanField(
         label="Zoom Meeting Required",
         widget=forms.CheckboxInput(),
         required=False,

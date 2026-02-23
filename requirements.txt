@@ -1,1 +1,4 @@
 Django==5.1.7
+pytz
+selenium
+tzlocal
