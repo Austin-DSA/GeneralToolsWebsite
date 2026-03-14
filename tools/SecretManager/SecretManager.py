@@ -2,8 +2,13 @@ from ..EventAutomation.ZoomAPI import ZoomConfig
 from ..EventAutomation.ActionNetworkAutomation import ANAutomatorConfig
 from ..EventAutomation.GoogleCalendarAPI import GoogleCalendarConfig
 
+import settings
+
 # TODO: Actually have this store/retrieve secrets
-from .devSecrets import *
+if settings.DEBUG:
+    from .devSecrets import *
+else:
+    from .fileSecrets import *
 
 
 def getZoomConfig() -> ZoomConfig:

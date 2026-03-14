@@ -6,17 +6,13 @@ import typing
 import logging
 import time
 import socket
+import json
 
 # TODO: Actually configure logging
 logging.basicConfig(level=logging.DEBUG, filename="toolsWebsiteDeployment.log", filemode="w")
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
 logging.getLogger().addHandler(console)
-
-try:
-    import paramiko
-except:
-    logging.error("Could not import Paramiko. This is likely because it is not installed on this machine. Paramiko is used to ssh into the remote machine. Install paramiko with 'pip install paramiko'")
 
 def raiseCriticalException(msg:str, result: SSHClient.CommandResult | None = None):
     logging.error(msg)
@@ -26,6 +22,10 @@ def raiseCriticalException(msg:str, result: SSHClient.CommandResult | None = Non
     e = Exception()
     e.add_note(msg)
     raise e
+try:
+    import paramiko
+except:
+    raiseCriticalException("Could not import Paramiko. This is likely because it is not installed on this machine. Paramiko is used to ssh into the remote machine. Install paramiko with 'pip install paramiko'")
 
 class Constants:
     AUSTIN_DSA_TOOLS_GITHUB_CLONE = "https://github.com/Austin-DSA/GeneralToolsWebsite.git"
@@ -34,46 +34,108 @@ class Constants:
     REPO_DIR = "Repo"
     RUNNING_DIR = "Running"
 
-    CLONE_DIR = f"~/{TOOLS_DIR}/{REPO_DIR}"
-    GIT_DIR = f"~/{TOOLS_DIR}/{REPO_DIR}/GeneralToolsWebsite"
-    WORKING_DIR = f"~/{TOOLS_DIR}/{RUNNING_DIR}"
-    NGINX_ERROR_LOG = f"{TOOLS_DIR}/nginxError.log"
+    # Can't use os.path.join becuase this may be running on a Windows Machine locally and os.path.join would create the paths incorrectly
     WEBSITE_USER = "tools-website"
+    WEBSITE_USER_HOME = f"/home/{WEBSITE_USER}"
+    CLONE_DIR = f"{WEBSITE_USER_HOME}/{TOOLS_DIR}/{REPO_DIR}"
+    GIT_DIR = f"{WEBSITE_USER_HOME}/{TOOLS_DIR}/{REPO_DIR}/GeneralToolsWebsite"
+    WORKING_DIR = f"{WEBSITE_USER_HOME}/{TOOLS_DIR}/{RUNNING_DIR}"
+    NGINX_ERROR_LOG = f"{TOOLS_DIR}/nginxError.log"
+    
+
+    SECRETS_JSON_PATH = f"{WORKING_DIR}/GeneralToolsWebsite/tools/SecretManager/secrets.json"
+    SECRETS_SERVICE_KEY_PATH = f"{WORKING_DIR}/GeneralToolsWebsite/tools/SecretManager/serviceKey.json"
+    DEV_ENV_PATH = f"{WORKING_DIR}/GeneralToolsWebsite/dev-env.env"
+    PROD_ENV_PATH = f"{WORKING_DIR}/GeneralToolsWebsite/.env"
+    DOCKER_DIR = f"{WORKING_DIR}/GeneralToolsWebsite"
 
 @dataclasses.dataclass
 class Flags:
+    mode: str
     sshIp : str
-    sshPort : int
     rootUser : str
-    rootPassword : str | None
+    rootPassword : str
     websitePassword : str
     websiteToolsVersion: str
     websiteDomain: str
-    regenerateDHCert: bool
     secretsJsonPath: str
     googleServiceKeyPath: str
+    adminUsername : str
+    adminPassword : str
+    sshPort : int = 22
+    regenerateDHCert: bool = False
 
-    @classmethod 
-    def parseFlags(cls) -> Flags:
+    @staticmethod
+    def parseFlagsFromFile(path: str) -> Flags:
+        with open(path,mode="r") as f:
+            d = json.load(f)
+            return Flags(**d)
+
+    @staticmethod
+    def generateTemplateFiles(argFileTemplatePath: str, secretsFileTemplate: str):
+        flags = Flags(
+            mode="Deploy",
+            sshIp="",
+            rootUser="",
+            rootPassword="",
+            websitePassword="",
+            websiteToolsVersion="",
+            websiteDomain="",
+            secretsJsonPath=secretsFileTemplate,
+            googleServiceKeyPath="",
+            adminUsername="",
+            adminPassword=""
+        )
+        with open(argFileTemplatePath, mode="w") as f:
+            json.dump(dataclasses.asdict(flags),f, indent=1)
+        secrets = {}
+        secrets["ZoomAccountId"] = ""
+        secrets["ZoomClientId"] = ""
+        secrets["ZoomClientSecret"] = ""
+        secrets["AnUsername"] = ""
+        secrets["AnPassword"] = ""
+        secrets["GoogleCalId"] = ""
+        secrets["GoogleDelegateAccount"] = ""
+        secrets["WebsiteEmailAccountUsername"] = ""
+        secrets["WebsiteEmailAccountPassword"] = ""
+        with open(secretsFileTemplate,mode="w") as f:
+            json.dump(secrets,f,indent=1)
+
+    @staticmethod 
+    def parseFlags() -> Flags:
         parser = argparse.ArgumentParser(
             prog="Austin DSA Tools Website Deployer",
             description="Script to help automate installing and starting the Austin DSA Tools Website",
             epilog="If any help is needed please contact the current Austin DSA IT Coordinator on Slack or via tech@austindsa.org"
         )
+        parser.add_argument("--mode", type=str, help="CreateArgFile - Creates a template file to fill arguments and a file for secrets\n Deploy - Run a full deployment")
+        parser.add_argument("--arg-file", type=str, help="Read all arguments from a file instead of the command line.")
+        parser.add_argument("--arg-file-template", type=str, help="If mode == CreateArgFile then this will be the output file for the template args")
+        parser.add_argument("--secrets-file-template", type=str, help="If mode == CreateArgFile then this will be the template output file for the secrets")
         parser.add_argument("--only-run", action="store_true", help="Have the script stop the website if running and then start it again. This assumes it has already been deployed")
-        parser.add_argument("--version", type=str, required=False, help="The version tag of the website to deploy. If not supplied than whatever verison is currently on the machine will be used.")
-        parser.add_argument("--ssh-ip", type=str, required=True, help="The IP address to ssh into if wanting remote deployment. If present the machine running this script will either need an ssh key into the remote machine or a password will need to be supplied with --password")
+        parser.add_argument("--version", type=str, help="The version tag of the website to deploy. If not supplied than whatever verison is currently on the machine will be used.")
+        parser.add_argument("--ssh-ip", type=str, help="The IP address to ssh into if wanting remote deployment. If present the machine running this script will either need an ssh key into the remote machine or a password will need to be supplied with --password")
         parser.add_argument("--ssh-port", type=int, help="Port to connect to for SSH", default=22)
-        parser.add_argument("--root-user", type=str, required=True, help="The root user for the remote machine")
-        parser.add_argument("--root-password", type=str, required=True, help="The password for the root user. Used for ssh and sudo.")
-        parser.add_argument("--website-password", type=str, required=True, help="The password for the website user. If the website user already exists need this to sign in. If it doesnt this will be used when setting it up")
-        parser.add_argument("--website-version", type=str, required=True, help="The branch or tag to checkout for the tools website repo")
-        parser.add_argument("--website-domain",type=str, required=True, help="The domain the website will be living at e.g tools.austindsa.org")
+        parser.add_argument("--root-user", type=str, help="The root user for the remote machine")
+        parser.add_argument("--root-password", type=str, help="The password for the root user. Used for ssh and sudo.")
+        parser.add_argument("--website-password", type=str, help="The password for the website user. If the website user already exists need this to sign in. If it doesnt this will be used when setting it up")
+        parser.add_argument("--website-version", type=str, help="The branch or tag to checkout for the tools website repo")
+        parser.add_argument("--website-domain",type=str, help="The domain the website will be living at e.g tools.austindsa.org")
         parser.add_argument("--force-regen-dh",action="store_true", help="Regenerate the DH certificate even if it already exists. This may take some time.")
-        parser.add_argument("--secrets-json-path",type=str,required=True, help="Path on the local machine for the json secrets file")
-        parser.add_argument("--google-service-key-path", type=str, required=True, help="Path on the local machine for the google service key")
+        parser.add_argument("--secrets-json-path",type=str, help="Path on the local machine for the json secrets file")
+        parser.add_argument("--google-service-key-path", type=str, help="Path on the local machine for the google service key")
         args = parser.parse_args()
+
+        if args.mode == "CreateArgFile":
+            if args.arg_file_template is None or args.secrets_file_template is None:
+                raiseCriticalException("When using the CreateArgFile mode must provide --arg-file-template and --secrets-file-template")
+            Flags.generateTemplateFiles(argFileTemplatePath=args.arg_file_template, secretsFileTemplate=args.secrets_file_template)
+            exit(0)
+
+        if args.arg_file is not None:
+            return Flags.parseFlagsFromFile(args.arg_file)
         return Flags(
+            mode=args.mode,
             sshIp=args.ssh_ip, 
             rootUser=args.root_user, 
             rootPassword=args.root_password, 
@@ -89,7 +151,7 @@ class Flags:
 
 # TODO: Refactor to rely less on global singletons and instead pass things around
 @dataclasses.dataclass
-class CommandResult:
+class SSHCommandResult:
     stdout: str
     stderr: str
     # stdIn: typing.IO
@@ -113,7 +175,7 @@ class SSHClient:
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         self.client.load_system_host_keys()
-        logging.info("Creating SSH connection to %s", ip)
+        logging.info("Creating SSH connection to %s", self.entry.ip)
         self.client.connect(
             hostname=self.entry.ip,
             port=self.entry.port,
@@ -138,7 +200,7 @@ class SSHClient:
                 logging.error("Failed to connect")
         raiseCriticalException("Failed to reconnect after reboot")
 
-    def execCommand(self, command:str, supressLogs: bool = False) -> SSHClient.CommandResult:
+    def execCommand(self, command:str, supressLogs: bool = False) -> SSHCommandResult:
         logging.info("Executing: %s", command)
         # TODO: Clean up the output and log to verbose so the file logs will see the output but not the console
         # stdin,stdout,stderr = self.client.exec_command(command=command)
@@ -187,9 +249,21 @@ class SSHClient:
         #     stdin.write(self.password+'\n')
         #     stdin.flush()
 
-        return SSHClient.CommandResult(stdout,stderr,exitStatus)
+        return SSHCommandResult(stdout,stderr,exitStatus)
+
     def close(self):
         self.client.close()
+
+    def uploadFile(self, localFilePath: str, remoteFilePath: str):
+        logging.info("Uploading %s to %s for %s", localFilePath, remoteFilePath, self.entry)
+        if not os.path.exists(localFilePath):
+            raiseCriticalException(f"Attempting to upload {localFilePath} but does not exist")
+
+        sftpClient = self.client.open_sftp()
+        if sftpClient is None:
+            raiseCriticalException(f"Failed to open sftp client for {self.entry}")
+        sftpClient.put(localpath=localFilePath, remotepath=remoteFilePath, confirm=False)
+        sftpClient.close()
 
     def createDirectoryIfDNE(self, directory: str):
         result = self.execCommand(f"test -d {directory}")
@@ -215,7 +289,7 @@ class SSHClient:
     # Marking a client as root will handle reboots
     @staticmethod
     def registerClient(clientEntry: SSHClientEntry):
-        SSHClient._clients[user] = clientEntry
+        SSHClient._clients[clientEntry.user] = clientEntry
 
     @staticmethod
     def reboot():
@@ -258,6 +332,9 @@ class SSHClient:
             if entry.client:
                 entry.client.close()
 
+# TODO: It seems a bit overkill right now to pass everything in including which user to run commands on
+# However I could see us easily re-using this or maybe packaging it in a separate repo so that other chapters can use it
+# Its not perfect right now but this setup should make converting this to a more generic deploy tool in the future a bit easier
 class SetupTask:
 
     @abc.abstractmethod
@@ -368,7 +445,7 @@ class InstallCoreUtils(SetupTask):
 
     def runTask(self):
         client = SSHClient.client(user=self.root)
-        result = client.execCommand("DEBIAN_FRONTEND=noninteractive apt-get -y install install apt-transport-https ca-certificates curl software-properties-common nano wget zip unzip gnupg")
+        result = client.execCommand("DEBIAN_FRONTEND=noninteractive apt-get -y install apt-transport-https ca-certificates curl software-properties-common nano wget zip unzip gnupg python3.12-venv")
         if not result.success:
             raiseCriticalException("Failed to install core utils")
         
@@ -397,10 +474,11 @@ class UFW(SetupTask):
 
 # Clones the repo into the Repo directory
 class CloneRepo(SetupTask):
-    def __init__(self, user: str, cloneDir: str, remote: str):
+    def __init__(self, user: str, cloneDir: str, gitDir: str, remote: str):
         self.user = user
         self.cloneDir = cloneDir
         self.remote = remote
+        self.gitDir = gitDir
 
     def name(self)->str:
         return "Clone Tools Repo"
@@ -409,7 +487,7 @@ class CloneRepo(SetupTask):
         # Check if the repo already exists
         logging.info("Check if tools repo already exists")
         client = SSHClient.client(user=self.user)
-        result = client.execCommand(f"git -C {self.cloneDir} config --list")
+        result = client.execCommand(f"git -C {self.gitDir} config --list")
         if result.success() and len(result.stdout.strip()) > 0:
             remoteOriginURL = ""
             for l in result.stdout.splitlines():
@@ -561,6 +639,7 @@ class ConfigureNginx(SetupTask):
         return "Configure Nginx"
     
     def runTask(self):
+        # TODO: Eventually should probably move this into a file inside the django app
         configFile = f"""
 server {{
     listen 80;
@@ -593,6 +672,10 @@ server {{
     ssl_session_cache shared:OutlineSSL:10m;
     ssl_session_tickets off;
  
+    location /static/ {{
+        alias /var/www/tools-website/static;
+    }}
+
     location / {{
         proxy_pass http://127.0.0.1:3000;
          
@@ -727,7 +810,7 @@ class InstallDocker(SetupTask):
         # Check if docker is already installed
         client = SSHClient.client(user=self.root)
         dockerInstalled = client.execCommand("docker --version")
-        dockerComposeInstalled = client.execCommand("docker compose --version")
+        dockerComposeInstalled = client.execCommand("docker compose version")
         if dockerInstalled.success() and dockerComposeInstalled.success():
             logging.info("Docker and Docker compose already installed")
             return
@@ -772,7 +855,8 @@ class AddUserToDockerGroup(SetupTask):
 
     def runTask(self):
         # Check if docker is already installed
-        result = SSHClient.websiteClient().execCommand("groups")
+        websiteClient = SSHClient.client(user=self.userToAdd)
+        result = websiteClient.execCommand("groups")
         if not result.success():
             raiseCriticalException("Failed to list user's current groups")
         if "docker" in result.stdout.split():
@@ -780,7 +864,8 @@ class AddUserToDockerGroup(SetupTask):
             return
         
         logging.info("Adding %s to docker group", self.userToAdd)
-        result = SSHClient.rootClient().execCommand(f"usermod -aG docker {self.userToAdd}")
+        rootClient = SSHClient.client(user=self.root())
+        result = rootClient.execCommand(f"usermod -aG docker {self.userToAdd}")
         if not result.success():
             raiseCriticalException("Failed to add %s to docker group", self.userToAdd)
 
@@ -790,6 +875,7 @@ class AddUserToDockerGroup(SetupTask):
 #SECTION - Website
 
 class CopyOverWebsiteSecrets(SetupTask):
+
     def __init__(self, user: str, secretsJsonPath: str, googleServiceKeyPath: str):
         self.user = user
         self.secretsJsonPath = secretsJsonPath
@@ -797,21 +883,128 @@ class CopyOverWebsiteSecrets(SetupTask):
 
 
     def name(self)->str:
-        pass
+        return "Copy Over Secrets"
 
     def runTask(self):
-        pass
+        client = SSHClient.client(user=self.user)
+        client.uploadFile(self.secretsJsonPath, Constants.SECRETS_JSON_PATH)
+        client.uploadFile(self.googleServiceKeyPath, Constants.SECRETS_SERVICE_KEY_PATH)
+
+class DeleteDevEnv(SetupTask):
+
+    def __init__(self, user: str):
+        self.user = user
+    
+    def name(self) -> str:
+        return "Deleting Dev Environment"
+    
+    def runTask(self):
+        client = SSHClient.client(user=self.user)
+        client.execCommand(f"rm -f {Constants.DEV_ENV_PATH}")
+
+class CreateProductionEnvFile(SetupTask):
+    def __init__(self, user: str, dbUsername: str, dbPassword: str, djangoSecretKey: str):
+        self.user = user
+        self.dbUsername = dbUsername
+        self.dbPassword = dbPassword
+        self.djangoSecretKey = djangoSecretKey
+    
+    def name(self) -> str:
+        return "Create Production Environment"
+    
+    def runTask(self):
+        client = SSHClient.client(user=self.user)
+        envFile = f"""
+DEBUG=True
+SECRET_KEY={self.djangoSecretKey}
+DB_USER={self.dbUsername}
+DB_PASSWORD={self.dbPassword}
+"""
+        logging.info("Writing Production Environment")
+        result = client.execCommand(f"echo '{envFile}' > {Constants.PROD_ENV_PATH}")
+        if not result.success():
+            raiseCriticalException("Failed to create production environment")
+
+
+class CreateAdminUser(SetupTask):
+    def __init__(self, user:str, adminUser: str, adminPassword: str):
+        self.user = user
+        self.adminUser = adminUser
+        self.adminPassword = adminPassword
+    
+    def name(self) -> str:
+        return "Creating Admin user"
+    
+    def runTask(self):
+        # Just run the command, if there already exists a user we can just report back since it will fail
+        logging.info("Creating admin user %s",self.adminUser)
+        client = SSHClient.client(user=self.user)
+
+        result = client.execCommand(f"cd {Constants.DOCKER_DIR}")
+        if not result.success():
+            raiseCriticalException("Could not change into docker directory")
+        
+        result = client.execCommand(f"docker compose run -e DJANGO_SUPERUSER_PASSWORD={self.adminPassword} web python manage.py createsuperuser --noinput --username {self.adminUser}")
+        if not result.success():
+            if "username is already taken" in result.stderr or "username is already taken" in result.stdout:
+                logging.info("Admin user already exists")
+                return
+            else:
+                raiseCriticalException("Failed to create admin user")
+
+# TODO: Need to figure out how to get nginx in a conatiner configured with SSL
+# THat way we can keep all the config stuff within the container
+# As for now just also install the requirements on main host
+# Its not efficient but this is a refactor we can fix later
 
 class RunWebsite(SetupTask):
 
-    def __init__(self):
-        pass
+    def __init__(self, user: str):
+        self.user = user
 
     def name(self)->str:
-        pass
+        return "Running Website"
 
     def runTask(self):
-        pass
+        client = SSHClient.client(user=self.user)
+        result = client.execCommand(f"cd {Constants.DOCKER_DIR}")
+        if not result.success():
+            raiseCriticalException("Failed to change to docker directory")
+        
+        logging.info("Installing Requirements for Django")
+        # Need to create a venv to install the requirements
+        result = client.execCommand(f"python3 -m venv {Constants.WORKING_DIR}/venv")
+        if not result.success():
+            raiseCriticalException("Failed to create python virtual environment")
+        
+        result = client.execCommand(f"{Constants.WORKING_DIR}/venv/bin/pip install -r {Constants.DOCKER_DIR}/requirements.txt")
+        logging.info("Collecting static files")
+        result = client.execCommand(f"{Constants.WORKING_DIR}/venv/bin/python {Constants.DOCKER_DIR}/manage.py collectstatic")
+        if not result.success():
+            raiseCriticalException("Failed to collect static")
+        
+        logging.info("Starting Containers")
+        result = client.execCommand("docker compose up -d")
+        if not result.success():
+            raiseCriticalException("Failed to start docker containers")
+
+class StopWebsite(SetupTask):
+
+    def __init__(self, user: str):
+        self.user = user
+
+    def name(self)->str:
+        return "Stop Website"
+
+    def runTask(self):
+        client = SSHClient.client(user=self.user)
+        result = client.execCommand(f"cd {Constants.DOCKER_DIR}")
+        if not result.success():
+            raiseCriticalException("Failed to change to docker directory")
+        
+        result = client.execCommand("docker compose down")
+        if not result.success():
+            raiseCriticalException("Failed to stop docker containers")
 
 #!SECTION
 
@@ -844,7 +1037,7 @@ class Pipelines:
         CreateDirectories(user=Constants.WEBSITE_USER),
         InstallCoreUtils(root=root),
         InstallNginx(root=root), # NGinx is needed both for the webserver config and lets encyrpt, but Nginx config depends on let's encrypt so can't neatly put it anywhere else
-        CloneRepo(user=Constants.WEBSITE_USER, cloneDir=Constants.CLONE_DIR, remote=Constants.AUSTIN_DSA_TOOLS_GITHUB_CLONE)
+        CloneRepo(user=Constants.WEBSITE_USER, cloneDir=Constants.CLONE_DIR, remote=Constants.AUSTIN_DSA_TOOLS_GITHUB_CLONE, gitDir=Constants.GIT_DIR)
     ]
 
     @staticmethod
@@ -876,16 +1069,18 @@ class Pipelines:
         ]
 
     @staticmethod
-    def InitialWebsiteSetup() -> list[SetupTask]:
+    def DeployWebsite(secretsJsonPath: str, googleServiceKeyPath: str, adminUser: str, adminPassword: str, version: str) -> list[SetupTask]:
         return [
-        ]
-
-    @staticmethod
-    def DeployWebsite() -> list[SetupTask]:
-        return [
+            FetchRepo(Constants.WEBSITE_USER, Constants.GIT_DIR),
+            CheckoutToolsRepoVersion(user=Constants.WEBSITE_USER,gitDir=Constants.GIT_DIR,tagOrBranch=version),
+            PullRepo(user=Constants.WEBSITE_USER, gitDir=Constants.GIT_DIR),
             OverwriteRepoToWorkingDirectory(user=Constants.WEBSITE_USER,gitDir=Constants.GIT_DIR, workingDir=Constants.WORKING_DIR),
-            CopyOverWebsiteSecrets(),
-
+            CopyOverWebsiteSecrets(user=Constants.WEBSITE_USER, secretsJsonPath=secretsJsonPath, googleServiceKeyPath=googleServiceKeyPath),
+            DeleteDevEnv(user=Constants.WEBSITE_USER),
+            # Start and stop so the container will be built and migrated but then stop so we can add admin user
+            RunWebsite(user=Constants.WEBSITE_USER),
+            StopWebsite(user=Constants.WEBSITE_USER),
+            CreateAdminUser(user=Constants.WEBSITE_USER, adminUser=adminUser, adminPassword=adminPassword)
         ]
 
 def deploy(flags: Flags):
@@ -899,6 +1094,7 @@ def deploy(flags: Flags):
     tasksToRun.extend(Pipelines.SetupSSLLetsEncrypt(root=flags.rootUser,domain=flags.websiteDomain))
     tasksToRun.extend(Pipelines.ConfigureNginx(root=flags.rootUser, domain=flags.websiteDomain, regenerateDHCert=flags.regenerateDHCert))
     tasksToRun.extend(Pipelines.InstallDocker(root=flags.rootUser, userToAdd=Constants.WEBSITE_USER))
+    tasksToRun.extend(Pipelines.DeployWebsite(secretsJsonPath=flags.secretsJsonPath, googleServiceKeyPath=flags.googleServiceKeyPath, adminUser=flags.adminUsername, adminPassword=flags.adminPassword, version=flags.websiteToolsVersion))
     
 
     for task in tasksToRun:

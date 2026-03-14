@@ -1,26 +1,31 @@
 services:
   web:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: .
+      dockerfile: Dockerfile
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ../:/app
     ports:
       - "8000:8000"
     environment:
-      - DEBUG=True
+      DEBUG : 'False'
+      SECRET_KEY : ${SECRET_KEY}
+      DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/generaltoolsdb
     depends_on:
       - db
   
   db:
-    image: postgres
+    image: postgres:18.3
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_DB: generaltoolsdb
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
 
 volumes:
   postgres_data:

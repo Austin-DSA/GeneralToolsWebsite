@@ -22,7 +22,7 @@ class Conflict:
     title: str
     start: datetime.datetime
     end: datetime.datetime
-    zoomUser: typing.Optional[str]
+    zoomUser: str | None
 
 
 @dataclasses.dataclass
@@ -36,17 +36,17 @@ class Result:
 
     type: int
     # Results if valid, if UNKOWN occurs, some of these results may be filled and the caller should check
-    anManageLink: typing.Optional[str] = None
-    anShareLink: typing.Optional[str] = None
-    gCalLink: typing.Optional[str] = None
-    zoomLink: typing.Optional[str] = None
-    zoomAccount: typing.Optional[str] = None
+    anManageLink: str | None = None
+    anShareLink: str | None = None
+    gCalLink: str | None = None
+    zoomLink: str | None = None
+    zoomAccount: str | None = None
 
     # Results if there is a conflict
     conflicts: typing.List[Conflict] = dataclasses.field(default_factory=list)
 
     # Error for unexpected
-    errorStr: typing.Optional[str] = None
+    errorStr: str | None = None
 
     def valid(self) -> bool:
         return self.type == Result.ResultType.PUBLISHED

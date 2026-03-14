@@ -3,3 +3,10 @@ pytz==2023.3
 selenium==4.23.1
 tzlocal==5.2
 gunicorn==25.1.0
+django-environ==0.13.0
+google-api-core==2.13.0
+google-api-python-client==2.107.0
+google-auth==2.22.0
+google-auth-httplib2==0.1.1
+google-auth-oauthlib==1.0.0
+googleapis-common-protos==1.61.0

@@ -21,5 +21,7 @@ from django.urls import include, path
 urlpatterns = [
     path("", include("tools.urls")),
     path("admin/", admin.site.urls),
+    # TODO: Skipping this for now cause its mostly QOL, but need to add in all the various account management views described in django.contrib.auth.urlpatterns
+    # Also if we want to allow simple user registration need to add that
     path("accounts/", include("django.contrib.auth.urls"))
 ]

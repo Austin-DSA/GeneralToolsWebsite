@@ -37,7 +37,7 @@ class Event:
     start: datetime.datetime
     end: datetime.datetime  # Technically end is optional but we will require all events have a specific end
     description: str
-    location: typing.Optional[str]
+    location: str | None
     link: typing.Optional[
         str
     ] = None  # Not writeable so we don't need to serialize to the API just from

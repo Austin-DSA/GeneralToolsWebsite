@@ -166,7 +166,7 @@ class NewEventForm(forms.Form):
         else:
             raise ValidationError(_("Zip code must be five digits long"))
 
-    def convertToEventInfo(self) -> typing.Optional[EventAutomationDriver.EventInfo]:
+    def convertToEventInfo(self) -> EventAutomationDriver.EventInfo | None:
         if not self.is_valid():
             return None
         formData = self.cleaned_data
@@ -305,7 +305,7 @@ class NewDelegatedEventForm(forms.Form):
         else:
             raise ValidationError(_("Zip code must be five digits long"))
 
-    def convertToEventInfo(self) -> typing.Optional[EventAutomationDriver.EventInfo]:
+    def convertToEventInfo(self) -> EventAutomationDriver.EventInfo | None:
         if not self.is_valid():
             return None
         formData = self.cleaned_data

@@ -10,7 +10,8 @@ class Keys:
     ZOOM_CLIENT_SECRET = "ZoomClientSecret"
     AN_USERNAME = "AnUsername"
     AN_PASSWORD = "AnPassword"
-    GOOGLE_SERVICE_KEY_PATH = "GoogleServiceKeyPath"
+    # Not needed right now, assume the service key is in this directory
+    # GOOGLE_SERVICE_KEY_PATH = "GoogleServiceKeyPath"
     GOOGLE_CAL_ID = "GoogleCalId"
     GOOGLE_DELEGATE_ACCOUNT = "GoogleDelegateAccount"
     WEBSITE_EMAIL_ACCOUNT_USERNAME = "WebsiteEmailAccountUsername"
@@ -54,7 +55,7 @@ def ANPassword():
 
 
 def GoogleServiceKeyPath():
-    return secretObject[Keys.GOOGLE_SERVICE_KEY_PATH]
+    return os.path.dirname(os.path.abspath(__file__), "serviceKey.json")
 
 
 def GoogleCalId():

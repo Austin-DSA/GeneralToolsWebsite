@@ -29,7 +29,7 @@ class EventInfo:
     insturctions: str
     state: str = "TX"
     country: str = "US"
-    endTime: typing.Optional[datetime.datetime] = None
+    endTime: datetime.datetime | None = None
 
 
 @dataclasses.dataclass
@@ -53,7 +53,7 @@ class Utils:
 
 class Screen(abc.ABC):
     @classmethod
-    def tryToCreate(self, driver, *args, **kwargs) -> typing.Optional[typing.Self]:
+    def tryToCreate(self, driver, *args, **kwargs) -> typing.Self | None:
         screen = self(driver, *args, **kwargs)
         if not screen.exists():
             return None
