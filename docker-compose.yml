@@ -25,17 +25,19 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    # command: gunicorn -b 0.0.0.0:8000 --workers 3 app.wsgi:application
     volumes:
       - ./:/app # Unnecessary?
       - static_volume:/var/www/tools-website/static
-      - ./data:/app/data
+      - type: bind
+        source: /home/tools-website/Tools/data
+        target: /data
     ports:
       - "8000:8000"
     environment:
       DEBUG : 'False'
       SECRET_KEY : ${SECRET_KEY}
-      DATABASE_URL: sqlite:///data/db.sqlite3
+      # The sqlite database needs to live outside the main django directory since that can be wiped upon upgrade
+      DATABASE_URL: sqlite:////data/db.sqlite3
       # DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/generaltoolsdb
       DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME}
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
