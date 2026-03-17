@@ -23,7 +23,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - web-root:/var/www/html
+      - static_volume:/var/www/tools-website/static
       - ./nginx-conf:/etc/nginx/conf.d:ro
       # These binds let the nginx sever see the SSL certs
       - type: bind
