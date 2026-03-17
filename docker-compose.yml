@@ -24,16 +24,16 @@ services:
       - "80:80"
     volumes:
       - web-root:/var/www/html
-      - ./nginx-conf:/etc/nginx/conf.d
+      - ./nginx-conf:/etc/nginx/conf.d:ro
       # These binds let the nginx sever see the SSL certs
       - type: bind
         source: /etc/letsencrypt
         target: /etc/letsencrypt
-        read-only: true
+        read_only: true
       - type: bind
         source: /etc/ssl/certs
         target: /etc/ssl/certs
-        read-only: true
+        read_only: true
         # Connects the nginx container to the django container for static files
       - static_volume:/var/www/tools-website/static
     # This is to force nginx to reload every 6 hours so that the SSL certs can be renewed
