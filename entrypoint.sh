@@ -11,4 +11,4 @@ then
     python3 /app/manage.py createsuperuser --noinput --username $DJANGO_SUPERUSER_USERNAME
 fi
 
-gunicorn -b 0.0.0.0:8000 --workers 3 site.wsgi:application
+gunicorn -b 0.0.0.0:8000 --workers 3 wsgi

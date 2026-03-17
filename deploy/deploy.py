@@ -64,6 +64,9 @@ class Flags:
     googleServiceKeyPath: str
     adminUsername : str
     adminPassword : str
+    dbUsername : str
+    dbPassword: str
+    djangoSecretKey: str
     sshPort : int = 22
     regenerateDHCert: bool = False
 
@@ -126,6 +129,9 @@ class Flags:
         parser.add_argument("--force-regen-dh",action="store_true", help="Regenerate the DH certificate even if it already exists. This may take some time.")
         parser.add_argument("--secrets-json-path",type=str, help="Path on the local machine for the json secrets file")
         parser.add_argument("--google-service-key-path", type=str, help="Path on the local machine for the google service key")
+        parser.add_argument("--database-username", type=str, help="The username to set for the postgres database")
+        parser.add_argument("--database-password", type=str, help="The password for the postgres database")
+        parser.add_argument("--django-secret-key", type=str, help="The secret key for Django")
         args = parser.parse_args()
 
         if args.mode == "CreateArgFile":
@@ -628,7 +634,6 @@ class InstallNginx(SetupTask):
             SSHClient.reboot()
 
 class ConfigureNginx(SetupTask):
-
     
     def __init__(self, root: str, websiteUser: str, domain: str,  regenerateDHCert: bool):
         self.root = root
@@ -847,11 +852,13 @@ class DeleteDevEnv(SetupTask):
         client.execCommand(f"rm -f {Constants.DEV_ENV_PATH}")
 
 class CreateProductionEnvFile(SetupTask):
-    def __init__(self, user: str, dbUsername: str, dbPassword: str, djangoSecretKey: str):
+    def __init__(self, user: str, dbUsername: str, dbPassword: str, djangoSecretKey: str, superUsername: str, superUserPassword: str):
         self.user = user
         self.dbUsername = dbUsername
         self.dbPassword = dbPassword
         self.djangoSecretKey = djangoSecretKey
+        self.superUsername = superUsername
+        self.superUserPassword = superUserPassword
     
     def name(self) -> str:
         return "Create Production Environment"
@@ -862,6 +869,8 @@ class CreateProductionEnvFile(SetupTask):
 SECRET_KEY={self.djangoSecretKey}
 DB_USER={self.dbUsername}
 DB_PASSWORD={self.dbPassword}
+DJANGO_SUPERUSER_USERNAME={self.superUsername}
+DJANGO_SUPERUSER_PASSWORD={self.superUserPassword}
 """
         logging.info("Writing Production Environment")
         result = client.execCommand(f"echo '{envFile}' > {Constants.PROD_ENV_PATH}")
@@ -882,12 +891,8 @@ class CreateAdminUser(SetupTask):
         # Just run the command, if there already exists a user we can just report back since it will fail
         logging.info("Creating admin user %s",self.adminUser)
         client = SSHClient.client(user=self.user)
-
-        result = client.execCommand(f"cd {Constants.DOCKER_DIR}")
-        if not result.success():
-            raiseCriticalException("Could not change into docker directory")
         
-        result = client.execCommand(f"docker compose run -e DJANGO_SUPERUSER_PASSWORD={self.adminPassword} tools-site python manage.py createsuperuser --noinput --username {self.adminUser}")
+        result = client.execCommand(f"cd {Constants.DOCKER_DIR} && docker compose run -e DJANGO_SUPERUSER_PASSWORD={self.adminPassword} tools-site python manage.py createsuperuser --noinput --username {self.adminUser}")
         if not result.success():
             if "username is already taken" in result.stderr or "username is already taken" in result.stdout:
                 logging.info("Admin user already exists")
@@ -910,15 +915,15 @@ class RunWebsite(SetupTask):
 
     def runTask(self):
         client = SSHClient.client(user=self.user)
-        result = client.execCommand(f"cd {Constants.DOCKER_DIR}")
-        if not result.success():
-            raiseCriticalException("Failed to change to docker directory")
+        # result = client.execCommand(f"cd {Constants.DOCKER_DIR}")
+        # if not result.success():
+        #     raiseCriticalException("Failed to change to docker directory")
         
-        logging.info("Installing Requirements for Django")
-        # Need to create a venv to install the requirements
-        result = client.execCommand(f"python3 -m venv {Constants.WORKING_DIR}/venv")
-        if not result.success():
-            raiseCriticalException("Failed to create python virtual environment")
+        # logging.info("Installing Requirements for Django")
+        # # Need to create a venv to install the requirements
+        # result = client.execCommand(f"python3 -m venv {Constants.WORKING_DIR}/venv")
+        # if not result.success():
+        #     raiseCriticalException("Failed to create python virtual environment")
         
         # result = client.execCommand(f"{Constants.WORKING_DIR}/venv/bin/pip install -r {Constants.DOCKER_DIR}/requirements.txt")
         # logging.info("Collecting static files")
@@ -926,8 +931,10 @@ class RunWebsite(SetupTask):
         # if not result.success():
         #     raiseCriticalException("Failed to collect static")
         
+        # result = client.execCommand("ls")
+
         logging.info("Starting Containers")
-        result = client.execCommand("docker compose up -d")
+        result = client.execCommand(f"cd {Constants.DOCKER_DIR} && docker compose up --build --remove-orphans --force-recreate -d")
         if not result.success():
             raiseCriticalException("Failed to start docker containers")
 
@@ -945,7 +952,7 @@ class StopWebsite(SetupTask):
         if not result.success():
             raiseCriticalException("Failed to change to docker directory")
         
-        result = client.execCommand("docker compose down")
+        result = client.execCommand(f"cd {Constants.DOCKER_DIR} && docker compose down")
         if not result.success():
             raiseCriticalException("Failed to stop docker containers")
 
@@ -986,7 +993,10 @@ class Pipelines:
     @staticmethod
     def updateRepoToVersion(version: str) -> list[SetupTask]:
         return [
-            CheckoutToolsRepoVersion(user=Constants.WEBSITE_USER,gitDir=Constants.GIT_DIR,tagOrBranch=version)
+            FetchRepo(Constants.WEBSITE_USER, Constants.GIT_DIR),
+            CheckoutToolsRepoVersion(user=Constants.WEBSITE_USER,gitDir=Constants.GIT_DIR,tagOrBranch=version),
+            PullRepo(user=Constants.WEBSITE_USER, gitDir=Constants.GIT_DIR),
+            OverwriteRepoToWorkingDirectory(user=Constants.WEBSITE_USER,gitDir=Constants.GIT_DIR, workingDir=Constants.WORKING_DIR)
         ]
     
     @staticmethod
@@ -1000,8 +1010,7 @@ class Pipelines:
     @staticmethod
     def ConfigureNginx(root:str, domain:str, regenerateDHCert: bool) -> list[SetupTask]:
         return [
-            ConfigureNginx(root=root, websiteUser=Constants.WEBSITE_USER,domain=domain, regenerateDHCert=regenerateDHCert),
-            RestartNginx(root=root)
+            # RestartNginx(root=root)
         ]
     
     @staticmethod
@@ -1012,18 +1021,26 @@ class Pipelines:
         ]
 
     @staticmethod
-    def DeployWebsite(secretsJsonPath: str, googleServiceKeyPath: str, adminUser: str, adminPassword: str, version: str) -> list[SetupTask]:
+    def DeployWebsite(
+        root: str,
+        secretsJsonPath: str, 
+        googleServiceKeyPath: str, 
+        adminUser: str, 
+        adminPassword: str, 
+        version: str, 
+        domain: str, 
+        regenerateDHCert: bool,
+        dbUsername: str,
+        dbPassword: str,
+        djangoSecretKey: str
+        ) -> list[SetupTask]:
         return [
-            FetchRepo(Constants.WEBSITE_USER, Constants.GIT_DIR),
-            CheckoutToolsRepoVersion(user=Constants.WEBSITE_USER,gitDir=Constants.GIT_DIR,tagOrBranch=version),
-            PullRepo(user=Constants.WEBSITE_USER, gitDir=Constants.GIT_DIR),
-            OverwriteRepoToWorkingDirectory(user=Constants.WEBSITE_USER,gitDir=Constants.GIT_DIR, workingDir=Constants.WORKING_DIR),
+            ConfigureNginx(root=root, websiteUser=Constants.WEBSITE_USER,domain=domain, regenerateDHCert=regenerateDHCert),
+            CreateProductionEnvFile(user=Constants.WEBSITE_USER,dbUsername=dbUsername,dbPassword=dbPassword,djangoSecretKey=djangoSecretKey,superUsername=adminUser,superUserPassword=adminPassword),
             CopyOverWebsiteSecrets(user=Constants.WEBSITE_USER, secretsJsonPath=secretsJsonPath, googleServiceKeyPath=googleServiceKeyPath),
             DeleteDevEnv(user=Constants.WEBSITE_USER),
             # Start and stop so the container will be built and migrated but then stop so we can add admin user
             RunWebsite(user=Constants.WEBSITE_USER),
-            StopWebsite(user=Constants.WEBSITE_USER),
-            CreateAdminUser(user=Constants.WEBSITE_USER, adminUser=adminUser, adminPassword=adminPassword)
         ]
 
 def deploy(flags: Flags):
@@ -1035,9 +1052,19 @@ def deploy(flags: Flags):
     tasksToRun.extend(Pipelines.InitialDropletConfiguration(root=flags.rootUser, websiteUserPassword=flags.websitePassword))
     tasksToRun.extend(Pipelines.updateRepoToVersion(version=flags.websiteToolsVersion))
     tasksToRun.extend(Pipelines.SetupSSLLetsEncrypt(root=flags.rootUser,domain=flags.websiteDomain))
-    tasksToRun.extend(Pipelines.ConfigureNginx(root=flags.rootUser, domain=flags.websiteDomain, regenerateDHCert=flags.regenerateDHCert))
     tasksToRun.extend(Pipelines.InstallDocker(root=flags.rootUser, userToAdd=Constants.WEBSITE_USER))
-    tasksToRun.extend(Pipelines.DeployWebsite(secretsJsonPath=flags.secretsJsonPath, googleServiceKeyPath=flags.googleServiceKeyPath, adminUser=flags.adminUsername, adminPassword=flags.adminPassword, version=flags.websiteToolsVersion))
+    tasksToRun.extend(Pipelines.DeployWebsite(
+        root=flags.rootUser,
+        secretsJsonPath=flags.secretsJsonPath, 
+        googleServiceKeyPath=flags.googleServiceKeyPath, 
+        adminUser=flags.adminUsername, 
+        adminPassword=flags.adminPassword, 
+        version=flags.websiteToolsVersion, 
+        domain=flags.websiteDomain, 
+        regenerateDHCert=flags.regenerateDHCert,
+        dbUsername=flags.dbUsername,
+        dbPassword=flags.dbPassword,
+        djangoSecretKey=flags.djangoSecretKey))
     
 
     for task in tasksToRun:
