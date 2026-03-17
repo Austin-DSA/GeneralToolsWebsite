@@ -22,7 +22,7 @@ def _readSecretsFromFile():
     secretsFile = os.path.join(os.path.dirname(os.path.abspath(__file__)), "secrets.json")
     secretObject = {}
     with open(secretsFile) as f:
-        secretObject = json.load(secretsFile)
+        secretObject = json.load(f)
     logger.info("Validating object")
     for name, value in vars(Keys).items():
         if not name.startswith("__") and not callable(value):
