@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: gunicorn -b 0.0.0.0:8000 --workers 3 GeneralToolsWebsite.wsgi:application
+    command: gunicorn -b 0.0.0.0:8000 --workers 3 app.wsgi:application
     volumes:
       - ./:/app
       - static_volume:/var/www/tools-website/static
