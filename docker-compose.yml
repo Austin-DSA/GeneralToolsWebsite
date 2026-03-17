@@ -28,9 +28,7 @@ services:
     volumes:
       - ./:/app # Unnecessary?
       - static_volume:/var/www/tools-website/static
-      - type: bind
-        source: /home/tools-website/Tools/data
-        target: /data
+      - website_data:/data
     ports:
       - "8000:8000"
     environment:
@@ -74,3 +72,4 @@ services:
 volumes:
   postgres_data:
   static_volume:
+  website_data:
