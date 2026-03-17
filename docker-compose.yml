@@ -24,7 +24,7 @@ services:
       - "80:80"
     volumes:
       - web-root:/var/www/html
-      - ./nginx-conf:/etc/nginx/conf.d:ro
+      - ./nginx-conf:/etc/nginx/conf.d
       # These binds let the nginx sever see the SSL certs
       - type: bind
         source: /etc/letsencrypt
