@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # This is how the docker container starts the website
 # Some commands need to be run after the container starts
+set -x
 
 python3 /app/manage.py collectstatic --noinput
 python3 /app/manage.py migrate --noinput
@@ -12,3 +13,4 @@ fi
 
 # gunicorn -b 0.0.0.0:8000 --workers 3 app.wsgi:application
 echo "$(ls -l)"
+pwd
