@@ -29,8 +29,8 @@ services:
       - ./:/app # Unnecessary?
       - static_volume:/var/www/tools-website/static
       - website_data:/data
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       DEBUG : 'False'
       SECRET_KEY : ${SECRET_KEY}
