@@ -33,6 +33,7 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Set the working directory
 WORKDIR /app
+RUN mkdir -p /var/www/tools-website && chown -R appuser:appuser /var/www/tools-website
 
 # Copy application code
 COPY --chown=appuser:appuser . .
