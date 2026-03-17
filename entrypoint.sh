@@ -9,5 +9,6 @@ if [ "$DJANGO_SUPERUSER_USERNAME" ]
 then
     python3 manage.py createsuperuser --noinput --username $DJANGO_SUPERUSER_USERNAME
 fi
+
 cd ..
-gunicorn -b 0.0.0.0:8000 --workers 3 GeneralToolsWebsite.wsgi:application
+exec "$@"
