@@ -47,7 +47,9 @@ USER appuser
 # Expose the application port
 EXPOSE 8000 
 
-RUN chmod +x entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
 
 # Start the application using Gunicorn
-CMD ["entrypoint.sh"]
+CMD ["/entrypoint.sh"]
