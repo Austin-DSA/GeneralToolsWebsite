@@ -50,6 +50,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - static_volume:/var/www/tools-website/static
       - ./nginx-conf:/etc/nginx/conf.d:ro
