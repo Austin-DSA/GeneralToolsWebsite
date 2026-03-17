@@ -1,4 +1,22 @@
 services:
+  db:
+    image: postgres:18.3
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: generaltoolsdb
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $DB_USER -d generaltoolsdb -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   tools-site:
     build:
       context: .
@@ -12,7 +30,7 @@ services:
     environment:
       DEBUG : 'False'
       SECRET_KEY : ${SECRET_KEY}
-      DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/generaltoolsdb
+      DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@0.0.0.0:5432/generaltoolsdb
     depends_on:
       db:
         condition: service_healthy
@@ -41,23 +59,6 @@ services:
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     depends_on:
       - tools-site
-
-  db:
-    image: postgres:18.3
-    volumes:
-      - postgres_data:/var/lib/postgresql
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: generaltoolsdb
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $DB_USER -d generaltoolsdb -h localhost"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
 volumes:
   postgres_data:
