@@ -30,7 +30,7 @@ services:
     environment:
       DEBUG : 'False'
       SECRET_KEY : ${SECRET_KEY}
-      DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@0.0.0.0:5432/generaltoolsdb
+      DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/generaltoolsdb
     depends_on:
       db:
         condition: service_healthy
