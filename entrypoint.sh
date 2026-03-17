@@ -4,4 +4,9 @@
 
 python3 manage.py collectstatic --noinput
 python3 manage.py migrate --noinput
-gunicorn -b 0.0.0.0:8000 --workers 3 .wsgi
+# Create admin user
+if [ "$DJANGO_SUPERUSER_USERNAME" ]
+then
+    python3 manage.py createsuperuser --noinput --username $DJANGO_SUPERUSER_USERNAME
+fi
+gunicorn -b 0.0.0.0:8000 --workers 3 wsgi:application
