@@ -6,7 +6,7 @@ services:
     command: gunicorn -b 0.0.0.0:8000 --workers 3 .wsgi
     volumes:
       - ./:/app
-      - static_volume: /var/www/tools-website/static
+      - static_volume:/var/www/tools-website/static
     ports:
       - "8000:8000"
     environment:
@@ -35,7 +35,7 @@ services:
         target: /etc/ssl/certs
         read-only: true
         # Connects the nginx container to the django container for static files
-      - static_volume: /var/www/tools-website/static
+      - static_volume:/var/www/tools-website/static
     # This is to force nginx to reload every 6 hours so that the SSL certs can be renewed
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     depends_on:
