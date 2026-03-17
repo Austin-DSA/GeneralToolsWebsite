@@ -64,6 +64,7 @@ class Flags:
     googleServiceKeyPath: str
     adminUsername : str
     adminPassword : str
+    # TODO: DB Username not needed
     dbUsername : str
     dbPassword: str
     djangoSecretKey: str

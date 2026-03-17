@@ -1,41 +1,47 @@
 services:
-  db:
-    image: postgres:18.3
-    restart: always
-    volumes:
-      - postgres_data:/var/lib/postgresql
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_DB: generaltoolsdb
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $DB_USER -d generaltoolsdb -h localhost"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+  # Don't need to use postgres yet, by using sqlite can use much cheaper machine
+  # Can transition fairly easily if we end up using this enought to require postgres
+  # At that point may make more sense to have a dedicated postgres server machine
+  # db:
+  #   image: postgres:18.3
+  #   restart: unlsess-stopped
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     POSTGRES_DB: generaltoolsdb
+  #     POSTGRES_USER: ${DB_USER}
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U $DB_USER -d generaltoolsdb -h localhost"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
 
   tools-site:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
     # command: gunicorn -b 0.0.0.0:8000 --workers 3 app.wsgi:application
     volumes:
-      - ./:/app
+      - ./:/app # Unnecessary?
       - static_volume:/var/www/tools-website/static
+      - ./data:/app/data
     ports:
       - "8000:8000"
     environment:
       DEBUG : 'False'
       SECRET_KEY : ${SECRET_KEY}
-      DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/generaltoolsdb
+      DATABASE_URL: sqlite:///data/db.sqlite3
+      # DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/generaltoolsdb
       DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME}
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
-    depends_on:
-      db:
-        condition: service_healthy
+    # depends_on:
+    #   db:
+    #     condition: service_healthy
   
   webserver:
     image: nginx:latest
