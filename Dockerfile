@@ -41,15 +41,15 @@ COPY --chown=appuser:appuser . .
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1 
 
+COPY entrypoint.sh /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
+
 # Switch to non-root user
 USER appuser
 
 # Expose the application port
 EXPOSE 8000 
-
-COPY entrypoint.sh /entrypoint.sh
-
-RUN chmod +x /entrypoint.sh
 
 # Start the application using Gunicorn
 CMD ["/entrypoint.sh"]
