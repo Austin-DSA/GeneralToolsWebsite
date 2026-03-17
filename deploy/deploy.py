@@ -49,6 +49,8 @@ class Constants:
     PROD_ENV_PATH = f"{WORKING_DIR}/GeneralToolsWebsite/.env"
     DOCKER_DIR = f"{WORKING_DIR}/GeneralToolsWebsite"
 
+    NGINX_CONF = f"{WORKING_DIR}/GeneralToolsWebsite/nginx-conf/tools-website.conf"
+
 @dataclasses.dataclass
 class Flags:
     mode: str
@@ -628,70 +630,22 @@ class InstallNginx(SetupTask):
 class ConfigureNginx(SetupTask):
 
     
-    def __init__(self, root: str, websiteUser: str, domain: str, errorLogPath: str,  regenerateDHCert: bool):
+    def __init__(self, root: str, websiteUser: str, domain: str,  regenerateDHCert: bool):
         self.root = root
         self.websiteUser = websiteUser
         self.domain = domain
-        self.errorLogPath = errorLogPath
         self.regenerateDHCert = regenerateDHCert
 
     def name(self) -> str:
         return "Configure Nginx"
     
     def runTask(self):
-        # TODO: Eventually should probably move this into a file inside the django app
-        configFile = f"""
-server {{
-    listen 80;
-    listen [::]:80;
- 
-    server_name {self.domain};
- 
-    return 301 https://$host$request_uri;
-}}
- 
-server {{
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
- 
-    server_name {self.domain};
- 
-    access_log off;
-    error_log /home/{self.websiteUser}/{self.errorLogPath};
- 
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES256-SHA:ECDHE-ECDSA-DES-CBC3-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:DES-CBC3-SHA:!DSS;
-    ssl_prefer_server_ciphers on;
-    ssl_session_timeout 24h;
-    ssl_stapling on;
-    ssl_stapling_verify on;
-    ssl_certificate /etc/letsencrypt/live/{self.domain}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{self.domain}/privkey.pem;
-    ssl_trusted_certificate /etc/letsencrypt/live/{self.domain}/chain.pem;
-    ssl_dhparam /etc/ssl/certs/dhparam.pem;
-    ssl_session_cache shared:OutlineSSL:10m;
-    ssl_session_tickets off;
- 
-    location /static/ {{
-        alias /var/www/tools-website/static;
-    }}
-
-    location / {{
-        proxy_pass http://127.0.0.1:3000;
-         
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "Upgrade";
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Scheme $scheme;
-        proxy_set_header X-Forwarded-Proto $scheme;
- 
-        proxy_redirect off;
-    }}
-}}
-    """
-
+        logging.info("Writing Nginx Conf")
+        websiteClient = SSHClient.client(user=self.websiteUser)
+        result = websiteClient.execCommand(f"sed -i 's/%DOMAIN%/{self.domain}/g' {Constants.NGINX_CONF}")
+        if not result.success():
+            raiseCriticalException("Failed to replace domain in nginx conf")
+        
         logging.info("Creating DH Exchange key")
         # This command prints out a lot of chars and the SSL seems to grab it one by one causing tons and tons of log lines
         # Its all just "." and "+" so nothing worthwile so just suppress the logs
@@ -703,16 +657,6 @@ server {{
             if not result.success():
                 raiseCriticalException("Failed to create DH Exchange Key")
 
-        logging.info("Writing Config File")
-        # Need to use Single qoutes for the config so bash doesn't delete the $ character
-        result = client.execCommand(f"echo '{configFile}' > /etc/nginx/conf.d/tools-website.conf")
-        if not result.success():
-            raiseCriticalException("Failed to write Nginx config file")
-
-        logging.info("Verify Syntax")
-        result = client.execCommand("nginx -t")
-        if not result.success():
-            raiseCriticalException("Nginx syntax invalid")
 
 class StopNginx(SetupTask):
     def __init__(self, root: str):
@@ -915,7 +859,6 @@ class CreateProductionEnvFile(SetupTask):
     def runTask(self):
         client = SSHClient.client(user=self.user)
         envFile = f"""
-DEBUG=True
 SECRET_KEY={self.djangoSecretKey}
 DB_USER={self.dbUsername}
 DB_PASSWORD={self.dbPassword}
@@ -944,7 +887,7 @@ class CreateAdminUser(SetupTask):
         if not result.success():
             raiseCriticalException("Could not change into docker directory")
         
-        result = client.execCommand(f"docker compose run -e DJANGO_SUPERUSER_PASSWORD={self.adminPassword} web python manage.py createsuperuser --noinput --username {self.adminUser}")
+        result = client.execCommand(f"docker compose run -e DJANGO_SUPERUSER_PASSWORD={self.adminPassword} tools-site python manage.py createsuperuser --noinput --username {self.adminUser}")
         if not result.success():
             if "username is already taken" in result.stderr or "username is already taken" in result.stdout:
                 logging.info("Admin user already exists")
@@ -977,11 +920,11 @@ class RunWebsite(SetupTask):
         if not result.success():
             raiseCriticalException("Failed to create python virtual environment")
         
-        result = client.execCommand(f"{Constants.WORKING_DIR}/venv/bin/pip install -r {Constants.DOCKER_DIR}/requirements.txt")
-        logging.info("Collecting static files")
-        result = client.execCommand(f"{Constants.WORKING_DIR}/venv/bin/python {Constants.DOCKER_DIR}/manage.py collectstatic")
-        if not result.success():
-            raiseCriticalException("Failed to collect static")
+        # result = client.execCommand(f"{Constants.WORKING_DIR}/venv/bin/pip install -r {Constants.DOCKER_DIR}/requirements.txt")
+        # logging.info("Collecting static files")
+        # result = client.execCommand(f"{Constants.WORKING_DIR}/venv/bin/python {Constants.DOCKER_DIR}/manage.py collectstatic")
+        # if not result.success():
+        #     raiseCriticalException("Failed to collect static")
         
         logging.info("Starting Containers")
         result = client.execCommand("docker compose up -d")
@@ -1057,7 +1000,7 @@ class Pipelines:
     @staticmethod
     def ConfigureNginx(root:str, domain:str, regenerateDHCert: bool) -> list[SetupTask]:
         return [
-            ConfigureNginx(root=root, websiteUser=Constants.WEBSITE_USER,domain=domain,errorLogPath=Constants.NGINX_ERROR_LOG, regenerateDHCert=regenerateDHCert),
+            ConfigureNginx(root=root, websiteUser=Constants.WEBSITE_USER,domain=domain, regenerateDHCert=regenerateDHCert),
             RestartNginx(root=root)
         ]
     

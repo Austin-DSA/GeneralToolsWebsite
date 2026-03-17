@@ -1,11 +1,12 @@
 services:
-  web:
+  tools-site:
     build:
       context: .
       dockerfile: Dockerfile
-    command: python manage.py runserver 0.0.0.0:8000
+    command: gunicorn -b 0.0.0.0:8000 --workers 3 .wsgi
     volumes:
-      - ../:/app
+      - ./:/app
+      - static_volume: /var/www/tools-website/static
     ports:
       - "8000:8000"
     environment:
@@ -15,6 +16,31 @@ services:
     depends_on:
       - db
   
+  webserver:
+    image: nginx:latest
+    container_name: webserver
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - web-root:/var/www/html
+      - ./nginx-conf:/etc/nginx/conf.d:ro
+      # These binds let the nginx sever see the SSL certs
+      - type: bind
+        source: /etc/letsencrypt
+        target: /etc/letsencrypt
+        read-only: true
+      - type: bind
+        source: /etc/ssl/certs
+        target: /etc/ssl/certs
+        read-only: true
+        # Connects the nginx container to the django container for static files
+      - static_volume: /var/www/tools-website/static
+    # This is to force nginx to reload every 6 hours so that the SSL certs can be renewed
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    depends_on:
+      - tools-site
+
   db:
     image: postgres:18.3
     volumes:
@@ -26,6 +52,6 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
 
-
 volumes:
   postgres_data:
+  static_volume:
