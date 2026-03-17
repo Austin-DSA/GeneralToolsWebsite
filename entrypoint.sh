@@ -11,4 +11,4 @@ then
 fi
 
 cd ..
-exec "$@"
+gunicorn -b 0.0.0.0:8000 --workers 3 app.wsgi:application
