@@ -8,7 +8,7 @@ python3 /app/manage.py migrate --noinput
 # Create admin user
 if [ "$DJANGO_SUPERUSER_USERNAME" ]
 then
-    python3 /app/manage.py createsuperuser --noinput --username $DJANGO_SUPERUSER_USERNAME
+    python3 /app/manage.py createsuperuser --noinput --username $DJANGO_SUPERUSER_USERNAME --email matorin57@gmail.com
 fi
 
 gunicorn -b 0.0.0.0:8000 --workers 1 wsgi
