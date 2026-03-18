@@ -40,6 +40,7 @@ services:
       DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME}
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
       DJANGO_SETTINGS_MODULE: settings
+      ALLOWED_HOSTS : ${ALLOWED_HOSTS}
     # depends_on:
     #   db:
     #     condition: service_healthy
