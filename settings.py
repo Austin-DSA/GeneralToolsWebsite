@@ -24,7 +24,8 @@ BASE_DIR = Path(__file__).resolve().parent
 
 environ.Env.read_env(BASE_DIR / "dev-env.env")
 env = environ.Env(
-    DEBUG=(bool,False)
+    DEBUG=(bool,False),
+    ALLOWED_HOSTS=(list,[])
 )
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -33,7 +34,7 @@ SECRET_KEY = env("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
+ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 AUTH_USER_MODEL = "tools.user"
 
