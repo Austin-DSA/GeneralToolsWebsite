@@ -49,6 +49,8 @@ class Constants:
     PROD_ENV_PATH = f"{WORKING_DIR}/GeneralToolsWebsite/.env"
     DOCKER_DIR = f"{WORKING_DIR}/GeneralToolsWebsite"
 
+    DATABASE_DIR = f"{WEBSITE_USER_HOME}/Tools/data"
+
     NGINX_CONF = f"{WORKING_DIR}/GeneralToolsWebsite/nginx-conf/tools-website.conf"
 
 @dataclasses.dataclass
@@ -440,6 +442,7 @@ class CreateDirectories(SetupTask):
 
         client.createDirectoryIfDNE(Constants.CLONE_DIR)
         client.createDirectoryIfDNE(Constants.WORKING_DIR)
+        client.createDirectoryIfDNE(Constants.DATABASE_DIR)
 
 # All tasks will assume the current directory is the home directory
 
@@ -853,10 +856,9 @@ class DeleteDevEnv(SetupTask):
         client.execCommand(f"rm -f {Constants.DEV_ENV_PATH}")
 
 class CreateProductionEnvFile(SetupTask):
-    def __init__(self, user: str, dbUsername: str, dbPassword: str, djangoSecretKey: str, superUsername: str, superUserPassword: str):
+    def __init__(self, user: str, djangoSecretKey: str, superUsername: str, superUserPassword: str, allowedHosts: str):
         self.user = user
-        self.dbUsername = dbUsername
-        self.dbPassword = dbPassword
+        self.allowedHosts = allowedHosts
         self.djangoSecretKey = djangoSecretKey
         self.superUsername = superUsername
         self.superUserPassword = superUserPassword
@@ -868,10 +870,10 @@ class CreateProductionEnvFile(SetupTask):
         client = SSHClient.client(user=self.user)
         envFile = f"""
 SECRET_KEY={self.djangoSecretKey}
-DB_USER={self.dbUsername}
-DB_PASSWORD={self.dbPassword}
 DJANGO_SUPERUSER_USERNAME={self.superUsername}
 DJANGO_SUPERUSER_PASSWORD={self.superUserPassword}
+ALLOWED_HOSTS={self.allowedHosts}
+CSRF_TRUSTED_ORIGINS={",".join([f"https://{x}" for x in self.allowedHosts.split(",")])}
 """
         logging.info("Writing Production Environment")
         result = client.execCommand(f"echo '{envFile}' > {Constants.PROD_ENV_PATH}")
@@ -949,10 +951,6 @@ class StopWebsite(SetupTask):
 
     def runTask(self):
         client = SSHClient.client(user=self.user)
-        result = client.execCommand(f"cd {Constants.DOCKER_DIR}")
-        if not result.success():
-            raiseCriticalException("Failed to change to docker directory")
-        
         result = client.execCommand(f"cd {Constants.DOCKER_DIR} && docker compose down")
         if not result.success():
             raiseCriticalException("Failed to stop docker containers")
@@ -1037,10 +1035,12 @@ class Pipelines:
         ) -> list[SetupTask]:
         return [
             ConfigureNginx(root=root, websiteUser=Constants.WEBSITE_USER,domain=domain, regenerateDHCert=regenerateDHCert),
-            CreateProductionEnvFile(user=Constants.WEBSITE_USER,dbUsername=dbUsername,dbPassword=dbPassword,djangoSecretKey=djangoSecretKey,superUsername=adminUser,superUserPassword=adminPassword),
+            CreateProductionEnvFile(user=Constants.WEBSITE_USER,djangoSecretKey=djangoSecretKey,superUsername=adminUser,superUserPassword=adminPassword,allowedHosts=domain),
             CopyOverWebsiteSecrets(user=Constants.WEBSITE_USER, secretsJsonPath=secretsJsonPath, googleServiceKeyPath=googleServiceKeyPath),
             DeleteDevEnv(user=Constants.WEBSITE_USER),
             # Start and stop so the container will be built and migrated but then stop so we can add admin user
+            # Stop first to make sure any existing containers are stopped
+            StopWebsite(user=Constants.WEBSITE_USER),
             RunWebsite(user=Constants.WEBSITE_USER),
         ]
 
