@@ -35,6 +35,7 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+print(ALLOWED_HOSTS)
 
 AUTH_USER_MODEL = "tools.user"
 
