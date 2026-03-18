@@ -41,6 +41,7 @@ services:
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
       DJANGO_SETTINGS_MODULE: settings
       ALLOWED_HOSTS : ${ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS : ${CSRF_TRUSTED_ORIGINS}
     # depends_on:
     #   db:
     #     condition: service_healthy

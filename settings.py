@@ -25,7 +25,8 @@ BASE_DIR = Path(__file__).resolve().parent
 environ.Env.read_env(BASE_DIR / "dev-env.env")
 env = environ.Env(
     DEBUG=(bool,False),
-    ALLOWED_HOSTS=(list,[])
+    ALLOWED_HOSTS=(list,[]),
+    CSRF_TRUSTED_ORIGINS=(list,[])
 )
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -35,7 +36,7 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
-print(ALLOWED_HOSTS)
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 AUTH_USER_MODEL = "tools.user"
 
