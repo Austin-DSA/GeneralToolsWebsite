@@ -356,3 +356,34 @@ class ApproveDelegatedEventForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
         min_length=1
     )
+
+class VotingGuestLoginForm(forms.Form):
+    class Keys:
+        EMAIL = "email"
+        NAME = "name"
+    
+    email = forms.EmailField(
+        label="DSA Email Address",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}), 
+        required=True
+        )
+    name = forms.CharField(
+        label="Name",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+        required = True
+    )
+
+class VoteResolutionForm(forms.Form):
+    class Keys:
+        VOTE = "vote"
+    class VoteChoices:
+        YES = "Yes"
+        NO = "No"
+        ABSTAIN = "Abstain"
+
+        CHOICES = [YES,NO,ABSTAIN]
+
+    vote = forms.ChoiceField(
+        choices=VoteChoices.CHOICES,
+        label="Should Austin DSA Adopt this Resolution?"
+        )

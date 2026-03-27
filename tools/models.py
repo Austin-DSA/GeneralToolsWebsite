@@ -4,6 +4,8 @@ from .EventAutomation.EventAutomationDriver import EventInfo
 import datetime
 import pytz
 from django.urls import reverse
+from django.core.validators import URLValidator
+from django.utils.translation import gettext_lazy
 from . import utils
 
 class User(AbstractUser):
@@ -45,10 +47,10 @@ class PostedEvents(models.Model):
     datePublished = models.DateTimeField()
 
     # Not sure how big the links can get so using text fields
-    anManageLink = models.TextField()
-    anShareLink = models.TextField()
-    gCalLink = models.TextField()
-    zoomLink = models.TextField()
+    anManageLink = models.TextField(validators=[URLValidator()])
+    anShareLink = models.TextField(validators=[URLValidator()])
+    gCalLink = models.TextField(validators=[URLValidator()])
+    zoomLink = models.TextField(validators=[URLValidator()])
     zoomAccount = models.CharField(max_length=100)
     zoomRequired = models.BooleanField(default=True)
 
@@ -221,3 +223,32 @@ class DelegatedEvents(models.Model):
                          instructions=self.instructions,
                          country=self.country,
                          zoomRequired=self.zoomRequired)
+
+
+class Resolution(models.Model):
+    name = models.CharField(max_length=500)
+    # Using a text field with a url validator becuase don't want a max length requirement like URLField has
+    textUrl = models.TextField(validators=[URLValidator()])
+    votingOpen = models.DateTimeField()
+    votingClose = models.DateTimeField()
+
+    def isOpen(self):
+        now = datetime.datetime.utcnow()
+        return now > self.votingOpen and now < self.votingClose
+
+class ResolutionVotes(models.Model):
+    class VoteChoices(models.IntegerChoices):
+        ABSTAIN = 0, gettext_lazy("Abstain")
+        NO = 1, gettext_lazy("No")
+        YES = 2, gettext_lazy("Yes")
+
+    vote = models.IntegerField(choices=VoteChoices, default=0)
+    resolution = models.ForeignKey(Resolution, on_delete=models.SET_NULL)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True) # Since we have guest votes the user can be null
+    guestEmail = models.EmailField(blank=True)
+    guestName = models.CharField(max_length=500, blank=True)
+
+    casted = models.DateTimeField()
+    verified = models.BooleanField(default=False)
+    whenVerified = models.DateTimeField()
+    verificationError = models.TextField(blank=True)
