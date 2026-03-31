@@ -527,18 +527,19 @@ class EventConfirmationScreen(Screen):
 class ANAutomator:
     @staticmethod
     def getDriver():
+        options = selenium.webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
         if settings.DEBUG:
-            options = selenium.webdriver.ChromeOptions()
-            options.add_argument("--headless")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--disable-gpu")
             driver = selenium.webdriver.Chrome(options)
             driver.implicitly_wait(2)
             return driver
         else:
             driver = selenium.webdriver.Remote(
-                command_executor="https://chrome:4444/wd/hub"
+                command_executor="https://chrome:4444/wd/hub",
+                options=options
                 )
             return driver
 
