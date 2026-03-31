@@ -12,9 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import environ
-# Technically not great to do this cause of circular import but should be fine
-# Doing this instead of duplicating secrets in the ENV and the Secrets.json
-import tools.SecretManager.SecretManager
+
 
 # To add future settings you will want to update the dev-env.env file for debug builds and then update deployment script to include new ENV variables for production
 
@@ -158,6 +156,9 @@ LOGGING = {
 }
 
 # Email
+# Technically not great to do this cause of circular import but should be fine
+# Doing this instead of duplicating secrets in the ENV and the Secrets.json
+import tools.SecretManager.SecretManager
 EMAIL_BACKEND = env("EMAIL_BACKEND")
 EMAIL_HOST = env("EMAIL_HOST")
 EMAIL_PORT = env("EMAIL_PORT")
