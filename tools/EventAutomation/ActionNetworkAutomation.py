@@ -525,7 +525,7 @@ class EventConfirmationScreen(Screen):
 
 
 class ANAutomator:
-    @classmethod
+    @staticmethod
     def getDriver():
         if settings.DEBUG:
             options = selenium.webdriver.ChromeOptions()
