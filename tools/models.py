@@ -14,9 +14,9 @@ class EventOwners(models.Model):
     name = models.CharField(max_length=100, unique=True)
     authorizers = models.ManyToManyField(User, related_name="eventAuthorizations")
     expiration = models.DateTimeField()
-    
+    isPermanent = models.BooleanField(default=False)
     def isActive(self):
-        if datetime.datetime.now(datetime.UTC) < self.expiration:
+        if self.isPermanent or datetime.datetime.now(datetime.UTC) < self.expiration:
             return True
         return False
 
