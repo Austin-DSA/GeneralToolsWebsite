@@ -166,3 +166,4 @@ EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserNa
 EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
 # EMAIL_USE_TLS = True
 EMAIL_USE_SSL = True
+EMAIL_FAIL_SILENTLY = False 
