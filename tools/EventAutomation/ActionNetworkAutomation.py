@@ -538,7 +538,7 @@ class ANAutomator:
             return driver
         else:
             driver = selenium.webdriver.Remote(
-                command_executor="https://chrome:4444/wd/hub",
+                command_executor="http://chrome:4444/wd/hub",
                 options=options
                 )
             return driver
