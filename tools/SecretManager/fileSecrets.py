@@ -55,7 +55,7 @@ def ANPassword():
 
 
 def GoogleServiceKeyPath():
-    return os.path.dirname(os.path.join(os.path.abspath(__file__), "serviceKey.json"))
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "serviceKey.json")
 
 
 def GoogleCalId():
