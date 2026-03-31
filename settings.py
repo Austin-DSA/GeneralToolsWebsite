@@ -31,7 +31,7 @@ env = environ.Env(
     # Only used for dev/prod, would need to do more work generally to support non-gmail accounts since we are already tied to gCal
     EMAIL_BACKEND=(str,"django.core.mail.backends.smtp.EmailBackend"),
     EMAIL_HOST=(str,"smtp.gmail.com"),
-    EMAIL_PORT=(int,465)
+    EMAIL_PORT=(int,587)
 )
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -164,6 +164,6 @@ EMAIL_HOST = env("EMAIL_HOST")
 EMAIL_PORT = env("EMAIL_PORT")
 EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserName()
 EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
-# EMAIL_USE_TLS = True
-EMAIL_USE_SSL = True
+EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = True
 EMAIL_FAIL_SILENTLY = False 
