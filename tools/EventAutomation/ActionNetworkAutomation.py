@@ -9,7 +9,7 @@ import abc
 import logging
 import tzlocal
 import pytz
-
+import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
 
@@ -526,6 +526,24 @@ class EventConfirmationScreen(Screen):
 
 class ANAutomator:
     @classmethod
+    def getDriver():
+        if settings.DEBUG:
+            options = selenium.webdriver.ChromeOptions()
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--disable-gpu")
+            driver = selenium.webdriver.Chrome(options)
+            driver.implicitly_wait(2)
+            return driver
+        else:
+            driver = selenium.webdriver.Remote(
+                command_executor="https://chrome:4444/wd/hub",
+                desired_capabilities=selenium.webdriver.DesiredCapabilities.CHROME
+            )
+            return driver
+
+    @classmethod
     def createEvent(
         self, eventInfo: EventInfo, config: ANAutomatorConfig
     ) -> EventConfirmationInfo:
@@ -541,66 +559,70 @@ class ANAutomator:
         eventInfo.endTime = noTzEnd
 
         logger.info("ANAutomator: Starting Driver")
-        options = selenium.webdriver.ChromeOptions()
-        options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--disable-gpu")
-        driver = selenium.webdriver.Chrome(options)
-        driver.implicitly_wait(2)
-        driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+        # options = selenium.webdriver.ChromeOptions()
+        # options.add_argument("--headless")
+        # options.add_argument("--no-sandbox")
+        # options.add_argument("--disable-dev-shm-usage")
+        # options.add_argument("--disable-gpu")
+        # driver = selenium.webdriver.Chrome(options)
+        # driver.implicitly_wait(2)
+        # driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+        driver = ANAutomator.getDriver()
+        try:
 
-        logger.info("ANAutomator: Checking if we need to login")
-        loginScreen = LoginScreen.tryToCreate(driver)
-        if loginScreen is not None:
-            logger.info("ANAutomator: LoginScreen detected, logging in")
-            loginScreen.login(email=config.email, password=config.password)
-            # Logging in may bring the user to not the dashboard if they have multiple groups
-            # Instead of creating a new screen for that instead we can leverage we have the auth token
-            # So just regetting the url should be enough
-            driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+            logger.info("ANAutomator: Checking if we need to login")
+            loginScreen = LoginScreen.tryToCreate(driver)
+            if loginScreen is not None:
+                logger.info("ANAutomator: LoginScreen detected, logging in")
+                loginScreen.login(email=config.email, password=config.password)
+                # Logging in may bring the user to not the dashboard if they have multiple groups
+                # Instead of creating a new screen for that instead we can leverage we have the auth token
+                # So just regetting the url should be enough
+                driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
 
-        dashboardScreen = DashboardScreen.tryToCreate(driver)
-        if dashboardScreen is None:
-            logger.error("ANAutomator: Can't find dashboard screen")
-            raise Exception("Not in Dashboard")
+            dashboardScreen = DashboardScreen.tryToCreate(driver)
+            if dashboardScreen is None:
+                logger.error("ANAutomator: Can't find dashboard screen")
+                raise Exception("Not in Dashboard")
 
-        logger.info("ANAutomator: Selecting Create Event Item")
-        dashboardScreen.selectFromCreateActionMenu(
-            DashboardScreen.ActionsInCreateActionMenu.EVENT
-        )
+            logger.info("ANAutomator: Selecting Create Event Item")
+            dashboardScreen.selectFromCreateActionMenu(
+                DashboardScreen.ActionsInCreateActionMenu.EVENT
+            )
 
-        editEventScreen = EditEventScreen.tryToCreate(driver)
-        if editEventScreen is None:
-            logger.error("ANAutomator: Can't find edit event screen")
-            raise Exception("Not in edit event screen")
-        logger.info("ANAutomator: Filling out event info")
-        editEventScreen.fillOutEventInfo(eventInfo)
+            editEventScreen = EditEventScreen.tryToCreate(driver)
+            if editEventScreen is None:
+                logger.error("ANAutomator: Can't find edit event screen")
+                raise Exception("Not in edit event screen")
+            logger.info("ANAutomator: Filling out event info")
+            editEventScreen.fillOutEventInfo(eventInfo)
 
-        logger.info("ANAutomator: Moving to action thank you screen")
-        editEventScreen.goToNextStep()
+            logger.info("ANAutomator: Moving to action thank you screen")
+            editEventScreen.goToNextStep()
 
-        editEventThankYouScreen = EditEventThankYouScreen.tryToCreate(driver)
-        if editEventThankYouScreen is None:
-            logger.error("ANAutomator: Can't find edit event thank you screen")
-            raise Exception("Not in edit event thank you screen")
-        logger.info("ANAutomator: Filling out edit event thank you screen")
-        editEventThankYouScreen.addInstructions(eventInfo.insturctions)
+            editEventThankYouScreen = EditEventThankYouScreen.tryToCreate(driver)
+            if editEventThankYouScreen is None:
+                logger.error("ANAutomator: Can't find edit event thank you screen")
+                raise Exception("Not in edit event thank you screen")
+            logger.info("ANAutomator: Filling out edit event thank you screen")
+            editEventThankYouScreen.addInstructions(eventInfo.insturctions)
 
-        logger.info("ANAutomator: Publishing Event")
-        editEventThankYouScreen.publishEvent()
+            logger.info("ANAutomator: Publishing Event")
+            editEventThankYouScreen.publishEvent()
 
-        eventConfirmationScreen = EventConfirmationScreen.tryToCreate(driver)
-        if eventConfirmationScreen is None:
-            logger.error("ANAutomator: Can't find event confirmation screen")
-            raise Exception("Not in event confrimation screen")
-        logger.info("ANAutomator: Getting Event info")
-        eventConfirmInfo = EventConfirmationInfo(
-            eventConfirmationScreen.getManagerLink(),
-            eventConfirmationScreen.getDirectLink(),
-        )
+            eventConfirmationScreen = EventConfirmationScreen.tryToCreate(driver)
+            if eventConfirmationScreen is None:
+                logger.error("ANAutomator: Can't find event confirmation screen")
+                raise Exception("Not in event confrimation screen")
+            logger.info("ANAutomator: Getting Event info")
+            eventConfirmInfo = EventConfirmationInfo(
+                eventConfirmationScreen.getManagerLink(),
+                eventConfirmationScreen.getDirectLink(),
+            )
 
-        logger.info(
-            "ANAutomator: Done creating event, returning info %s", str(eventConfirmInfo)
-        )
-        return eventConfirmInfo
+            logger.info(
+                "ANAutomator: Done creating event, returning info %s", str(eventConfirmInfo)
+            )
+            return eventConfirmInfo
+        finally:
+            driver.quit()

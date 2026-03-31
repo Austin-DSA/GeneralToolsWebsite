@@ -19,7 +19,13 @@ services:
   #     timeout: 5s
   #     retries: 5
   #     start_period: 30s
-
+  chrome:
+        image: selenium/standalone-chrome:latest
+        hostname: chrome
+        networks:
+          - web
+        privileged: true
+        shm_size: 1g
   tools-site:
     restart: unless-stopped
     build:
@@ -43,7 +49,8 @@ services:
       DJANGO_SETTINGS_MODULE: settings
       ALLOWED_HOSTS : ${ALLOWED_HOSTS}
       CSRF_TRUSTED_ORIGINS : ${CSRF_TRUSTED_ORIGINS}
-    # depends_on:
+    depends_on:
+      - chrome
     #   db:
     #     condition: service_healthy
   
