@@ -543,6 +543,7 @@ class ANAutomator:
         logger.info("ANAutomator: Starting Driver")
         options = selenium.webdriver.ChromeOptions()
         options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
         driver = selenium.webdriver.Chrome(options)
         driver.implicitly_wait(2)
         driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)

@@ -20,6 +20,17 @@ COPY requirements.txt /app/
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Set environment variable to prevent interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install dependencies and Chrome
+RUN apt-get update && apt-get install -y wget gnupg && \
+    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    sh -c 'echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list' && \
+    apt-get update && \
+    apt-get install -y google-chrome-stable && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Stage 2: Production stage
 FROM python:3.13-slim
 
