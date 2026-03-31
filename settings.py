@@ -164,4 +164,5 @@ EMAIL_HOST = env("EMAIL_HOST")
 EMAIL_PORT = env("EMAIL_PORT")
 EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserName()
 EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
-EMAIL_USE_TLS = True
+# EMAIL_USE_TLS = True
+EMAIL_USE_SSL = True
