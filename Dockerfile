@@ -43,6 +43,7 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxrandr2 \
     xdg-utils \
+    libglib2.0-0 \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 # Install dependencies and Chrome
