@@ -4,7 +4,6 @@ from ..EventAutomation.GoogleCalendarAPI import GoogleCalendarConfig
 
 import settings
 
-# TODO: Actually have this store/retrieve secrets
 if settings.DEBUG:
     from .devSecrets import *
 else:

@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 import environ
+# Technically not great to do this cause of circular import but should be fine
+# Doing this instead of duplicating secrets in the ENV and the Secrets.json
+import tools.SecretManager.SecretManager
 
 # To add future settings you will want to update the dev-env.env file for debug builds and then update deployment script to include new ENV variables for production
 
@@ -26,7 +29,11 @@ environ.Env.read_env(BASE_DIR / "dev-env.env")
 env = environ.Env(
     DEBUG=(bool,False),
     ALLOWED_HOSTS=(list,[]),
-    CSRF_TRUSTED_ORIGINS=(list,[])
+    CSRF_TRUSTED_ORIGINS=(list,[]),
+    # Only used for dev/prod, would need to do more work generally to support non-gmail accounts since we are already tied to gCal
+    EMAIL_BACKEND=(str,"django.core.mail.backends.smtp.EmailBackend"),
+    EMAIL_HOST=(str,"smtp.gmail.com"),
+    EMAIL_PORT=(int,587)
 )
 
 # SECURITY WARNING: keep the secret key used in production secret!
@@ -149,3 +156,11 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+# Email
+EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env("EMAIL_PORT")
+EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserName()
+EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
+EMAIL_USE_TLS = True
