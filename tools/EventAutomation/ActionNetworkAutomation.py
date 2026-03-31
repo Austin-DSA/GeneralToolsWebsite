@@ -566,8 +566,9 @@ class ANAutomator:
         # options.add_argument("--disable-gpu")
         # driver = selenium.webdriver.Chrome(options)
         # driver.implicitly_wait(2)
-        # driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+        
         driver = ANAutomator.getDriver()
+        driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
         try:
 
             logger.info("ANAutomator: Checking if we need to login")
