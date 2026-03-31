@@ -50,7 +50,7 @@ RUN apt-get update && apt-get install -y \
 #RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - &&  echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list
 RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --no-tty --dearmor -o /usr/share/keyrings/google-linux-keyring.gpg
 RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-RUN apt-get update && apt-get install -y google-chrome-stable --fix-missing && rm -rf /var/lib/apt/lists/*/*
+RUN apt-get update && apt-get install -y google-chrome-stable && rm -rf /var/lib/apt/lists/*/*
 
 # Stage 2: Production stage
 FROM python:3.13-slim
