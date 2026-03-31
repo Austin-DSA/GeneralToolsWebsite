@@ -31,7 +31,7 @@ env = environ.Env(
     # Only used for dev/prod, would need to do more work generally to support non-gmail accounts since we are already tied to gCal
     EMAIL_BACKEND=(str,"django.core.mail.backends.smtp.EmailBackend"),
     EMAIL_HOST=(str,"smtp.gmail.com"),
-    EMAIL_PORT=(int,587)
+    EMAIL_PORT=(int,465)
 )
 
 # SECURITY WARNING: keep the secret key used in production secret!
