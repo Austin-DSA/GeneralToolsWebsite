@@ -134,23 +134,24 @@ def new_event(request):
             e.save()
 
             # Send email
-            try:
-                # TODO: potentially replace with Django built in mail module
-                messageText = f""" Your event {eventInfo.title} was published successfully. Here are the links.
-                Zoom Link ({result.zoomAccount}): {result.zoomLink}
-                AN Share Link: {result.anShareLink}
-                AN Manage Link: {result.anManageLink}
-                Google Calendar Link: {result.gCalLink}"""
-                EmailApi.sendEmailFromWebsiteAccount(
-                    toAddress=request.user.email,
-                    subject=f"Published {eventInfo.title} event succesfully",
-                    messageText=messageText,
-                )
-            except Exception as err:
-                logger.error(
-                    "PublishEvent: Failed to send confrimation email due to exception"
-                )
-                logger.exception(err)
+            # TODO: SMTP email is broken
+            # try:
+            #     # TODO: potentially replace with Django built in mail module
+            #     messageText = f""" Your event {eventInfo.title} was published successfully. Here are the links.
+            #     Zoom Link ({result.zoomAccount}): {result.zoomLink}
+            #     AN Share Link: {result.anShareLink}
+            #     AN Manage Link: {result.anManageLink}
+            #     Google Calendar Link: {result.gCalLink}"""
+            #     EmailApi.sendEmailFromWebsiteAccount(
+            #         toAddress=request.user.email,
+            #         subject=f"Published {eventInfo.title} event succesfully",
+            #         messageText=messageText,
+            #     )
+            # except Exception as err:
+            #     logger.error(
+            #         "PublishEvent: Failed to send confrimation email due to exception"
+            #     )
+            #     logger.exception(err)
             return render(
                 request, "tools/new-event/published.html", dataclasses.asdict(result)
             )
