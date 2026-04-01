@@ -521,16 +521,25 @@ class EditEventScreen(Screen):
 class EditEventThankYouScreen(Screen):
     class TEXTS:
         INSTRUCTIONS = "Instructions For Your Attendees"
+        NEXT_STEP = "Save and go to Next Step"
 
     class IDs:
         # The actual text area isn't editable as it is hidden. I don't like using this id since it looks auto-generated and therefore could become useless but works for now
         INSTRUCTIONS_INPUT = "redactor-uuid-0"  # "event-description"
         PUBLISH_BUTTON = "event-publish_link_button"
+        PUBLISH_BUTTON_2 = "event-link_button_for_modal"
 
     def _publishButton(self):
+        try:
+            return self.driver.find_element(
+                By.ID, EditEventThankYouScreen.IDs.PUBLISH_BUTTON
+            )
+        except:
+            pass
+        logger.info("EditEventThankYouScreen: Publish Event button id wasn't found trying backup")
         return self.driver.find_element(
-            By.ID, EditEventThankYouScreen.IDs.PUBLISH_BUTTON
-        )
+                By.ID, EditEventThankYouScreen.IDs.PUBLISH_BUTTON_2
+            )
 
     def _instructionsInputBox(self):
         return self.driver.find_element(
