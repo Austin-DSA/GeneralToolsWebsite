@@ -646,7 +646,7 @@ class ANAutomator:
                 # Logging in may bring the user to not the dashboard if they have multiple groups
                 # Instead of creating a new screen for that instead we can leverage we have the auth token
                 # So just regetting the url should be enough
-                driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+                driver.get(ManageDashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
 
             # See if we are already on the managing dash board
             # This will happen if the account used is a admin
@@ -655,6 +655,7 @@ class ANAutomator:
             if dashboardScreen is None:
                 # Try the participating dash board
                 logger.info("ANAutomator: Couldn't find manage dashboard looking for participant dashboard")
+                driver.get(ParticipateDashBoardScreen.Constants.AUSTIN_DSA_DASHBOARD)
                 dashboardScreen = ParticipateDashBoardScreen.tryToCreate(driver)
                 if dashboardScreen is None:
                     logger.error("ANAutomator: Can't find dashboard screen")
