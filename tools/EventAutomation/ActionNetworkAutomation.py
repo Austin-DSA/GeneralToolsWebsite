@@ -509,7 +509,7 @@ class EditEventScreen(Screen):
         try:
             sponsorSelect = self._sponsorSelect()
             logger.info("EditEventScreen: Setting sponsor as %s", EditEventScreen.Constants.SPONSOR)
-            sponsorSelect.select_by_value(EditEventScreen.Constants.SPONSOR)
+            sponsorSelect.select_by_visible_text(EditEventScreen.Constants.SPONSOR)
         except:
             logger.info("EditEventScreen: Couldn't find sponsor select. Moving on.")
 
