@@ -134,22 +134,22 @@ class ParticipateDashBoardScreen(Screen):
 
     def _createActionMenu(self):
         return self.driver.find_element(
-            By.ID, DashboardScreen.IDs.CREATE_ACTION_MENU_ID
+            By.ID, ParticipateDashBoardScreen.IDs.CREATE_ACTION_MENU_ID
         )
 
     def exists(self) -> bool:
         try:
             containgDiv = self.driver.find_element(
-                By.CLASS_NAME, DashboardScreen.Classes.MANAGING_TITLE
+                By.CLASS_NAME, ParticipateDashBoardScreen.Classes.MANAGING_TITLE
             )
             h6s = containgDiv.find_elements(By.TAG_NAME, "h6")
             found = False
             for h6 in h6s:
-                if h6.text.lower() == DashboardScreen.Texts.CURRENTLY_PARTICIPATING.lower():
+                if h6.text.lower() == ParticipateDashBoardScreen.Texts.CURRENTLY_PARTICIPATING.lower():
                     found = True
                     break
             if not found:
-                logger.error("DashboardScreen: Couldn't find currently managing text")
+                logger.error("ParticipateDashBoardScreen: Couldn't find currently managing text")
                 return False
 
             h2s = containgDiv.find_elements(By.TAG_NAME, "h2")
@@ -160,14 +160,14 @@ class ParticipateDashBoardScreen(Screen):
                     break
             if not found:
                 logger.error(
-                    "DashboardScreen: Couldn't find group text %s", self.groupText
+                    "ParticipateDashBoardScreen: Couldn't find group text %s", self.groupText
                 )
                 return False
 
-            logger.info("DashboardScreen: Exists")
+            logger.info("ParticipateDashBoardScreen: Exists")
             return True
         except Exception as e:
-            logger.info("DashboardScreen: Does not exist %s", str(e))
+            logger.info("ParticipateDashBoardScreen: Does not exist %s", str(e))
             return False
 
     def selectFromCreateActionMenu(self, action):
@@ -199,22 +199,22 @@ class ManageDashboardScreen(Screen):
 
     def _createActionMenu(self):
         return self.driver.find_element(
-            By.ID, DashboardScreen.IDs.CREATE_ACTION_MENU_ID
+            By.ID, ManageDashboardScreen.IDs.CREATE_ACTION_MENU_ID
         )
 
     def exists(self) -> bool:
         try:
             containgDiv = self.driver.find_element(
-                By.CLASS_NAME, DashboardScreen.Classes.MANAGING_TITLE
+                By.CLASS_NAME, ManageDashboardScreen.Classes.MANAGING_TITLE
             )
             h6s = containgDiv.find_elements(By.TAG_NAME, "h6")
             found = False
             for h6 in h6s:
-                if h6.text.lower() == DashboardScreen.Texts.CURRENTLY_MANAGING.lower():
+                if h6.text.lower() == ManageDashboardScreen.Texts.CURRENTLY_MANAGING.lower():
                     found = True
                     break
             if not found:
-                logger.error("DashboardScreen: Couldn't find currently managing text")
+                logger.error("ManageDashboardScreen: Couldn't find currently managing text")
                 return False
 
             h2s = containgDiv.find_elements(By.TAG_NAME, "h2")
@@ -225,14 +225,14 @@ class ManageDashboardScreen(Screen):
                     break
             if not found:
                 logger.error(
-                    "DashboardScreen: Couldn't find group text %s", self.groupText
+                    "ManageDashboardScreen: Couldn't find group text %s", self.groupText
                 )
                 return False
 
-            logger.info("DashboardScreen: Exists")
+            logger.info("ManageDashboardScreen: Exists")
             return True
         except Exception as e:
-            logger.info("DashboardScreen: Does not exist %s", str(e))
+            logger.info("ManageDashboardScreen: Does not exist %s", str(e))
             return False
 
     def selectFromCreateActionMenu(self, action):
@@ -663,7 +663,7 @@ class ANAutomator:
 
             logger.info("ANAutomator: Selecting Create Event Item")
             dashboardScreen.selectFromCreateActionMenu(
-                DashboardScreen.ActionsInCreateActionMenu.EVENT
+                ManageDashboardScreen.ActionsInCreateActionMenu.EVENT
             )
 
             editEventScreen = EditEventScreen.tryToCreate(driver)
