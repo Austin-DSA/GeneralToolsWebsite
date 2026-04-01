@@ -541,6 +541,7 @@ class ANAutomator:
                 command_executor="http://chrome:4444/wd/hub",
                 options=options
                 )
+            driver.implicitly_wait(2)
             return driver
 
     @classmethod

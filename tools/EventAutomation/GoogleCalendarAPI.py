@@ -124,8 +124,6 @@ class GoogleCalendarAPI:
                 f"GoogleCalendarAPI: Service Key path does not exist {config.serviceKeyPath}"
             )
         self.config = config
-        with open(config.serviceKeyPath,"r") as f:
-            logger.info("Service Key File: %s", f.read())
         self.serviceAccountCreds = (
             google.oauth2.service_account.Credentials.from_service_account_file(
                 self.config.serviceKeyPath, scopes=Constants.SCOPES
