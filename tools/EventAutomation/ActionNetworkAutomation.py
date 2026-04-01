@@ -507,7 +507,7 @@ class EditEventScreen(Screen):
             self._endDateInputBox().click()
             self._fillOutDatePicker(eventInfo.endTime, self._endDateTimePicker())
         try:
-            sponsorSelect = self._sponsorSelect()
+            sponsorSelect = selenium.webdriver.support.select.Select(self._sponsorSelect())
             logger.info("EditEventScreen: Setting sponsor as %s", EditEventScreen.Constants.SPONSOR)
             sponsorSelect.select_by_visible_text(EditEventScreen.Constants.SPONSOR)
         except Exception as e:
