@@ -528,6 +528,7 @@ class EditEventThankYouScreen(Screen):
         INSTRUCTIONS_INPUT = "redactor-uuid-0"  # "event-description"
         PUBLISH_BUTTON = "event-publish_link_button"
         PUBLISH_BUTTON_2 = "event-link_button_for_modal"
+        PUBLISH_FINAL = "publish_link_modal"
 
     def _publishButton(self):
         try:
@@ -539,7 +540,12 @@ class EditEventThankYouScreen(Screen):
         logger.info("EditEventThankYouScreen: Publish Event button id wasn't found trying backup")
         return self.driver.find_element(
                 By.ID, EditEventThankYouScreen.IDs.PUBLISH_BUTTON_2
-            )
+            )  
+    
+    def _secondPublish(self):
+        return self.driver.find_element(
+            By.ID, EditEventThankYouScreen.IDs.PUBLISH_FINAL
+        )
 
     def _instructionsInputBox(self):
         return self.driver.find_element(
@@ -569,6 +575,8 @@ class EditEventThankYouScreen(Screen):
 
     def publishEvent(self):
         self._publishButton().click()
+        # There is now an email wrapper pop up
+        self._secondPublish().click()
 
 
 class EventConfirmationScreen(Screen):
