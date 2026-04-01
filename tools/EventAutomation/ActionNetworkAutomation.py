@@ -242,6 +242,8 @@ class ManageDashboardScreen(Screen):
 
 
 class EditEventScreen(Screen):
+    class Constants:
+        SPONSOR = "Austin DSA"
     class IDs:
         TITLE_INPUT = "event-title"
 
@@ -262,6 +264,8 @@ class EditEventScreen(Screen):
         DESCRIPTION_INPUT = "redactor-uuid-0"  # "event-description"
 
         NEXT_STEP_BUTTON = "event-publish_link_button"
+
+        SPONSER_SELECT = "petition-group-select"
 
     class Classes:
         DATETIME_PICKER = "datetimepicker-days"
@@ -332,6 +336,9 @@ class EditEventScreen(Screen):
 
     def _nextStepButton(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.NEXT_STEP_BUTTON)
+
+    def _sponsorSelect(self):
+        return self.driver.find_element(By.ID, EditEventScreen.IDs.SPONSER_SELECT)
 
     def exists(self) -> bool:
         try:
@@ -499,6 +506,12 @@ class EditEventScreen(Screen):
             self._hasEndTimeICheckBox().click()
             self._endDateInputBox().click()
             self._fillOutDatePicker(eventInfo.endTime, self._endDateTimePicker())
+        try:
+            sponsorSelect = self._sponsorSelect()
+            logger.info("EditEventScreen: Setting sponsor as %s", EditEventScreen.Constants.SPONSOR)
+            sponsorSelect.select_by_value(EditEventScreen.Constants.SPONSOR)
+        except:
+            logger.info("EditEventScreen: Couldn't find sponsor select. Moving on.")
 
     def goToNextStep(self):
         self._nextStepButton().click()
