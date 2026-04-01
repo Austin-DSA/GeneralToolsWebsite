@@ -510,7 +510,8 @@ class EditEventScreen(Screen):
             sponsorSelect = self._sponsorSelect()
             logger.info("EditEventScreen: Setting sponsor as %s", EditEventScreen.Constants.SPONSOR)
             sponsorSelect.select_by_visible_text(EditEventScreen.Constants.SPONSOR)
-        except:
+        except Exception as e:
+            logger.info("EditEventScreen: Problem finding sponsor %s", str(e))
             logger.info("EditEventScreen: Couldn't find sponsor select. Moving on.")
 
     def goToNextStep(self):
