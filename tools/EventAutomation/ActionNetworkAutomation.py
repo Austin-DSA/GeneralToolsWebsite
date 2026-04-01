@@ -110,8 +110,73 @@ class LoginScreen(Screen):
 
         submitButton.click()
 
+# For organizer accounts
+class ParticipateDashBoardScreen(Screen):
+    class Constants:
+        AUSTIN_DSA_DASHBOARD = "https://admin.actionnetwork.org/groups/austin-dsa/participate"
 
-class DashboardScreen(Screen):
+    class IDs:
+        CREATE_ACTION_MENU_ID = "group_create_action"
+        TABS = "tabs"
+
+    class Classes:
+        MANAGING_TITLE = "managing_title"
+
+    class Texts:
+        CURRENTLY_PARTICIPATING = "Currently Participating In Group:"
+
+    class ActionsInCreateActionMenu:
+        EVENT = "Event"
+
+    def __init__(self, driver, groupText="Austin DSA"):
+        super().__init__(driver)
+        self.groupText = groupText
+
+    def _createActionMenu(self):
+        return self.driver.find_element(
+            By.ID, DashboardScreen.IDs.CREATE_ACTION_MENU_ID
+        )
+
+    def exists(self) -> bool:
+        try:
+            containgDiv = self.driver.find_element(
+                By.CLASS_NAME, DashboardScreen.Classes.MANAGING_TITLE
+            )
+            h6s = containgDiv.find_elements(By.TAG_NAME, "h6")
+            found = False
+            for h6 in h6s:
+                if h6.text.lower() == DashboardScreen.Texts.CURRENTLY_PARTICIPATING.lower():
+                    found = True
+                    break
+            if not found:
+                logger.error("DashboardScreen: Couldn't find currently managing text")
+                return False
+
+            h2s = containgDiv.find_elements(By.TAG_NAME, "h2")
+            found = False
+            for h2 in h2s:
+                if h2.text.lower() == self.groupText.lower():
+                    found = True
+                    break
+            if not found:
+                logger.error(
+                    "DashboardScreen: Couldn't find group text %s", self.groupText
+                )
+                return False
+
+            logger.info("DashboardScreen: Exists")
+            return True
+        except Exception as e:
+            logger.info("DashboardScreen: Does not exist %s", str(e))
+            return False
+
+    def selectFromCreateActionMenu(self, action):
+        createActionMenu = self._createActionMenu()
+        selectedAction = createActionMenu.find_element(By.LINK_TEXT, action)
+        selectedAction.click()
+
+# For manager accounts
+class ManageDashboardScreen(Screen):
     class Constants:
         AUSTIN_DSA_DASHBOARD = "https://actionnetwork.org/groups/austin-dsa/manage"
 
@@ -569,7 +634,8 @@ class ANAutomator:
         # driver.implicitly_wait(2)
         
         driver = ANAutomator.getDriver()
-        driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+        # Go here cause will redirect
+        driver.get(ManageDashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
         try:
 
             logger.info("ANAutomator: Checking if we need to login")
@@ -582,10 +648,17 @@ class ANAutomator:
                 # So just regetting the url should be enough
                 driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
 
-            dashboardScreen = DashboardScreen.tryToCreate(driver)
+            # See if we are already on the managing dash board
+            # This will happen if the account used is a admin
+            # If it fails try to navigate to participating dashboard
+            dashboardScreen = ManageDashboardScreen.tryToCreate(driver)
             if dashboardScreen is None:
-                logger.error("ANAutomator: Can't find dashboard screen")
-                raise Exception("Not in Dashboard")
+                # Try the participating dash board
+                logger.info("ANAutomator: Couldn't find manage dashboard looking for participant dashboard")
+                dashboardScreen = ParticipateDashBoardScreen.tryToCreate(driver)
+                if dashboardScreen is None:
+                    logger.error("ANAutomator: Can't find dashboard screen")
+                    raise Exception("Not in Dashboard")
 
             logger.info("ANAutomator: Selecting Create Event Item")
             dashboardScreen.selectFromCreateActionMenu(
