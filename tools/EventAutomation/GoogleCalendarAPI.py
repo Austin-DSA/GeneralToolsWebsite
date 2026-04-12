@@ -37,7 +37,7 @@ class Event:
     start: datetime.datetime
     end: datetime.datetime  # Technically end is optional but we will require all events have a specific end
     description: str
-    location: typing.Optional[str]
+    location: str | None
     link: typing.Optional[
         str
     ] = None  # Not writeable so we don't need to serialize to the API just from
@@ -114,7 +114,7 @@ class GoogleCalendarConfig:
 # 5. Choose an account it can delegate that has access to calendar
 class GoogleCalendarAPI:
     def __init__(self, config: GoogleCalendarConfig):
-        logger.info("GoogleCalendarAPI: Logging in with provided credential file")
+        logger.info("GoogleCalendarAPI: Logging in with provided credential file %s", config.serviceKeyPath)
         if not os.path.exists(config.serviceKeyPath):
             logger.error(
                 "GoogleCalendarAPI: Service Key path does not exist %s",

@@ -1,6 +1,8 @@
 {% extends "base.html" %} {% block page_content %}
-
-<h1 class="text-xl py-8">Create an Event</h1>
+<p>
+{% include "tools/common/commonEventDetails.html" %}
+</p>
+<h1 class="text-xl py-8">Approve Delegated Event</h1>
 <form
   action=""
   method="post"
@@ -14,8 +16,7 @@
     <div class="text-danger">{{ field.errors }}</div>
   </div>
   {% endfor %}
-
-  <input
+<input
     type="submit"
     name="submit-new-event"
     value="Submit"

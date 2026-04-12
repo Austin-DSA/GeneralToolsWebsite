@@ -1,0 +1,83 @@
+services:
+  # Don't need to use postgres yet, by using sqlite can use much cheaper machine
+  # Can transition fairly easily if we end up using this enought to require postgres
+  # At that point may make more sense to have a dedicated postgres server machine
+  # db:
+  #   image: postgres:18.3
+  #   restart: unlsess-stopped
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     POSTGRES_DB: generaltoolsdb
+  #     POSTGRES_USER: ${DB_USER}
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U $DB_USER -d generaltoolsdb -h localhost"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
+  chrome:
+        image: selenium/standalone-chrome:latest
+        hostname: chrome
+        privileged: true
+        shm_size: 2g #Should maybe be 2g?
+  tools-site:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/app # Unnecessary?
+      - static_volume:/var/www/tools-website/static
+      - website_data:/data
+    expose:
+      - "8000"
+    environment:
+      DEBUG : 'False'
+      SECRET_KEY : ${SECRET_KEY}
+      # The sqlite database needs to live outside the main django directory since that can be wiped upon upgrade
+      DATABASE_URL: sqlite:////data/db.sqlite3
+      # DATABASE_URL : postgres://${DB_USER}:${DB_PASSWORD}@localhost:5432/generaltoolsdb
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
+      DJANGO_SUPERUSER_EMAIL : ${DJANGO_SUPERUSER_EMAIL}
+      DJANGO_SETTINGS_MODULE: settings
+      ALLOWED_HOSTS : ${ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS : ${CSRF_TRUSTED_ORIGINS}
+    depends_on:
+      - chrome
+    #   db:
+    #     condition: service_healthy
+  
+  webserver:
+    image: nginx:latest
+    container_name: webserver
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-conf:/etc/nginx/conf.d:ro
+      # These binds let the nginx sever see the SSL certs
+      - type: bind
+        source: /etc/letsencrypt
+        target: /etc/letsencrypt
+        read_only: true
+      - type: bind
+        source: /etc/ssl/certs
+        target: /etc/ssl/certs
+        read_only: true
+        # Connects the nginx container to the django container for static files
+      - static_volume:/var/www/tools-website/static
+    # This is to force nginx to reload every 6 hours so that the SSL certs can be renewed
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    depends_on:
+      - tools-site
+
+volumes:
+  postgres_data:
+  static_volume:
+  website_data:

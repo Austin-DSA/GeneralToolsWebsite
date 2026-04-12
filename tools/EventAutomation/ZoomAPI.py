@@ -52,6 +52,9 @@ class Constants:
     class Meetings:
         def MEETING_ENDPOINT(userId: str) -> str:
             return f"https://api.zoom.us/v2/users/{userId}/meetings"
+        
+        def MEETING_DELETE_ENDPOINT(meetingId: int) -> str:
+            return f"https://api.zoom.us/v2/meetings/{meetingId}"
 
         QUERY_PARAM_FROM_DATE = "from"
         QUERY_PARAM_TO_DATE = "to"
@@ -134,7 +137,6 @@ class ZoomConfig:
 
 
 # TODO: Handle Bad Responses gracefully
-
 
 class ZoomAPI:
     def __init__(self, config: ZoomConfig) -> None:
@@ -434,13 +436,19 @@ class ZoomAPI:
         return results
 
     @_accessTokenRequired
+    def deleteMeeting(self, id: int) :
+        logger.info("ZoomAPI: Deleteing meeting %d", id)
+        req = requests.delete(Constants.Meetings.MEETING_DELETE_ENDPOINT(id), headers=self._headersForRequest())
+        req.raise_for_status()
+
+    @_accessTokenRequired
     def createMeeting(
         self,
         title: str,
         start: datetime.datetime,
         duration: datetime.timedelta,
         user: ZoomUser,
-    ) -> str:
+    ) -> typing.Tuple[str,int]:
         if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
             logger.error(
                 "ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object."
@@ -470,4 +478,5 @@ class ZoomAPI:
         )
         req.raise_for_status()
         logger.info("ZoomAPI: Created meeting")
-        return req.json()[Constants.Meetings.RESPONSE_JOIN_URL_KEY]
+        response = req.json()
+        return (response[Constants.Meetings.RESPONSE_JOIN_URL_KEY], response[Constants.Meetings.RESPONSE_ID_KEY])

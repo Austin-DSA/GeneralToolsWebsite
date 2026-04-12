@@ -22,32 +22,31 @@ class Conflict:
     title: str
     start: datetime.datetime
     end: datetime.datetime
-    zoomUser: typing.Optional[str]
+    zoomUser: str | None
 
 
 @dataclasses.dataclass
 class Result:
     class ResultType:
         PUBLISHED = 0
-        UNRESOLVEABLE_CONFLICT = (
-            1  # A conflict that can't be ignored, aka a zoom conflict
-        )
+        UNRESOLVEABLE_CONFLICT = 1  # A conflict that can't be ignored, aka a zoom conflict
         CONFLICT = 2  # A conflict that could be ignored if needed, like a gCal
-        UNEXPECTED = 3
+        NO_CONFLICTS = 3 # For when we are only checking if there are conflicts
+        UNEXPECTED = 4
 
     type: int
     # Results if valid, if UNKOWN occurs, some of these results may be filled and the caller should check
-    anManageLink: typing.Optional[str] = None
-    anShareLink: typing.Optional[str] = None
-    gCalLink: typing.Optional[str] = None
-    zoomLink: typing.Optional[str] = None
-    zoomAccount: typing.Optional[str] = None
+    anManageLink: str | None = None
+    anShareLink: str | None = None
+    gCalLink: str | None = None
+    zoomLink: str | None = None
+    zoomAccount: str | None = None
 
     # Results if there is a conflict
     conflicts: typing.List[Conflict] = dataclasses.field(default_factory=list)
 
     # Error for unexpected
-    errorStr: typing.Optional[str] = None
+    errorStr: str | None = None
 
     def valid(self) -> bool:
         return self.type == Result.ResultType.PUBLISHED
@@ -69,6 +68,7 @@ class EventInfo:
     instructions: str = ""
     country: str = "US"
 
+    zoomRequired: bool  = True
 
 @dataclasses.dataclass
 class Config:
@@ -77,12 +77,13 @@ class Config:
     gCalConfig: GoogleCalendarAPI.GoogleCalendarConfig
     # This should be used to force a publish after showing the user the potential conflicts
     ignoreResolveableConflicts: bool = False
+    onlyCheckConflicts: bool = False
 
 
-# TODO: Handle partial results
 # Shouldn't throw an exception
 def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
     result = Result(type=-1)
+    cleanUpOnError = []
     try:
         # Guards
         if (
@@ -111,32 +112,34 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
                 "EventPublisher: eventInfo.end must be after eventInfo.start"
             )
 
-        # Check for conflicts on Zoom
-        zoomApi = ZoomAPI.ZoomAPI(config.zoomConfig)
-        availablility = zoomApi.getAccountsAndAvailablilityForTime(
-            eventInfo.start, eventInfo.end - eventInfo.start
-        )
-        zoomAccount = None
         zoomConflicts = []
-        for (account, conflicts) in availablility:
-            if len(conflicts) == 0:
-                logger.info(
-                    "EventPublisher: Found available zoom account %s", account.email
-                )
-                zoomAccount = account
-                break
-            zoomConflicts.extend(
-                [
-                    Conflict(
-                        type=Conflict.ConflictType.ZOOM,
-                        title=c.topic,
-                        start=c.startTime,
-                        end=c.startTime + c.duration,
-                        zoomUser=account.email,
-                    )
-                    for c in conflicts
-                ]
+        if eventInfo.zoomRequired:
+            # Check for conflicts on Zoom
+            zoomApi = ZoomAPI.ZoomAPI(config.zoomConfig)
+            availablility = zoomApi.getAccountsAndAvailablilityForTime(
+                eventInfo.start, eventInfo.end - eventInfo.start
             )
+            zoomAccount = None
+            
+            for (account, conflicts) in availablility:
+                if len(conflicts) == 0:
+                    logger.info(
+                        "EventPublisher: Found available zoom account %s", account.email
+                    )
+                    zoomAccount = account
+                    break
+                zoomConflicts.extend(
+                    [
+                        Conflict(
+                            type=Conflict.ConflictType.ZOOM,
+                            title=c.topic,
+                            start=c.startTime,
+                            end=c.startTime + c.duration,
+                            zoomUser=account.email,
+                        )
+                        for c in conflicts
+                    ]
+                )
 
         # Check for conflicts on Google
         gCalAPI = GoogleCalendarAPI.GoogleCalendarAPI(config.gCalConfig)
@@ -154,9 +157,8 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
             for c in conflicts
         ]
 
-        # TODO: Should we combine zoom and google conflicts for unresolveable???
         # A Zoom conflict is unresolveable
-        if zoomAccount is None:
+        if eventInfo.zoomRequired and zoomAccount is None:
             logger.error(
                 "EventPublisher: Found unresolveable zoom conflicts or no zoom account %s ",
                 str(zoomConflicts),
@@ -169,16 +171,28 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
             result.type = Result.ResultType.CONFLICT
             result.conflicts = gCalConflicts
             return result
+        
+        if config.onlyCheckConflicts:
+            logger.info("EventPublisher: Only looking for conflicts, returning no conflicts")
+            result.type = Result.ResultType.NO_CONFLICTS
+            return result
 
         # Schedule Zoom Meeting
-        zoomLink = zoomApi.createMeeting(
-            title=eventInfo.title,
-            start=eventInfo.start,
-            duration=eventInfo.end - eventInfo.start,
-            user=zoomAccount,
-        )
-        result.zoomLink = zoomLink
-        result.zoomAccount = zoomAccount.email
+        if eventInfo.zoomRequired:
+            zoomLink, meetingId = zoomApi.createMeeting(
+                title=eventInfo.title,
+                start=eventInfo.start,
+                duration=eventInfo.end - eventInfo.start,
+                user=zoomAccount,
+            )
+            result.zoomLink = zoomLink
+            result.zoomAccount = zoomAccount.email
+            def zoomCleanup(zoomApi, id):
+                def f():
+                    logger.info("Cleaning up created zoom meeting")
+                    zoomApi.deleteMeeting(id)
+                return f
+            cleanUpOnError.append(zoomCleanup(zoomApi=zoomApi, id=meetingId))
         # Schedule Action Network
         anEventConfirmInfo = ActionNetworkAutomation.ANAutomator.createEvent(
             eventInfo=ActionNetworkAutomation.EventInfo(
@@ -192,7 +206,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
                 zip=eventInfo.zip,
                 description=eventInfo.description,
                 country=eventInfo.country,
-                insturctions=f"Zoom: {zoomLink} \n\n {eventInfo.instructions}",
+                insturctions=f"Zoom: {result.zoomLink} \n\n {eventInfo.instructions}" if eventInfo.zoomRequired else eventInfo.instructions,
             ),
             config=config.anConfig,
         )
@@ -213,6 +227,9 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
         return result
 
     except Exception as e:
+        logger.error("Unexpected error running cleanup")
+        for cleanup in cleanUpOnError:
+            cleanup()
         result.type = Result.ResultType.UNEXPECTED
         result.errorStr = traceback.format_exception(e)
         return result

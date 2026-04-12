@@ -1,0 +1,23 @@
+{% extends "base.html" %} 
+{% block page_content %}
+
+<p>
+{% include "tools/common/commonEventDetails.html" %}
+{% if object.anManageLink %}
+<a href="{{ object.anManageLink }}"> AN Manage Link</a> <br>
+{% endif %}
+
+{% if object.anShareLink %}
+<a href="{{ object.anShareLink }}">An Share Link</a><br>
+{% endif %}
+
+{% if object.gCalLink %}
+<a href="{{ object.gCalLink }}">GCal Link</a><br>
+{% endif %}
+
+{% if object.zoomLink %}
+<a href="{{ object.zoomLink }}">Zoom Link ({{ object.zoomAccount }})</a><br>
+{% endif %}
+
+</p>
+{% endblock page_content %}

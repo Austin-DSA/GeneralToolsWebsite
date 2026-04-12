@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+import environ
+
+
+# To add future settings you will want to update the dev-env.env file for debug builds and then update deployment script to include new ENV variables for production
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,14 +23,27 @@ BASE_DIR = Path(__file__).resolve().parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
+environ.Env.read_env(BASE_DIR / "dev-env.env")
+env = environ.Env(
+    DEBUG=(bool,False),
+    ALLOWED_HOSTS=(list,[]),
+    CSRF_TRUSTED_ORIGINS=(list,[]),
+    # Only used for dev/prod, would need to do more work generally to support non-gmail accounts since we are already tied to gCal
+    EMAIL_BACKEND=(str,"django.core.mail.backends.smtp.EmailBackend"),
+    EMAIL_HOST=(str,"smtp.gmail.com"),
+    EMAIL_PORT=(int,587)
+)
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-qz-tf8s131bkz7p((7jcxss-=ilr3+p@6mx88g-!(n*#j466ja"
+SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env("DEBUG")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env("ALLOWED_HOSTS")
+CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
+AUTH_USER_MODEL = "tools.user"
 
 # Application definition
 
@@ -37,6 +54,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "tools"
 ]
 
 MIDDLEWARE = [
@@ -74,10 +92,7 @@ WSGI_APPLICATION = "wsgi.application"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": env.db()
 }
 
 
@@ -118,8 +133,37 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 STATICFILES_DIRS = [BASE_DIR / "tools/static/"]
+STATIC_ROOT = "/var/www/tools-website/static"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Don't need file logging since docker compose will handle capturing stdout to a file and can then see with docker compose logs
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+# Email
+# Technically not great to do this cause of circular import but should be fine
+# Doing this instead of duplicating secrets in the ENV and the Secrets.json
+import tools.SecretManager.SecretManager
+EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env("EMAIL_PORT")
+EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserName()
+EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
+EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = True
+EMAIL_FAIL_SILENTLY = False 

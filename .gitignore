@@ -9,3 +9,9 @@ venv
 **/tailwindcss-macos-x64 
 tools/SecretManager/devSecrets.py
 scratch/
+tools/SecretManager/serviceKey.json
+deploy/toolsWebsiteDeployment.log
+deploy/secrets.txt
+deploy/args.txt
+
+data/*
