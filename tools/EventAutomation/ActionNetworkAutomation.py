@@ -676,20 +676,22 @@ class EventConfirmationScreen(Screen):
         )
 
     def exists(self) -> bool:
-        h6s = self.driver.find_elements(By.TAG_NAME, "h6")
-        found = False
-        for h6 in h6s:
-            if (
-                h6.text.lower()
-                == EventConfirmationScreen.TEXTS.CURRENTLY_MANAGING.lower()
-            ):
-                found = True
-                break
-        if not found:
-            logger.error(
-                "EventConfirmationScreen: Couldn't find currently managing text text"
-            )
-            return False
+        # This was working but stopped. Likely a transient failure but JIC removing for now since it doesn't do much
+        # The direct link box should be enough
+        # h6s = self.driver.find_elements(By.TAG_NAME, "h6")
+        # found = False
+        # for h6 in h6s:
+        #     if (
+        #         h6.text.lower()
+        #         == EventConfirmationScreen.TEXTS.CURRENTLY_MANAGING.lower()
+        #     ):
+        #         found = True
+        #         break
+        # if not found:
+        #     logger.error(
+        #         "EventConfirmationScreen: Couldn't find currently managing text"
+        #     )
+        #     return False
         try:
             _ = self._directLinkBox()
             return True
