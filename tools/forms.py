@@ -224,7 +224,7 @@ class NewEventForm(forms.Form):
             instructions=formData[NewEventForm.Keys.INSTRUCTIONS],
             country=formData[NewEventForm.Keys.COUNTRY],
             zoomRequired=zoomRequired,
-            eventType=int(eventType)
+            eventType=eventType
         )
         return eventInfo
 
