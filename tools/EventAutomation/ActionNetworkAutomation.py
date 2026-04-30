@@ -703,8 +703,8 @@ class ANAutomator:
         utcOffsetStr = eventInfo.startTime.strftime('%z')
         eventInfo.timeZone = f"(GMT{utcOffsetStr[0]}{utcOffsetStr[1]}{utcOffsetStr[2]}:{utcOffsetStr[3]}{utcOffsetStr[4]})"
         # make naiive since we will be generating many datetimes for comparison later and we can't compare tz aware vs non-aware objects
-        noTzStart = localizedStart.replace(tzinfo=None)
-        noTzEnd = localizedEnd.replace(tzinfo=None)
+        noTzStart = eventInfo.startTime.replace(tzinfo=None)
+        noTzEnd = eventInfo.endTime.replace(tzinfo=None)
         eventInfo.startTime = noTzStart
         eventInfo.endTime = noTzEnd
 
