@@ -154,12 +154,12 @@ class NewEventForm(forms.Form):
         label="Country",
         widget=forms.TextInput(attrs={"class": "form-field w-full"}),
         initial="US",
-        required=False
+        required=False,
     )
     zipcode = forms.IntegerField(
         label="Zip code", 
         widget=forms.NumberInput(attrs={"class": "form-field w-full"}),
-        required=False
+        required=False,
     )
     ignoreResolveableConflics = forms.BooleanField(
         label="Ignore Resolveable Conflicts",
@@ -175,6 +175,9 @@ class NewEventForm(forms.Form):
 
     def clean_zipcode(self):
         data = self.cleaned_data[NewEventForm.Keys.ZIP_CODE]
+        # Zip code is not always necessary
+        if data is None:
+            return ""
         zip_str = str(data)
 
         if len(zip_str) == 5:
