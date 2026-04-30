@@ -486,12 +486,12 @@ class EditEventScreen(Screen):
         logger.info("EditEventScreen: Setting title to %s", eventInfo.title)
         Utils.typeTextIntoElement(self._titleInputBox(), eventInfo.title)
 
-        logger.info("EditEventScreen: Setting type to %d", eventInfo.eventType)
+        logger.info("EditEventScreen: Setting type to %d", eventInfo.anEventType)
         eventTypeSelect = selenium.webdriver.support.select.Select(self._eventTypeDropdown())
-        eventTypeSelect.select_by_value(eventInfo.eventType)
+        eventTypeSelect.select_by_value(eventInfo.anEventType)
 
         # Only set location for in person or hybrid
-        if eventInfo.eventType == ANTypes.HYBRID or eventInfo.eventType == ANTypes.IN_PERSON:
+        if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.IN_PERSON:
             logger.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
             Utils.typeTextIntoElement(self._locationInputBox(), eventInfo.locationName)
 
@@ -517,7 +517,7 @@ class EditEventScreen(Screen):
             countrySelectDropdown.select_by_value(eventInfo.country)
 
         # Only set time zone and virtual link if hybrid or 
-        if anEventType.anType == ANTypes.HYBRID or anEventType.anType == ANTypes.IN_PERSON:
+        if eventInfo.anType == ANTypes.HYBRID or eventInfo.anType == ANTypes.IN_PERSON:
             if eventInfo.timeZone is None:
                 logger.error("EditEventScreen: No timezone info for virtual or hybrid event")
                 raise Exception("EditEventScreen: No timezone info for virtual or hybrid event")
