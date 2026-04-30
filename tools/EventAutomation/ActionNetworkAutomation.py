@@ -517,7 +517,7 @@ class EditEventScreen(Screen):
             countrySelectDropdown.select_by_value(eventInfo.country)
 
         # Only set time zone and virtual link if hybrid or 
-        if eventInfo.anType == ANTypes.HYBRID or eventInfo.anType == ANTypes.IN_PERSON:
+        if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.IN_PERSON:
             if eventInfo.timeZone is None:
                 logger.error("EditEventScreen: No timezone info for virtual or hybrid event")
                 raise Exception("EditEventScreen: No timezone info for virtual or hybrid event")
