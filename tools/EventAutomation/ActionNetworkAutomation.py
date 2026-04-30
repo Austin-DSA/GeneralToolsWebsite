@@ -635,7 +635,11 @@ class EditEventThankYouScreen(Screen):
     def publishEvent(self):
         self._publishButton().click()
         # There is now an email wrapper pop up
-        self._secondPublish().click()
+        # Wait for the pop up, it sometimes doesn't load quickly
+        elem = selenium.webdriver.support.ui.WebDriverWait(self.driver, 3).until(
+            selenium.webdriver.support.expected_conditions.element_to_be_clickable((By.ID, EditEventThankYouScreen.IDs.PUBLISH_FINAL))
+        )
+        elem.click()
 
 
 class EventConfirmationScreen(Screen):
@@ -709,6 +713,7 @@ class ANAutomator:
         # This gives use +-HHMM and we want (GMT+-HH:SS)
         utcOffsetStr = eventInfo.startTime.strftime('%z')
         eventInfo.timeZone = f"(GMT{utcOffsetStr[0]}{utcOffsetStr[1]}{utcOffsetStr[2]}:{utcOffsetStr[3]}{utcOffsetStr[4]})"
+        logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
         # make naiive since we will be generating many datetimes for comparison later and we can't compare tz aware vs non-aware objects
         noTzStart = eventInfo.startTime.replace(tzinfo=None)
         noTzEnd = eventInfo.endTime.replace(tzinfo=None)
