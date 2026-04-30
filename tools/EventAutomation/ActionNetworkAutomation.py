@@ -12,10 +12,13 @@ import pytz
 import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
-# Probably a better place to share these constants but whatever
-from ..forms import EventTypes
+
 logger = logging.getLogger(__name__)
 
+class ANTypes:
+    IN_PERSON = 0
+    VIRTUAL = 1
+    HYBRID = 2
 
 @dataclasses.dataclass
 class EventInfo:
@@ -28,7 +31,7 @@ class EventInfo:
     zip: str
     description: str
     insturctions: str
-    eventType: str
+    anEventType: int
     state: str = "TX"
     country: str = "US"
     endTime: datetime.datetime | None = None
@@ -276,23 +279,6 @@ class EditEventScreen(Screen):
 
     class NAMEs:
         TIMEZONE_SELECT_NAME = "event[timezone]"
-    @dataclasses.dataclass
-    class EventTypeSelectValue:
-        class ANTypes:
-            IN_PERSON = 0
-            VIRTUAL = 1
-            HYBRID = 2
-
-        anType: int
-
-        def __init__(self, strType: str):
-            if strType == EventTypes.IN_PERSON:
-                self.anType = EditEventScreen.EventTypeSelectValue.ANTypes.IN_PERSON
-            if strType == EventTypes.VIRTUAL:
-                self.anType = EditEventScreen.EventTypeSelectValue.ANTypes.VIRTUAL
-            if strType == EventTypes.HYBRID:
-                self.anType = EditEventScreen.EventTypeSelectValue.ANTypes.HYBRID
-
         
             
 
@@ -500,13 +486,12 @@ class EditEventScreen(Screen):
         logger.info("EditEventScreen: Setting title to %s", eventInfo.title)
         Utils.typeTextIntoElement(self._titleInputBox(), eventInfo.title)
 
-        logger.info("EditEventScreen: Setting type to %s", eventInfo.eventType)
-        anEventType = EditEventScreen.EventTypeSelectValue(eventInfo.eventType)
+        logger.info("EditEventScreen: Setting type to %d", eventInfo.eventType)
         eventTypeSelect = selenium.webdriver.support.select.Select(self._eventTypeDropdown())
-        eventTypeSelect.select_by_value(anEventType.anType)
+        eventTypeSelect.select_by_value(eventInfo.eventType)
 
         # Only set location for in person or hybrid
-        if anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.HYBRID or anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.IN_PERSON:
+        if eventInfo.eventType == ANTypes.HYBRID or eventInfo.eventType == ANTypes.IN_PERSON:
             logger.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
             Utils.typeTextIntoElement(self._locationInputBox(), eventInfo.locationName)
 
@@ -532,7 +517,7 @@ class EditEventScreen(Screen):
             countrySelectDropdown.select_by_value(eventInfo.country)
 
         # Only set time zone and virtual link if hybrid or 
-        if anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.HYBRID or anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.IN_PERSON:
+        if anEventType.anType == ANTypes.HYBRID or anEventType.anType == ANTypes.IN_PERSON:
             if eventInfo.timeZone is None:
                 logger.error("EditEventScreen: No timezone info for virtual or hybrid event")
                 raise Exception("EditEventScreen: No timezone info for virtual or hybrid event")

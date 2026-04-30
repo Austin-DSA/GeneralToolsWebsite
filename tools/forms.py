@@ -8,7 +8,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
-from .EventAutomation import EventAutomationDriver
+from .EventAutomation import EventAutomationDriver, ActionNetworkAutomation
 
 from .models import User, EventOwners
 
@@ -67,14 +67,11 @@ STATES = [
 ]
 
 class EventTypes:
-    IN_PERSON = "In Person"
-    VIRTUAL = "Virtual"
-    HYBRID = "Hybrid"
-    TYPES = [
-        IN_PERSON,
-        VIRTUAL,
-        HYBRID
-    ]
+    TYPES = {
+        "In Person" : ActionNetworkAutomation.ANTypes.IN_PERSON,
+        "Virtual" : ActionNetworkAutomation.ANTypes.VIRTUAL,
+        "Hybrid" : ActionNetworkAutomation.ANTypes.HYBRID,
+    }
 
 class NewEventForm(forms.Form):
     class Keys:
@@ -113,7 +110,7 @@ class NewEventForm(forms.Form):
     )
     eventType = forms.ChoiceField(
      widget=forms.Select(attrs={"class": "form-field w-full"}),
-     choices={t : t for t in EventTypes.TYPES} ,
+     choices=EventTypes.TYPES,
      initial=EventTypes.IN_PERSON
     )
     timezone = forms.ChoiceField(
@@ -208,7 +205,7 @@ class NewEventForm(forms.Form):
             end = end.replace(tzinfo=None)
             end = timezone.localize(end)
         eventType = formData[NewEventForm.Keys.EVENT_TYPE]
-        zoomRequired = eventType in [EventTypes.HYBRID, EventTypes.VIRTUAL]
+        zoomRequired = eventType in [ActionNetworkAutomation.ANTypes.HYBRID, ActionNetworkAutomation.ANTypes.VIRTUAL]
         eventInfo = EventAutomationDriver.EventInfo(
             title=formData[NewEventForm.Keys.TITLE],
             start=start,
