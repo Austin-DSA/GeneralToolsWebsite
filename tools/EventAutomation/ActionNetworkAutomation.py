@@ -13,8 +13,7 @@ import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
 # Probably a better place to share these constants but whatever
-from forms import EventTypes
-
+from ..forms import EventTypes
 logger = logging.getLogger(__name__)
 
 
