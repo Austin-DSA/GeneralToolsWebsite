@@ -108,10 +108,12 @@ class NewEventForm(forms.Form):
         label="Description",
         widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
     )
-    eventType = forms.ChoiceField(
+    eventType = forms.TypedChoiceField(
         label="Event Type",
         widget=forms.Select(attrs={"class": "form-field w-full"}),
         choices=EventTypes.TYPES,
+        coerce=int,
+        empty_value=0
     )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
@@ -222,7 +224,7 @@ class NewEventForm(forms.Form):
             instructions=formData[NewEventForm.Keys.INSTRUCTIONS],
             country=formData[NewEventForm.Keys.COUNTRY],
             zoomRequired=zoomRequired,
-            eventType=eventType
+            eventType=int(eventType)
         )
         return eventInfo
 
