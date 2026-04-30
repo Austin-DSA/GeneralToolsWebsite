@@ -488,7 +488,7 @@ class EditEventScreen(Screen):
 
         logger.info("EditEventScreen: Setting type to %d", eventInfo.anEventType)
         eventTypeSelect = selenium.webdriver.support.select.Select(self._eventTypeDropdown())
-        eventTypeSelect.select_by_value(eventInfo.anEventType)
+        eventTypeSelect.select_by_value(str(eventInfo.anEventType))
 
         # Only set location for in person or hybrid
         if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.IN_PERSON:
@@ -623,6 +623,7 @@ class EditEventThankYouScreen(Screen):
             return False
 
     def addInstructions(self, text: str):
+        logger.info("EditEventThankYouScreen: Adding instructions %s", text)
         Utils.typeTextIntoElement(self._instructionsInputBox(), text)
 
     def publishEvent(self):
