@@ -67,11 +67,11 @@ STATES = [
 ]
 
 class EventTypes:
-    TYPES = {
-        "In Person" : ActionNetworkAutomation.ANTypes.IN_PERSON,
-        "Virtual" : ActionNetworkAutomation.ANTypes.VIRTUAL,
-        "Hybrid" : ActionNetworkAutomation.ANTypes.HYBRID,
-    }
+    TYPES = [
+        (ActionNetworkAutomation.ANTypes.IN_PERSON, "In Person"),
+        (ActionNetworkAutomation.ANTypes.VIRTUAL, "Virtual"),
+        (ActionNetworkAutomation.ANTypes.HYBRID,"Hybrid")
+    ]
 
 class NewEventForm(forms.Form):
     class Keys:
@@ -111,7 +111,6 @@ class NewEventForm(forms.Form):
     eventType = forms.ChoiceField(
      widget=forms.Select(attrs={"class": "form-field w-full"}),
      choices=EventTypes.TYPES,
-     initial=EventTypes.IN_PERSON
     )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
