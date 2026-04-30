@@ -109,8 +109,9 @@ class NewEventForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
     )
     eventType = forms.ChoiceField(
-     widget=forms.Select(attrs={"class": "form-field w-full"}),
-     choices=EventTypes.TYPES,
+        label="Event Type",
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+        choices=EventTypes.TYPES,
     )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),

@@ -1,25 +1,25 @@
 {% extends "base.html" %} {% block page_content %}
 <script>
   window.addEventListener("load", () => {
-    document.querySelector("input[name='eventType']").onchange = function(val)
+    document.querySelector('input[name="eventType"]').onchange = function(val)
     {
-      if(val == "Virtual")
+      if(val == "Virtual" || val == 1)
       {
-        document.querySelector("input[name='locationName']").style.display = "hide";
-        document.querySelector("input[name='address']").style.display = "hide";
-        document.querySelector("input[name='city']").style.display = "hide";
-        document.querySelector("input[name='state']").style.display = "hide";
-        document.querySelector("input[name='country']").style.display = "hide";
-        document.querySelector("input[name='zipcode']").style.display = "hide";
+        document.querySelector('input[name="locationName"]').style.display = "hide";
+        document.querySelector('input[name="address"]').style.display = "hide";
+        document.querySelector('input[name="city"]').style.display = "hide";
+        document.querySelector('input[name="state"]').style.display = "hide";
+        document.querySelector('input[name="country"]').style.display = "hide";
+        document.querySelector('input[name="zipcode"]').style.display = "hide";
       }
       else
       {
-        document.querySelector("input[name='locationName']").style.display = "block";
-        document.querySelector("input[name='address']").style.display = "block";
-        document.querySelector("input[name='city']").style.display = "block";
-        document.querySelector("input[name='state']").style.display = "block";
-        document.querySelector("input[name='country']").style.display = "block";
-        document.querySelector("input[name='zipcode']").style.display = "block";
+        document.querySelector('input[name="locationName"]').style.display = "block";
+        document.querySelector('input[name="address"]').style.display = "block";
+        document.querySelector('input[name="city"]').style.display = "block";
+        document.querySelector('input[name="state"]').style.display = "block";
+        document.querySelector('input[name="country"]').style.display = "block";
+        document.querySelector('input[name="zipcode"]').style.display = "block";
       }
     };
   });
