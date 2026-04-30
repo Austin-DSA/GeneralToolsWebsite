@@ -2,6 +2,8 @@ import selenium
 import selenium.webdriver
 import selenium.webdriver.common
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions
 import dataclasses
 import datetime
 import typing
@@ -655,8 +657,8 @@ class EditEventThankYouScreen(Screen):
         self._publishButton().click()
         # There is now an email wrapper pop up
         # Wait for the pop up, it sometimes doesn't load quickly
-        elem = selenium.webdriver.support.ui.WebDriverWait(self.driver, 3).until(
-            selenium.webdriver.support.expected_conditions.element_to_be_clickable((By.ID, EditEventThankYouScreen.IDs.PUBLISH_FINAL))
+        elem = WebDriverWait(self.driver, 3).until(
+            expected_conditions.element_to_be_clickable((By.ID, EditEventThankYouScreen.IDs.PUBLISH_FINAL))
         )
         elem.click()
 
