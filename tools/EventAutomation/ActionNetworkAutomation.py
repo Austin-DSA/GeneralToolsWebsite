@@ -20,6 +20,25 @@ class ANTypes:
     VIRTUAL = 1
     HYBRID = 2
 
+# I tried doing a more reasonable approach but everything is just not compatible in a nice way so here is something that works
+# We restrict which timezones we accept to the big ones in continental US
+# Then we look for AN timezones that have the correct keywords and hour offset
+@dataclasses.dataclass
+class TimeZone:
+    TZ_TO_AN_TZ = {
+        'US/Central': "Central",
+        'US/Eastern': "Eastern",
+        'US/Mountain': "Mountain",
+        'US/Pacific' : "Pacific"
+    }
+    timezone : str
+    hourOffsetStr : str
+    qualifier : str = "(US & Canada)"
+
+    def matches(self, anTzValue):
+        anTz = TimeZone.TZ_TO_AN_TZ[self.timezone]
+        return anTz in anTzValue and self.hourOffsetStr in anTzValue and self.qualifier in anTzValue
+
 @dataclasses.dataclass
 class EventInfo:
     title: str
@@ -36,7 +55,7 @@ class EventInfo:
     country: str = "US"
     endTime: datetime.datetime | None = None
     zoomLink: str | None = None
-    timeZone: str | None = None # Don't need to set if the start time has a timezone
+    timeZone: TimeZone | None = None # Don't need to set if the start time has a timezone
 
 
 @dataclasses.dataclass
@@ -533,7 +552,7 @@ class EditEventScreen(Screen):
             found = False
             for potentialTz in timezoneSelectDropdown.options:
                 tzValue = potentialTz.get_attribute("value")
-                if eventInfo.timeZone in tzValue:
+                if eventInfo.timeZone.matches(tzValue):
                     logger.info("EditEventTimeZone: Setting timezone to %s", tzValue)
                     found = True
                     timezoneSelectDropdown.select_by_value(tzValue)
@@ -712,7 +731,7 @@ class ANAutomator:
         # Save the given datetime timezone
         # This gives use +-HHMM and we want (GMT+-HH:SS)
         utcOffsetStr = eventInfo.startTime.strftime('%z')
-        eventInfo.timeZone = f"(GMT{utcOffsetStr[0]}{utcOffsetStr[1]}{utcOffsetStr[2]}:{utcOffsetStr[3]}{utcOffsetStr[4]})"
+        eventInfo.timeZone = TimeZone(timezone=eventInfo.startTime.tzinfo.zone, hourOffsetStr=utcOffsetStr[1:3])
         logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
         # make naiive since we will be generating many datetimes for comparison later and we can't compare tz aware vs non-aware objects
         noTzStart = eventInfo.startTime.replace(tzinfo=None)
