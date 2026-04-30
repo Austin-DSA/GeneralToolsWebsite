@@ -208,7 +208,8 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
                 description=eventInfo.description,
                 country=eventInfo.country,
                 insturctions=f"Zoom: {result.zoomLink} \n\n {eventInfo.instructions}" if eventInfo.zoomRequired else eventInfo.instructions,
-                zoomLink= result.zoomLink if eventInfo.zoomRequired else None
+                zoomLink= result.zoomLink if eventInfo.zoomRequired else None,
+                anEventType=eventInfo.eventType
             ),
             config=config.anConfig,
         )
