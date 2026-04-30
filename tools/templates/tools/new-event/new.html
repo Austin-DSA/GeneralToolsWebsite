@@ -3,7 +3,8 @@
 window.addEventListener("load", () => {
     document.querySelector('[name="eventType"]').onchange = function(val)
     {
-      if(val == "Virtual" || val == 1)
+      var newVal = document.querySelector('[name="eventType"]').value
+      if(newVal == "1" || newVal == 1)
       {
         document.querySelector('[name="locationName"]').style.display = "hide";
         document.querySelector('[name="address"]').style.display = "hide";
