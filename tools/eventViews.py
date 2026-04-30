@@ -14,7 +14,7 @@ from django.views.generic.list import ListView
 
 from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
-from .forms import NewEventForm, NewDelegatedEventForm, ApproveDelegatedEventForm
+from .forms import NewEventForm, ApproveDelegatedEventForm
 from .EmailApi import EmailApi
 from .permissions import *
 import dataclasses
@@ -226,7 +226,7 @@ def new_event(request):
 def new_delegated_event(request):
     if request.method == "POST":
         logger.info("PublishDelegatedEvent: Recieved submission of event to publish.")
-        form = NewDelegatedEventForm(request.POST)
+        form = NewEventForm(request.POST)
         if not form.is_valid():
             logger.error("PublishDelegatedEvent: Submitted Form is not valid")
             return render(request, "tools/new-delegated-event/unknown.html", {"errorStr": "The form could not be validated, please go back and try again."})
@@ -272,7 +272,7 @@ def new_delegated_event(request):
             e = DelegatedEvents.objects.create(title = eventInfo.title,
                                                start = utcStart,
                                                end = utcEnd,
-                                               timezone = form.cleaned_data[NewDelegatedEventForm.Keys.TIMEZONE],
+                                               timezone = form.cleaned_data[NewEventForm.Keys.TIMEZONE],
                                                locationName = eventInfo.locationName,
                                                streetAddress = eventInfo.streetAddress,
                                                city = eventInfo.city,
@@ -366,7 +366,7 @@ def new_delegated_event(request):
                 request, "tools/new-delegated-event/error.html", dataclasses.asdict(result)
             )
     else:
-        form = NewDelegatedEventForm(
+        form = NewEventForm(
             initial={
                 "startTime": datetime.datetime.now(),
                 "endTime": datetime.datetime.now(),
@@ -403,7 +403,7 @@ def approve_delegated_event(request, id):
             return render(request, "tools/approve-delegated-event/error.html", {"errorStr": "The form could not be validated, please go back and try again."})
         formData = form.cleaned_data
         if formData[ApproveDelegatedEventForm.Keys.APPROVE] == "YES":
-            logger.info("ApprovedDelegatedEvent: Authorizer %d approved the event %d", request.user.getUserNameString(), id)
+            logger.info("ApprovedDelegatedEvent: Authorizer %s approved the event %d", request.user.getUserNameString(), id)
             eventInfo = event.getEventInfo()
             if not eventInfo:
                 logger.error("ApprovedDelegateEvent: EventInfo for %d could not be created", id)
@@ -527,7 +527,7 @@ def approve_delegated_event(request, id):
                 )
 
         else:
-            logger.info("ApprovedDelegatedEvent: Authorizer %d denied the event %d", request.user.getUserNameString(), id)
+            logger.info("ApprovedDelegatedEvent: Authorizer %s denied the event %d", request.user.getUserNameString(), id)
             event.status = DelegatedEvents.Status.DENIED
             event.approver = request.user
             event.dateReviewed = datetime.datetime.now(datetime.UTC)

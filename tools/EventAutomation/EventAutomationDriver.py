@@ -55,6 +55,7 @@ class Result:
 @dataclasses.dataclass
 class EventInfo:
     title: str
+    eventType : str
     start: datetime.datetime
     end: datetime.datetime
 
@@ -207,6 +208,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
                 description=eventInfo.description,
                 country=eventInfo.country,
                 insturctions=f"Zoom: {result.zoomLink} \n\n {eventInfo.instructions}" if eventInfo.zoomRequired else eventInfo.instructions,
+                zoomLink= result.zoomLink if eventInfo.zoomRequired else None
             ),
             config=config.anConfig,
         )

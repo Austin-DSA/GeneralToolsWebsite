@@ -66,11 +66,21 @@ STATES = [
     "DC",
 ]
 
+class EventTypes:
+    IN_PERSON = "In Person"
+    VIRTUAL = "Virtual"
+    HYBRID = "Hybrid"
+    TYPES = [
+        IN_PERSON,
+        VIRTUAL,
+        HYBRID
+    ]
 
 class NewEventForm(forms.Form):
     class Keys:
         TITLE = "title"
         DESCRIPTION = "description"
+        EVENT_TYPE = "eventType"
         # START_DATE = "startDate"
         START_TIME = "startTime"
         # END_DATE = "endDate"
@@ -85,7 +95,7 @@ class NewEventForm(forms.Form):
         ZIP_CODE = "zipcode"
         OWNER = "owner"
         IGNORE_RESOLVEABLE_CONFLICTS = "ignoreResolveableConflics"
-        ZOOM_REQUIRED = "zoomRequired"
+        # ZOOM_REQUIRED = "zoomRequired"
 
     owner = forms.ModelChoiceField(
         label="Event Owner",
@@ -100,6 +110,11 @@ class NewEventForm(forms.Form):
     description = forms.CharField(
         label="Description",
         widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
+    )
+    eventType = forms.ChoiceField(
+     widget=forms.Select(attrs={"class": "form-field w-full"}),
+     choices={t : t for t in EventTypes.TYPES} ,
+     initial=EventTypes.IN_PERSON
     )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
@@ -120,41 +135,46 @@ class NewEventForm(forms.Form):
     )
     locationName = forms.CharField(
         label="Location name",
-        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}), required=False
     )
     address = forms.CharField(
-        label="Address", widget=forms.TextInput(attrs={"class": "form-field w-full"})
+        label="Address", widget=forms.TextInput(attrs={"class": "form-field w-full"}), required=False
     )
     city = forms.CharField(
         label="City",
         widget=forms.TextInput(attrs={"class": "form-field w-full"}),
         initial="Austin",
+        required=False
     )
     choices = {state: state for state in STATES}
     state = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
         choices=choices,
         initial="TX",
+        required=False
     )
     country = forms.CharField(
         label="Country",
         widget=forms.TextInput(attrs={"class": "form-field w-full"}),
         initial="US",
+        required=False
     )
     zipcode = forms.IntegerField(
-        label="Zip code", widget=forms.NumberInput(attrs={"class": "form-field w-full"})
+        label="Zip code", 
+        widget=forms.NumberInput(attrs={"class": "form-field w-full"}),
+        required=False
     )
     ignoreResolveableConflics = forms.BooleanField(
         label="Ignore Resolveable Conflicts",
         widget=forms.CheckboxInput(),
         required=False,
     )
-    zoomRequired = forms.BooleanField(
-        label="Zoom Meeting Required",
-        widget=forms.CheckboxInput(),
-        required=False,
-        initial=True
-    )
+    # zoomRequired = forms.BooleanField(
+    #     label="Zoom Meeting Required",
+    #     widget=forms.CheckboxInput(),
+    #     required=False,
+    #     initial=True
+    # )
 
     def clean_zipcode(self):
         data = self.cleaned_data[NewEventForm.Keys.ZIP_CODE]
@@ -187,7 +207,8 @@ class NewEventForm(forms.Form):
         else:
             end = end.replace(tzinfo=None)
             end = timezone.localize(end)
-
+        eventType = formData[NewEventForm.Keys.EVENT_TYPE]
+        zoomRequired = eventType in [EventTypes.HYBRID, EventTypes.VIRTUAL]
         eventInfo = EventAutomationDriver.EventInfo(
             title=formData[NewEventForm.Keys.TITLE],
             start=start,
@@ -200,148 +221,149 @@ class NewEventForm(forms.Form):
             description=formData[NewEventForm.Keys.DESCRIPTION],
             instructions=formData[NewEventForm.Keys.INSTRUCTIONS],
             country=formData[NewEventForm.Keys.COUNTRY],
-            zoomRequired=formData[NewEventForm.Keys.ZOOM_REQUIRED]
+            zoomRequired=zoomRequired,
+            eventType=eventType
         )
         return eventInfo
 
 
-class NewDelegatedEventForm(forms.Form):
-    class Keys:
-        TITLE = "title"
-        DESCRIPTION = "description"
-        # START_DATE = "startDate"
-        START_TIME = "startTime"
-        # END_DATE = "endDate"
-        END_TIME = "endTime"
-        TIMEZONE = "timezone"
-        INSTRUCTIONS = "instructions"
-        LOCATION_NAME = "locationName"
-        ADDRESS = "address"
-        CITY = "city"
-        STATE = "state"
-        COUNTRY = "country"
-        ZIP_CODE = "zipcode"
-        OWNER = "owner"
-        IGNORE_RESOLVEABLE_CONFLICTS = "ignoreResolveableConflics"
-        ZOOM_REQUIRED = "zoomRequired"
+# class NewDelegatedEventForm(forms.Form):
+#     class Keys:
+#         TITLE = "title"
+#         DESCRIPTION = "description"
+#         # START_DATE = "startDate"
+#         START_TIME = "startTime"
+#         # END_DATE = "endDate"
+#         END_TIME = "endTime"
+#         TIMEZONE = "timezone"
+#         INSTRUCTIONS = "instructions"
+#         LOCATION_NAME = "locationName"
+#         ADDRESS = "address"
+#         CITY = "city"
+#         STATE = "state"
+#         COUNTRY = "country"
+#         ZIP_CODE = "zipcode"
+#         OWNER = "owner"
+#         IGNORE_RESOLVEABLE_CONFLICTS = "ignoreResolveableConflics"
+#         ZOOM_REQUIRED = "zoomRequired"
 
 
-    owner = forms.ModelChoiceField(
-        label="Event Owner",
-        widget=forms.Select(attrs={"class": "form-field w-full"}),
-        to_field_name="name",
-        queryset=EventOwners.objects.all()
-    )
-    title = forms.CharField(
-        label="Event title",
-        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
-    )
-    description = forms.CharField(
-        label="Description",
-        widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
-    )
-    timezone = forms.ChoiceField(
-        widget=forms.Select(attrs={"class": "form-field w-full"}),
-        choices={timezone: timezone for timezone in pytz.all_timezones},
-        initial="America/Chicago",
-    )
-    startTime = forms.DateTimeField(
-        label="Start time",
-        widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
-    )
-    endTime = forms.DateTimeField(
-        label="End time",
-        widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
-    )
-    instructions = forms.CharField(
-        label="Instructions",
-        widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
-    )
-    locationName = forms.CharField(
-        label="Location name",
-        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
-    )
-    address = forms.CharField(
-        label="Address", widget=forms.TextInput(attrs={"class": "form-field w-full"})
-    )
-    city = forms.CharField(
-        label="City",
-        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
-        initial="Austin",
-    )
-    choices = {state: state for state in STATES}
-    state = forms.ChoiceField(
-        widget=forms.Select(attrs={"class": "form-field w-full"}),
-        choices=choices,
-        initial="TX",
-    )
-    country = forms.CharField(
-        label="Country",
-        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
-        initial="US",
-    )
-    zipcode = forms.IntegerField(
-        label="Zip code", widget=forms.NumberInput(attrs={"class": "form-field w-full"})
-    )
-    ignoreResolveableConflics = forms.BooleanField(
-        label="Ignore Resolveable Conflicts",
-        widget=forms.CheckboxInput(),
-        required=False,
-    )
-    zoomRequired = forms.BooleanField(
-        label="Zoom Meeting Required",
-        widget=forms.CheckboxInput(),
-        required=False,
-        initial=True
-    )
+#     owner = forms.ModelChoiceField(
+#         label="Event Owner",
+#         widget=forms.Select(attrs={"class": "form-field w-full"}),
+#         to_field_name="name",
+#         queryset=EventOwners.objects.all()
+#     )
+#     title = forms.CharField(
+#         label="Event title",
+#         widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+#     )
+#     description = forms.CharField(
+#         label="Description",
+#         widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
+#     )
+#     timezone = forms.ChoiceField(
+#         widget=forms.Select(attrs={"class": "form-field w-full"}),
+#         choices={timezone: timezone for timezone in pytz.all_timezones},
+#         initial="America/Chicago",
+#     )
+#     startTime = forms.DateTimeField(
+#         label="Start time",
+#         widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
+#     )
+#     endTime = forms.DateTimeField(
+#         label="End time",
+#         widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
+#     )
+#     instructions = forms.CharField(
+#         label="Instructions",
+#         widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
+#     )
+#     locationName = forms.CharField(
+#         label="Location name",
+#         widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+#     )
+#     address = forms.CharField(
+#         label="Address", widget=forms.TextInput(attrs={"class": "form-field w-full"})
+#     )
+#     city = forms.CharField(
+#         label="City",
+#         widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+#         initial="Austin",
+#     )
+#     choices = {state: state for state in STATES}
+#     state = forms.ChoiceField(
+#         widget=forms.Select(attrs={"class": "form-field w-full"}),
+#         choices=choices,
+#         initial="TX",
+#     )
+#     country = forms.CharField(
+#         label="Country",
+#         widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+#         initial="US",
+#     )
+#     zipcode = forms.IntegerField(
+#         label="Zip code", widget=forms.NumberInput(attrs={"class": "form-field w-full"})
+#     )
+#     ignoreResolveableConflics = forms.BooleanField(
+#         label="Ignore Resolveable Conflicts",
+#         widget=forms.CheckboxInput(),
+#         required=False,
+#     )
+#     zoomRequired = forms.BooleanField(
+#         label="Zoom Meeting Required",
+#         widget=forms.CheckboxInput(),
+#         required=False,
+#         initial=True
+#     )
 
-    def clean_zipcode(self):
-        data = self.cleaned_data[NewEventForm.Keys.ZIP_CODE]
-        zip_str = str(data)
+#     def clean_zipcode(self):
+#         data = self.cleaned_data[NewEventForm.Keys.ZIP_CODE]
+#         zip_str = str(data)
 
-        if len(zip_str) == 5:
-            return data
+#         if len(zip_str) == 5:
+#             return data
 
-        else:
-            raise ValidationError(_("Zip code must be five digits long"))
+#         else:
+#             raise ValidationError(_("Zip code must be five digits long"))
 
-    def convertToEventInfo(self) -> EventAutomationDriver.EventInfo | None:
-        if not self.is_valid():
-            return None
-        formData = self.cleaned_data
-        timezoneStr = formData[NewEventForm.Keys.TIMEZONE]
-        timezone = pytz.timezone(timezoneStr)
-        start: datetime.datetime = formData[NewEventForm.Keys.START_TIME]
-        end: datetime.datetime = formData[NewEventForm.Keys.END_TIME]
-        # The start and end dates in the form appear to assume UTC time zone
-        # We need to force localize to the input timezone
-        # BTW I hate timezones
-        if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
-            start = timezone.localize(start)
-        else:
-            start = start.replace(tzinfo=None)
-            start = timezone.localize(start)
-        if end.tzinfo is None or end.tzinfo.utcoffset(end) is None:
-            end = timezone.localize(end)
-        else:
-            end = end.replace(tzinfo=None)
-            end = timezone.localize(end)
+#     def convertToEventInfo(self) -> EventAutomationDriver.EventInfo | None:
+#         if not self.is_valid():
+#             return None
+#         formData = self.cleaned_data
+#         timezoneStr = formData[NewEventForm.Keys.TIMEZONE]
+#         timezone = pytz.timezone(timezoneStr)
+#         start: datetime.datetime = formData[NewEventForm.Keys.START_TIME]
+#         end: datetime.datetime = formData[NewEventForm.Keys.END_TIME]
+#         # The start and end dates in the form appear to assume UTC time zone
+#         # We need to force localize to the input timezone
+#         # BTW I hate timezones
+#         if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
+#             start = timezone.localize(start)
+#         else:
+#             start = start.replace(tzinfo=None)
+#             start = timezone.localize(start)
+#         if end.tzinfo is None or end.tzinfo.utcoffset(end) is None:
+#             end = timezone.localize(end)
+#         else:
+#             end = end.replace(tzinfo=None)
+#             end = timezone.localize(end)
 
-        eventInfo = EventAutomationDriver.EventInfo(
-            title=formData[NewDelegatedEventForm.Keys.TITLE],
-            start=start,
-            end=end,
-            locationName=formData[NewDelegatedEventForm.Keys.LOCATION_NAME],
-            streetAddress=formData[NewDelegatedEventForm.Keys.ADDRESS],
-            city=formData[NewDelegatedEventForm.Keys.CITY],
-            state=formData[NewDelegatedEventForm.Keys.STATE],
-            zip=formData[NewDelegatedEventForm.Keys.ZIP_CODE],
-            description=formData[NewDelegatedEventForm.Keys.DESCRIPTION],
-            instructions=formData[NewDelegatedEventForm.Keys.INSTRUCTIONS],
-            country=formData[NewDelegatedEventForm.Keys.COUNTRY],
-            zoomRequired=formData[NewDelegatedEventForm.Keys.ZOOM_REQUIRED]
-        )
-        return eventInfo
+#         eventInfo = EventAutomationDriver.EventInfo(
+#             title=formData[NewDelegatedEventForm.Keys.TITLE],
+#             start=start,
+#             end=end,
+#             locationName=formData[NewDelegatedEventForm.Keys.LOCATION_NAME],
+#             streetAddress=formData[NewDelegatedEventForm.Keys.ADDRESS],
+#             city=formData[NewDelegatedEventForm.Keys.CITY],
+#             state=formData[NewDelegatedEventForm.Keys.STATE],
+#             zip=formData[NewDelegatedEventForm.Keys.ZIP_CODE],
+#             description=formData[NewDelegatedEventForm.Keys.DESCRIPTION],
+#             instructions=formData[NewDelegatedEventForm.Keys.INSTRUCTIONS],
+#             country=formData[NewDelegatedEventForm.Keys.COUNTRY],
+#             zoomRequired=formData[NewDelegatedEventForm.Keys.ZOOM_REQUIRED]
+#         )
+#         return eventInfo
     
 class ApproveDelegatedEventForm(forms.Form):
     class Keys:

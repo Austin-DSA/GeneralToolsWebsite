@@ -12,6 +12,8 @@ import pytz
 import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
+# Probably a better place to share these constants but whatever
+from forms import EventTypes
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +29,12 @@ class EventInfo:
     zip: str
     description: str
     insturctions: str
+    eventType: str
     state: str = "TX"
     country: str = "US"
     endTime: datetime.datetime | None = None
+    zoomLink: str | None = None
+    timeZone: str | None = None # Don't need to set if the start time has a timezone
 
 
 @dataclasses.dataclass
@@ -247,7 +252,8 @@ class EditEventScreen(Screen):
     class IDs:
         TITLE_INPUT = "event-title"
 
-        IS_VIRTUAL_INPUT = "event_physical_locatioin_toggle"
+        EVENT_TYPE_INPUT = "event_attendance_type"
+
         HAS_END_TIME_INPUT = "event_endtime_toggle"
 
         START_DATE_INPUT = "event-start-date"
@@ -267,6 +273,30 @@ class EditEventScreen(Screen):
 
         SPONSER_SELECT = "petition-group-select"
 
+        VIRTUAL_EVENT_LINK_INPUT = "virtual-event-link-value"
+
+    class NAMEs:
+        TIMEZONE_SELECT_NAME = "event[timezone]"
+    @dataclasses.dataclass
+    class EventTypeSelectValue:
+        class ANTypes:
+            IN_PERSON = 0
+            VIRTUAL = 1
+            HYBRID = 2
+
+        anType: int
+
+        def __init__(self, strType: str):
+            if strType == EventTypes.IN_PERSON:
+                self.anType = EditEventScreen.EventTypeSelectValue.ANTypes.IN_PERSON
+            if strType == EventTypes.VIRTUAL:
+                self.anType = EditEventScreen.EventTypeSelectValue.ANTypes.VIRTUAL
+            if strType == EventTypes.HYBRID:
+                self.anType = EditEventScreen.EventTypeSelectValue.ANTypes.HYBRID
+
+        
+            
+
     class Classes:
         DATETIME_PICKER = "datetimepicker-days"
         DATETIME_PICKER_SWITCH = "switch"
@@ -278,9 +308,14 @@ class EditEventScreen(Screen):
     def _titleInputBox(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.TITLE_INPUT)
 
-    # See exists
-    # def _isVirtualICheckBox(self):
-    #     return self.driver.find_element(By.ID, EditEventScreen.IDs.IS_VIRTUAL_INPUT)
+    def _eventTypeDropdown(self):
+        return self.driver.find_element(By.ID, EditEventScreen.IDs.EVENT_TYPE_INPUT)
+    
+    def _virtualEventLinkInputBox(self):
+        return self.driver.find_element(By.ID, EditEventScreen.IDs.VIRTUAL_EVENT_LINK_INPUT)
+
+    def _timezoneDropdown(self):
+        return self.driver.find_element(By.NAME, EditEventScreen.NAMEs.TIMEZONE_SELECT_NAME)
 
     def _hasEndTimeICheckBox(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.HAS_END_TIME_INPUT)
@@ -343,16 +378,16 @@ class EditEventScreen(Screen):
     def exists(self) -> bool:
         try:
             _ = self._titleInputBox()
-            # TODO: Handle new input box or dont cause it defaults to in person which is fine
-            # _ = self._isVirtualICheckBox()
+            _ = self._eventTypeDropdown()
             _ = self._hasEndTimeICheckBox()
             _ = self._startDateInputBox()
             _ = self._locationInputBox()
-            _ = self._addressInputBox()
-            _ = self._cityInputBox()
-            _ = self._stateInputDropdown()
-            _ = self._zipInputBox()
-            _ = self._countryInputDropdown()
+            # These should appear by default but may not if the AN decides to change default event type
+            # _ = self._addressInputBox()
+            # _ = self._cityInputBox()
+            # _ = self._stateInputDropdown()
+            # _ = self._zipInputBox()
+            # _ = self._countryInputDropdown()
             _ = self._descriptionInputBox()
             _ = self._nextStepButton()
             return True
@@ -466,32 +501,65 @@ class EditEventScreen(Screen):
         logger.info("EditEventScreen: Setting title to %s", eventInfo.title)
         Utils.typeTextIntoElement(self._titleInputBox(), eventInfo.title)
 
-        logger.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
-        Utils.typeTextIntoElement(self._locationInputBox(), eventInfo.locationName)
+        logger.info("EditEventScreen: Setting type to %s", eventInfo.eventType)
+        anEventType = EditEventScreen.EventTypeSelectValue(eventInfo.eventType)
+        eventTypeSelect = selenium.webdriver.support.select.Select(self._eventTypeDropdown())
+        eventTypeSelect.select_by_value(anEventType.anType)
 
-        logger.info("EditEventScreen: Setting Address to %s", eventInfo.address)
-        Utils.typeTextIntoElement(self._addressInputBox(), eventInfo.address)
+        # Only set location for in person or hybrid
+        if anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.HYBRID or anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.IN_PERSON:
+            logger.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
+            Utils.typeTextIntoElement(self._locationInputBox(), eventInfo.locationName)
 
-        logger.info("EditEventScreen: Setting City to %s", eventInfo.city)
-        Utils.typeTextIntoElement(self._cityInputBox(), eventInfo.city)
+            logger.info("EditEventScreen: Setting Address to %s", eventInfo.address)
+            Utils.typeTextIntoElement(self._addressInputBox(), eventInfo.address)
 
-        logger.info("EditEventScreen: Setting Zip to %s", eventInfo.zip)
-        Utils.typeTextIntoElement(self._zipInputBox(), eventInfo.zip)
+            logger.info("EditEventScreen: Setting City to %s", eventInfo.city)
+            Utils.typeTextIntoElement(self._cityInputBox(), eventInfo.city)
+
+            logger.info("EditEventScreen: Setting Zip to %s", eventInfo.zip)
+            Utils.typeTextIntoElement(self._zipInputBox(), eventInfo.zip)
+
+            logger.info("EditEventScreen: Setting State to %s", eventInfo.state)
+            stateSelectDropdown = selenium.webdriver.support.select.Select(
+                self._stateInputDropdown()
+            )
+            stateSelectDropdown.select_by_value(eventInfo.state)
+
+            logger.info("EditEventScreen: Setting Country to %s", eventInfo.country)
+            countrySelectDropdown = selenium.webdriver.support.select.Select(
+                self._countryInputDropdown()
+            )
+            countrySelectDropdown.select_by_value(eventInfo.country)
+
+        # Only set time zone and virtual link if hybrid or 
+        if anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.HYBRID or anEventType.anType == EditEventScreen.EventTypeSelectValue.ANTypes.IN_PERSON:
+            if eventInfo.timeZone is None:
+                logger.error("EditEventScreen: No timezone info for virtual or hybrid event")
+                raise Exception("EditEventScreen: No timezone info for virtual or hybrid event")
+            
+            # The timezones are full readable names so just choose the first one that has the correct timezone offset
+            timezoneSelectDropdown = selenium.webdriver.support.select.Select(self._timezoneDropdown())
+            found = False
+            for potentialTz in timezoneSelectDropdown.options:
+                tzValue = potentialTz.get_attribute("value")
+                if eventInfo.timeZone in tzValue:
+                    logger.info("EditEventTimeZone: Setting timezone to %s", tzValue)
+                    found = True
+                    timezoneSelectDropdown.select_by_value(tzValue)
+                    break
+
+            if not found:
+                logger.error("EditEventScreen: Could not find timezone option for %s", eventInfo.timeZone)
+                raise Exception(f"EditEventScreen: Could not find timezone option for {eventInfo.timeZone}")
+            
+            if eventInfo.zoomLink is not None:
+                logger.info("EditEventScreen: Setting virtual link to %s", eventInfo.zoomLink)
+                Utils.typeTextIntoElement(self._virtualEventLinkInputBox(), eventInfo.zoomLink)
+            
 
         logger.info("EditEventScreen: Setting Description to %s", eventInfo.description)
         Utils.typeTextIntoElement(self._descriptionInputBox(), eventInfo.description)
-
-        logger.info("EditEventScreen: Setting State to %s", eventInfo.state)
-        stateSelectDropdown = selenium.webdriver.support.select.Select(
-            self._stateInputDropdown()
-        )
-        stateSelectDropdown.select_by_value(eventInfo.state)
-
-        logger.info("EditEventScreen: Setting Country to %s", eventInfo.country)
-        countrySelectDropdown = selenium.webdriver.support.select.Select(
-            self._countryInputDropdown()
-        )
-        countrySelectDropdown.select_by_value(eventInfo.country)
 
         logger.info(
             "EditEventScreen: Setting start date to %s", str(eventInfo.startTime)
@@ -644,11 +712,12 @@ class ANAutomator:
     def createEvent(
         self, eventInfo: EventInfo, config: ANAutomatorConfig
     ) -> EventConfirmationInfo:
-        # AN uses local time for the page
-        # We need to convert the incoming time into the local timezone of this machine, and then make it timezone naiive
-        localTimezone = pytz.timezone(tzlocal.get_localzone_name())
-        localizedStart = eventInfo.startTime.astimezone(localTimezone)
-        localizedEnd = eventInfo.endTime.astimezone(localTimezone)
+        # Action network uses the physical location for in person events 
+        # For virtual/hybrid events it uses a timezone field
+        # Save the given datetime timezone
+        # This gives use +-HHMM and we want (GMT+-HH:SS)
+        utcOffsetStr = eventInfo.startTime.strftime('%z')
+        eventInfo.timeZone = f"(GMT{utcOffsetStr[0]}{utcOffsetStr[1]}{utcOffsetStr[2]}:{utcOffsetStr[3]}{utcOffsetStr[4]})"
         # make naiive since we will be generating many datetimes for comparison later and we can't compare tz aware vs non-aware objects
         noTzStart = localizedStart.replace(tzinfo=None)
         noTzEnd = localizedEnd.replace(tzinfo=None)
