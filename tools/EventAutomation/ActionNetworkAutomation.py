@@ -420,16 +420,22 @@ class EditEventScreen(Screen):
 
         logger.info("EditEventScren: Picking day %d from year month", time.day)
         tdElements = dateTimePicker.find_elements(By.TAG_NAME, "td")
-        foundDay = False
         dayString = str(time.day)
+        potentialDays = []
         for tdElem in tdElements:
             if tdElem.text == dayString:
-                foundDay = True
-                tdElem.click()
-                break
-        if not foundDay:
+                potentialDays.append(tdElem)
+        if len(potentialDays) == 0:
             logger.error("EditEventScreen: Could not find day %s", dayString)
             raise Exception("Couldn't set date %s", str(time))
+        # There can be a wrap around where for say "30" for the previous month is shown so if we choose the first day it will choose the wrong month
+        # The wrap will be at most 7 days on each side
+        # So the fix is if the day > 15 choose the last one, if day < 15 choose the first
+        # In the case where there is only one possible element [0] == [-1]
+        if time.day <= 15:
+            potentialDays[0].click()
+        else:
+            potentialDays[-1].click()
 
         logger.info("EditEventScreen: Setting hour to %s", str(time.hour))
         isAM = time.hour < 12
@@ -517,7 +523,7 @@ class EditEventScreen(Screen):
             countrySelectDropdown.select_by_value(eventInfo.country)
 
         # Only set time zone and virtual link if hybrid or 
-        if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.IN_PERSON:
+        if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.VIRTUAL:
             if eventInfo.timeZone is None:
                 logger.error("EditEventScreen: No timezone info for virtual or hybrid event")
                 raise Exception("EditEventScreen: No timezone info for virtual or hybrid event")
