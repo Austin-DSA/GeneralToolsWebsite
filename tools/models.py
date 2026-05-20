@@ -1,22 +1,26 @@
-from django.db import models
-from django.contrib.auth.models import AbstractUser
-from .EventAutomation.EventAutomationDriver import EventInfo
 import datetime
+
 import pytz
-from django.urls import reverse
+from django.contrib.auth.models import AbstractUser
 from django.core.validators import URLValidator
+from django.db import models
+from django.urls import reverse
 from django.utils.translation import gettext_lazy
+
 from . import utils
+from .EventAutomation.EventAutomationDriver import EventInfo
+
 
 class User(AbstractUser):
     def getUserNameString(self) -> str:
         return f"{self.first_name} {self.last_name} - {self.email}"
 
+
 class EventOwners(models.Model):
     name = models.CharField(max_length=100, unique=True)
     authorizers = models.ManyToManyField(User, related_name="eventAuthorizations")
     expiration = models.DateTimeField()
-    
+
     def isActive(self):
         if datetime.datetime.now(datetime.UTC) < self.expiration:
             return True
@@ -24,6 +28,7 @@ class EventOwners(models.Model):
 
     def __str__(self):
         return self.name
+
 
 # List of all previously created events
 # All date-times are in UTC
@@ -54,33 +59,47 @@ class PostedEvents(models.Model):
     zoomAccount = models.CharField(max_length=100)
     zoomRequired = models.BooleanField(default=True)
 
-    creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="postedEventCreator")
-    authorizer = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="postedEventAuthorizer")
+    creator = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="postedEventCreator",
+    )
+    authorizer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="postedEventAuthorizer",
+    )
     reason = models.TextField()
 
-    owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True)
+    owner = models.ForeignKey(
+        EventOwners, on_delete=models.SET_NULL, blank=True, null=True
+    )
 
     def getCreatorName(self) -> str:
         if self.creator is None:
             return ""
         return self.creator.getUserNameString()
-    
+
     def getApproverName(self) -> str:
         if self.authorizer is None:
             return ""
         return self.authorizer.getUserNameString()
-    
+
     def getOwnerName(self) -> str:
         if self.owner is None:
             return ""
         return self.owner.name
-    
+
     def getUrl(self) -> str:
-        return reverse("event-detail", kwargs={"pk" : self.id})
-    
+        return reverse("event-detail", kwargs={"pk": self.id})
+
     def getStartLocalizedStr(self) -> str:
         return self.getStartLocalized().strftime(utils.DATE_TIME_FORMAT)
-    
+
     def getEndLocalizedStr(self) -> str:
         return self.getEndLocalized().strftime(utils.DATE_TIME_FORMAT)
 
@@ -93,7 +112,7 @@ class PostedEvents(models.Model):
         timezone = pytz.timezone(self.timezone)
         localTime = utcTime.astimezone(timezone)
         return localTime
-    
+
     def getEndLocalized(self) -> datetime.datetime:
         utcTime = self.end
         # If naiive add in the UTC info
@@ -103,24 +122,26 @@ class PostedEvents(models.Model):
         timezone = pytz.timezone(self.timezone)
         localTime = utcTime.astimezone(timezone)
         return localTime
-    
+
     def getEventInfo(self) -> EventInfo:
-        return EventInfo(title=self.title,
-                         start=self.getStartLocalized(),
-                         end=self.getEndLocalized(),
-                         locationName=self.locationName,
-                         streetAddress=self.streetAddress,
-                         city=self.city,
-                         state=self.state,
-                         zip=self.zip,
-                         description=self.description,
-                         instructions=self.instructions,
-                         country=self.country,
-                         zoomRequired=self.zoomRequired)
+        return EventInfo(
+            title=self.title,
+            start=self.getStartLocalized(),
+            end=self.getEndLocalized(),
+            locationName=self.locationName,
+            streetAddress=self.streetAddress,
+            city=self.city,
+            state=self.state,
+            zip=self.zip,
+            description=self.description,
+            instructions=self.instructions,
+            country=self.country,
+            zoomRequired=self.zoomRequired,
+        )
 
 
- # List of events that have been created to be delegated to an authorizer
- # There will be duplication with approved events here and the events in PostedEvents, PostedEvents should be the truth of all published events
+# List of events that have been created to be delegated to an authorizer
+# There will be duplication with approved events here and the events in PostedEvents, PostedEvents should be the truth of all published events
 class DelegatedEvents(models.Model):
     class Status:
         REQUESTED = 0
@@ -145,9 +166,23 @@ class DelegatedEvents(models.Model):
     dateCreated = models.DateTimeField()
     dateReviewed = models.DateTimeField(null=True, blank=True, default=None)
 
-    creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="delegatedEventCreator")
-    owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True)
-    approver = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="delegatedEventApprover")
+    creator = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="delegatedEventCreator",
+    )
+    owner = models.ForeignKey(
+        EventOwners, on_delete=models.SET_NULL, blank=True, null=True
+    )
+    approver = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="delegatedEventApprover",
+    )
 
     status = models.IntegerField()
     reason = models.TextField(blank=True)
@@ -163,30 +198,30 @@ class DelegatedEvents(models.Model):
             return "Approved"
         else:
             return f"Unkown {self.status}"
-    
+
     def getCreatorName(self) -> str:
         if self.creator is None:
             return ""
         return self.creator.getUserNameString()
-    
+
     def getApproverName(self) -> str:
         if self.approver is None:
             return ""
         return self.approver.getUserNameString()
-    
+
     def getOwnerName(self) -> str:
         if self.owner is None:
             return ""
         return self.owner.name
-    
+
     def getUrl(self) -> str:
         if self.status == DelegatedEvents.Status.REQUESTED:
-            return reverse("approve-delegated-event", kwargs={ "id" :self.id})
-        return reverse("delegated-event-detail", kwargs={"pk" : self.id})
-    
+            return reverse("approve-delegated-event", kwargs={"id": self.id})
+        return reverse("delegated-event-detail", kwargs={"pk": self.id})
+
     def getStartLocalizedStr(self) -> str:
         return self.getStartLocalized().strftime(utils.DATE_TIME_FORMAT)
-    
+
     def getEndLocalizedStr(self) -> str:
         return self.getEndLocalized().strftime(utils.DATE_TIME_FORMAT)
 
@@ -199,7 +234,7 @@ class DelegatedEvents(models.Model):
         timezone = pytz.timezone(self.timezone)
         localTime = utcTime.astimezone(timezone)
         return localTime
-    
+
     def getEndLocalized(self) -> datetime.datetime:
         utcTime = self.end
         # If naiive add in the UTC info
@@ -209,46 +244,19 @@ class DelegatedEvents(models.Model):
         timezone = pytz.timezone(self.timezone)
         localTime = utcTime.astimezone(timezone)
         return localTime
-    
+
     def getEventInfo(self) -> EventInfo:
-        return EventInfo(title=self.title,
-                         start=self.getStartLocalized(),
-                         end=self.getEndLocalized(),
-                         locationName=self.locationName,
-                         streetAddress=self.streetAddress,
-                         city=self.city,
-                         state=self.state,
-                         zip=self.zip,
-                         description=self.description,
-                         instructions=self.instructions,
-                         country=self.country,
-                         zoomRequired=self.zoomRequired)
-
-
-class Resolution(models.Model):
-    name = models.CharField(max_length=500)
-    # Using a text field with a url validator becuase don't want a max length requirement like URLField has
-    textUrl = models.TextField(validators=[URLValidator()])
-    votingOpen = models.DateTimeField()
-    votingClose = models.DateTimeField()
-
-    def isOpen(self):
-        now = datetime.datetime.utcnow()
-        return now > self.votingOpen and now < self.votingClose
-
-class ResolutionVotes(models.Model):
-    class VoteChoices(models.IntegerChoices):
-        ABSTAIN = 0, gettext_lazy("Abstain")
-        NO = 1, gettext_lazy("No")
-        YES = 2, gettext_lazy("Yes")
-
-    vote = models.IntegerField(choices=VoteChoices, default=0)
-    resolution = models.ForeignKey(Resolution, on_delete=models.SET_NULL)
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True) # Since we have guest votes the user can be null
-    guestEmail = models.EmailField(blank=True)
-    guestName = models.CharField(max_length=500, blank=True)
-
-    casted = models.DateTimeField()
-    verified = models.BooleanField(default=False)
-    whenVerified = models.DateTimeField()
-    verificationError = models.TextField(blank=True)
+        return EventInfo(
+            title=self.title,
+            start=self.getStartLocalized(),
+            end=self.getEndLocalized(),
+            locationName=self.locationName,
+            streetAddress=self.streetAddress,
+            city=self.city,
+            state=self.state,
+            zip=self.zip,
+            description=self.description,
+            instructions=self.instructions,
+            country=self.country,
+            zoomRequired=self.zoomRequired,
+        )

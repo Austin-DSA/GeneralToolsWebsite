@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+<!--List out all available resolutions to be voted on
+The backend will send down all the open resolutions at the current time.
+The backend will handle sending down only the correct info based on if we are a guest or not.
+For guests voteStatus will always be "Unknown" or "No Vote" initially
+{resolutions : [{id: uniqueIDStr, title: str, author: str, textUrl: str, voteStatus: str}]}
+-->
+<script src="{% static 'js/commonUI.js' %}"></script>
+<script>
+const VOTE_YES = "YES";
+const VOTE_NO = "NO";
+const VOTE_ABSTAIN = "ABSTAIN";
+
+function getVote(resolutionId)
+{
+  // TODO: Type checking on resolution id?
+  let selectId = "vote-select-"+resolutionId;
+  let selectElem = window.document.getElementById(selectId);
+  if(selectElem == null)
+  {
+    console.log("Couldn't find select element for id "+selectId);
+    return null;
+  }
+  let voteVal = selectElem.value;
+  // Directly check specific values so we don't let an invalid vote value slip through
+  if(voteVal == VOTE_YES)
+  {
+    return VOTE_YES;
+  }
+  if(voteVal == VOTE_NO)
+  {
+    return VOTE_NO;
+  }
+  if(vote == VOTE_ABSTAIN)
+  {
+    return VOTE_ABSTAIN;
+  }
+  console.log("Unexpected vote value: "+vote);
+  return null;
+}
+
+function getURLForResolution(resolutionId)
+{
+  // TODO: Figure out backend URL
+  return "";
+}
+
+function getRequestBodyForVote(vote)
+{
+  // TODO: Implement
+  // Don't need to send up user info as it is required to be in the session
+  return JSON.stringify({
+    "vote" : vote
+  });
+}
+
+async function sendVoteToBackend(resolutionId)
+{
+  commonUI_displayLoadingScreen();
+  var resultStatus = "";
+  try
+  {
+    const vote = getVote(resolutionId);
+    if(vote == null)
+    {
+      throw new Error("Failed to get vote for "+resolutionId);
+    }
+    resultStatus = vote+"-";
+    const resolutionURL = getURLForResolution(resolutionId);
+    const voteBody = getRequestBodyForVote(vote);
+    const response = await fetch(resolutionURL, {
+        method: "POST",
+        headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{% csrf_token %}'
+            },
+        body: voteBody
+    });
+    if(!response.ok())
+    {
+      throw new Error(`Response status: ${response.status}`);
+    }
+    // All we really need to know is that the vote was submitted successfully
+    resultStatus += "Submitted";
+    console.log(`Submitted vote ${vote} for resolution ${resolutionId}`);
+    // const contentType = response.headers.get("content-type");
+    // if (!contentType || !contentType.includes("application/json"))
+    // {
+    //   throw new TypeError("Oops, we haven't got JSON!");
+    // }
+    // const resultJSON =
+  }
+  catch (exception)
+  {
+    console.log(exception);
+    resultStatus += "Error";
+  }
+  finally
+  {
+    commonUI_hideLoadingScreen();
+    updateResolutionVoteStatus(resultStatus, resolutionId);
+  }
+}
+
+function updateResolutionVoteStatus(vote,resolutionId)
+{
+  let voteStatusDiv = window.document.getElementById("resVoteStatus-"+resolutionId);
+  voteStatusDiv.innerHTML = vote;
+}
+
+</script>
+{% block page_content %}
+<!--Header Info-->
+<h2>Currently Open Votes</h2> <br>
+{% if isGuest %}
+{% include tools/common/guestDetails.html %}
+{% endif %}
+
+{% for res in resolutions %}
+<div id="resDiv-{{res.id}}">
+Title: {{ res.title }} <br>
+Author: {{ res.author }} <br>
+<a href="{{ res.textUrl }}">Resolution Text</a><br>
+Current Vote: <div id="resVoteStatus-{{ res.id }}">{{ res.voteStatus }}</div> <br>
+<label for="vote-select-{{ res.id }}">Should Austin DSA Adopt this Resolution?</label>
+<select id="vote-select-{{ res.id }}">
+    <option value="ABSTAIN">Abstain</option>
+    <option value="YES">Yes</option>
+    <option value="NO">No</option>
+</select>
+<button type="button" onclick="sendVoteToBackend('{{ res.id }}');">Vote</button><br>
+
+</div> <br>
+{% endfor %}
+
+{% endblock page_content %}

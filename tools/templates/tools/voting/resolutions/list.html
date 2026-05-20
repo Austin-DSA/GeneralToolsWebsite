@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1>Resolutions</h1>
+<style>
+table, th, td {
+  border: 1px solid black;
+}
+th, td {
+    padding: 5px;
+}
+table.center {
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+<h2>Open Resolutions</h2>
+<table border="1px solid black">
+    <tr>
+        <th>Title</th>
+        <th>Is Open</th>
+        <th>Author</th>
+        <th>Status</th>
+        <th>Valid Aye</th>
+        <th>Valid Nay</th>
+        <th>Valid Abstain</th>
+        <th>Last Validated</th>
+    </tr>
+    {% for res in object_list %}
+        <tr>
+            <td><a href={{res.getUrl}}>{{res.name}}</a></td>
+            <td>{{res.isOpenStr}}</td>
+            <td>{{res.author}}</td>
+            <td>{{res.lastValidatedCountYes}}</td>
+            <td>{{res.lastValidatedCountNo}}</td>
+            <td>{{res.lastValidatedCountAbstain}}</td>
+            <td>{{res.whenLastValidatedStr}}</td>
+        </tr>
+    {% endfor %}
+</table>
+{% endblock %}

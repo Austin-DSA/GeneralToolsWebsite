@@ -8,42 +8,46 @@ from django.shortcuts import render, redirect
 from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import permission_required, login_required
 from django.contrib.auth.models import User
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 
-from .EventAutomation import EventAutomationDriver
-from .SecretManager import SecretManager
-from .forms import NewEventForm, NewDelegatedEventForm, ApproveDelegatedEventForm
-from .EmailApi import EmailApi
-from .permissions import *
-import dataclasses
-from .models import *
+from EventAutomation import EventAutomationDriver
+from SecretManager import SecretManager
+from eventForms import NewEventForm, NewDelegatedEventForm, ApproveDelegatedEventForm
+from EmailApi import EmailApi
+import permissions
+from models import EventOwners, PostedEvents, DelegatedEvents
 
 logger = logging.getLogger(__name__)
 
 # MARK: Detail and List View
 
-class DelegatedEventDetailView(DetailView):
+class DelegatedEventDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = permissions.VIEW_DELEGATED_EVENTS
     model = DelegatedEvents
     template_name = "tools/delegated-events/details.html"
 
-class DelegatedEventListView(ListView):
+class DelegatedEventListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = permissions.VIEW_DELEGATED_EVENTS
     model = DelegatedEvents
     template_name = "tools/delegated-events/list.html"
 
-class PostedEventDetailView(DetailView):
+class PostedEventDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = permissions.VIEW_PUBLISHED_EVENTS
     model = PostedEvents
     template_name = "tools/events/details.html"
 
-class PostedEventListView(ListView):
+class PostedEventListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = permissions.VIEW_PUBLISHED_EVENTS
     model = PostedEvents
     template_name = "tools/events/list.html"
 
 # MARK: Publish New Event
 
 @login_required
-@permission_required(PUBLISH_EVENT)
+@permission_required(permissions.PUBLISH_EVENT)
 def new_event(request):
     if request.method == "POST":
         logger.info("PublishEvent: Recieved submission of event to publish.")
@@ -62,16 +66,16 @@ def new_event(request):
         except Exception as err:
             logger.exception("PublishEvent: Could not get event owner")
             raise err
-        
+
         if not owner.isActive:
             logger.error("PublishEvent: Owner %s is no longer active and cannot create events", owner.name)
             return render(request, "tools/new-event/unknown.html", {"errorStr": f"Owner {owner.name} is no longer active and cannot create"})
         if request.user not in owner.authorizers.all():
             logger.error("PublishEvent: You are not an authorizer for owner %s", owner.name)
             return render(request, "tools/new-event/unknown.html", {"errorStr": f"You are not an authorizer for owner {owner.name}"})
-        
+
         logger.info("PublishEvent: Got and validated event owner %s", owner.name)
-        
+
         logger.info("PublishEvent: Getting configuration")
         zoomConfig = SecretManager.getZoomConfig()
         anConfig = SecretManager.getANAutomatorConfig()
@@ -221,7 +225,7 @@ def new_event(request):
 # MARK: Delegated Events
 
 @login_required
-@permission_required(REQUEST_DELEGATED_EVENT)
+@permission_required(permissions.REQUEST_DELEGATED_EVENT)
 def new_delegated_event(request):
     if request.method == "POST":
         logger.info("PublishDelegatedEvent: Recieved submission of event to publish.")
@@ -241,7 +245,7 @@ def new_delegated_event(request):
             logger.exception("PublishDelegatedEvent: Could not get event owner")
             raise err
         logger.info("PublishDelegatedEvent: Got and validated event owner %s", owner.name)
-        
+
         logger.info("PublishDelegatedEvent: Getting configuration")
         zoomConfig = SecretManager.getZoomConfig()
         anConfig = SecretManager.getANAutomatorConfig()
@@ -372,7 +376,7 @@ def new_delegated_event(request):
             }
         )
         return render(request, "tools/new-delegated-event/new.html", {"form": form})
-    
+
 @login_required
 @permission_required(APPROVE_DELEGATED_EVENT)
 def approve_delegated_event(request, id):
@@ -383,12 +387,12 @@ def approve_delegated_event(request, id):
     except Exception as err:
         logger.exception("ApproveDelegatedEvent: Could not retrieve delegated event request %s due to unexpected error %s", id, err)
         return render(request, "tools/approve-delegated-event/error.html", {"errorStr" : str(err)})
-    
+
     # Check if the event had already been approved/denied, if so redirect to the page that views a delegated event
     if event.status != DelegatedEvents.Status.REQUESTED:
         logger.info("ApproveDelegatedEvent: Event %s is already approved or denied, redirecting to detail view", str(id))
         return redirect("delegated-event-detail", pk=id)
-    
+
     # Check if the current user is allowed to approve
     if request.user not in event.owner.authorizers.all():
         logger.error("ApproveDelegatedEvent: User %s does not have authorization to approve event %s for owner %s", request.user.email, str(event.id), event.owner.name)
@@ -406,7 +410,7 @@ def approve_delegated_event(request, id):
             eventInfo = event.getEventInfo()
             if not eventInfo:
                 logger.error("ApprovedDelegateEvent: EventInfo for %d could not be created", id)
-                return render(request, "tools/approve-delegated-event/unknown.html", {"errorStr": "Could not create the event info for creation."}) 
+                return render(request, "tools/approve-delegated-event/unknown.html", {"errorStr": "Could not create the event info for creation."})
             logger.info("ApprovedDelegateEvent: Getting configuration")
             zoomConfig = SecretManager.getZoomConfig()
             anConfig = SecretManager.getANAutomatorConfig()

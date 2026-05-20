@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block page_content %}
+
+<!--TODO: Add button to edit and button to validate-->
+<!--Only allow editing before voting opens-->
+<!--Only allow validating after closing-->
+<h6>Resolution: {{ object.name }}</h6> <br>
+<p>
+    Author: {{ object.author }} <br>
+    Text URL:<a href="{{ object.textUrl }}">{{ object.textUrl }}</a><br>
+    Voting Open: {{ object.votingOpenStr }}<br>
+    Voting Close: {{ object.votingCloseStr }}<br>
+    Is Open: {{ object.isOpenStr }} <br>
+    Last Validated: {{ object.whenLastValidatedStr }} <br>
+    Status: {{ object.status }} <br>
+    Aye: {{ object.lastValidatedCountYes }} <br>
+    Nay: {{ object.lastValidatedCountNo }}<br>
+    Abstain: {{ object.lastValidatedCountAbstain }}<br>
+</p>
+<br>
+<br>
+{% if object.isEditable %}
+{% else %}
+<h6>Resolutions are only editable before voting opens.</h6>
+{% endif %}
+<br>
+<br>
+{% if object.canValidate %}
+{% else %}
+<h6>Resolutions can only be validated after voting has closed.</h6>
+{% endif %}
+{% endblock page_content %}
