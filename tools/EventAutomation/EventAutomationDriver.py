@@ -55,7 +55,7 @@ class Result:
 @dataclasses.dataclass
 class EventInfo:
     title: str
-    eventType : str
+    eventType : int
     start: datetime.datetime
     end: datetime.datetime
 
