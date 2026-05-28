@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 
 from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
@@ -24,19 +25,23 @@ logger = logging.getLogger(__name__)
 
 # MARK: Detail and List View
 
-class DelegatedEventDetailView(DetailView):
+class DelegatedEventDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = VIEW_DELEGATED_EVENTS
     model = DelegatedEvents
     template_name = "tools/delegated-events/details.html"
 
-class DelegatedEventListView(ListView):
+class DelegatedEventListView(LoginRequiredMixin, PermissionRequiredMixin,ListView):
+    permission_required = VIEW_DELEGATED_EVENTS
     model = DelegatedEvents
     template_name = "tools/delegated-events/list.html"
 
-class PostedEventDetailView(DetailView):
+class PostedEventDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    permission_required = VIEW_PUBLISHED_EVENTS
     model = PostedEvents
     template_name = "tools/events/details.html"
 
-class PostedEventListView(ListView):
+class PostedEventListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = VIEW_PUBLISHED_EVENTS
     model = PostedEvents
     template_name = "tools/events/list.html"
 
