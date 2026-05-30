@@ -6,17 +6,28 @@ wrapped in an envelope: ``{ "ok": bool, "data": ..., "pagination": {...}, ... }`
 
 This module is deliberately framework-free so it can be unit-tested by
 monkeypatching :meth:`OutlineAPI._call`. The only credential it needs is an API
-token, which in Outline acts *as* the user who minted it. The Link Tree uses it
-for full-text search over published documents, single-document lookups (see
-``searchDocuments`` / ``getDocument``), and one deliberate write: get-or-create
-of a document's public share link (``ensurePublishedShareUrl``) so link-tree
-buttons never gate readers behind a wiki login.
+token, which in Outline acts *as* the user who minted it — so it can only see
+that user's own drafts plus published documents (see ``listDrafts``).
+
+Two features share this client, each under its own token (see the README):
+
+* The **Link Tree** uses it for full-text search over published documents,
+  single-document lookups (``searchDocuments`` / ``getDocument``), and one
+  deliberate write: get-or-create of a document's public share link
+  (``ensurePublishedShareUrl``) so link-tree buttons never gate readers behind
+  a wiki login.
+* The **LC-notes publisher** uses it to list the token-user's drafts
+  (``listDrafts``), publish the clean ones (``publishDocument``), and resolve
+  author emails (``getUserEmail``).
 """
 
 import dataclasses
 import json
+import logging
 import urllib.error
 import urllib.request
+
+logger = logging.getLogger(__name__)
 
 # Outline caps list/search page size at 100.
 _MAX_PAGE_SIZE = 100
@@ -38,9 +49,13 @@ class OutlineDocument:
     url: str | None = None  # relative url path, for building absolute links
     publishedAt: str | None = None  # ISO timestamp, for recency sorting
     updatedAt: str | None = None  # ISO timestamp, for recency sorting
+    authorEmail: str | None = None  # from createdBy.email, embedded in the response
+    authorId: str | None = None  # from createdBy.id, for the users.info fallback
+    text: str | None = None  # markdown body; from response or getDocument() fallback
 
     @staticmethod
     def fromApiObject(doc: dict) -> "OutlineDocument":
+        createdBy = doc.get("createdBy") or {}
         return OutlineDocument(
             id=doc["id"],
             title=doc.get("title") or "",
@@ -49,6 +64,9 @@ class OutlineDocument:
             url=doc.get("url"),
             publishedAt=doc.get("publishedAt"),
             updatedAt=doc.get("updatedAt"),
+            authorEmail=createdBy.get("email"),
+            authorId=createdBy.get("id"),
+            text=doc.get("text"),
         )
 
     def recencyKey(self) -> str:
@@ -123,7 +141,7 @@ class OutlineAPI:
         except urllib.error.URLError as e:
             raise OutlineAPIError(method, None, str(e.reason)) from e
 
-    # --- documents (read-only) -----------------------------------------------
+    # --- documents -----------------------------------------------------------
 
     def getDocument(self, documentId: str) -> OutlineDocument:
         """Fetch a single document via ``documents.info``.
@@ -160,7 +178,67 @@ class OutlineAPI:
             documents.append(OutlineDocument.fromApiObject(docObject or result))
         return documents
 
-    # --- shares (the one write: public share links) ----------------------------
+    def listDrafts(self) -> list[OutlineDocument]:
+        """Return all of the token-user's drafts.
+
+        Uses the dedicated ``documents.drafts`` endpoint. On the self-hosted
+        wiki.austindsa.org instance this is the ONLY endpoint that surfaces
+        drafts: ``documents.list`` omits them entirely and the ``statusFilter``
+        param returns HTTP 500. Requires the ``documents.drafts`` token scope.
+
+        Important live behaviors on this instance:
+          * ``documents.drafts`` returns only the *caller's* drafts (drafts are
+            private to their author — so this must run as the note author).
+          * Drafts have ``collectionId: null`` (a draft isn't in a collection
+            until it's published) and the endpoint ignores a ``collectionId``
+            filter. So callers select LC notes by **title**, not collection.
+
+        Paginates on the raw page size until exhausted.
+        """
+        drafts: list[OutlineDocument] = []
+        offset = 0
+        while True:
+            envelope = self._call(
+                "documents.drafts", {"limit": _MAX_PAGE_SIZE, "offset": offset}
+            )
+            page = envelope.get("data") or []
+            for doc in page:
+                outlineDoc = OutlineDocument.fromApiObject(doc)
+                if not outlineDoc.published:  # defensive; endpoint should only return drafts
+                    drafts.append(outlineDoc)
+            if len(page) < _MAX_PAGE_SIZE:
+                break
+            offset += _MAX_PAGE_SIZE
+        return drafts
+
+    def publishDocument(self, documentId: str) -> None:
+        """Publish a draft via ``documents.update`` with ``publish: true``.
+
+        Idempotent: publishing an already-published doc is harmless. Requires
+        the ``documents.update`` token scope.
+        """
+        self._call("documents.update", {"id": documentId, "publish": True})
+
+    # --- users ----------------------------------------------------------------
+
+    def getUserEmail(self, userId: str) -> str | None:
+        """Resolve a user's email via ``users.info``.
+
+        Only used as a fallback when the author email is absent from the list
+        response. Never raises — returns None on any failure so it can't break a
+        sweep.
+        """
+        if not userId:
+            return None
+        try:
+            envelope = self._call("users.info", {"id": userId})
+        except OutlineAPIError:
+            logger.warning("Could not resolve user email for id %s", userId)
+            return None
+        data = envelope.get("data") or {}
+        return data.get("email")
+
+    # --- shares (the one Link Tree write: public share links) ------------------
 
     def ensurePublishedShareUrl(self, documentId: str) -> str:
         """Get-or-create the document's share link and make sure it is published.
@@ -185,11 +263,14 @@ class OutlineAPI:
             self._call("shares.update", {"id": share.id, "published": True})
         return share.url
 
+    # --- urls -----------------------------------------------------------------
+
     def absoluteDocUrl(self, urlPath: str | None, documentId: str) -> str:
-        """Absolute URL for a document, for building Link Tree button targets.
+        """Absolute URL for a document (Link Tree button targets, report links).
 
         Accepts the relative ``url`` path Outline returns (e.g. ``/doc/slug``)
-        with the document id as a fallback.
+        with the document id as a fallback, so it works for both an
+        OutlineDocument and a NoteResult.
         """
         base = self._config.baseUrl.rstrip("/")
         if urlPath:

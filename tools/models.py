@@ -117,6 +117,23 @@ class PostedEvents(models.Model):
                          zoomRequired=self.zoomRequired)
 
 
+# Tracks LC wiki drafts that were HELD (flagged as possibly containing an
+# executive session) so the publish_lc_notes sweep doesn't re-email the author
+# every day. We email on first detection, then at most once per week.
+class NotifiedHeldNote(models.Model):
+    docId = models.CharField(max_length=100, unique=True, db_index=True)
+    title = models.CharField(max_length=500, blank=True)
+    firstNotifiedAt = models.DateTimeField(auto_now_add=True)
+    lastNotifiedAt = models.DateTimeField(auto_now=True)
+    notifyCount = models.IntegerField(default=1)
+
+    class Meta:
+        verbose_name = "Notified Held Note"
+
+    def __str__(self):
+        return f"{self.title or self.docId} (notified {self.notifyCount}x)"
+
+
  # List of events that have been created to be delegated to an authorizer
  # There will be duplication with approved events here and the events in PostedEvents, PostedEvents should be the truth of all published events
 class DelegatedEvents(models.Model):

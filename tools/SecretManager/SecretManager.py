@@ -1,3 +1,5 @@
+import dataclasses
+
 from ..EventAutomation.ZoomAPI import ZoomConfig
 from ..EventAutomation.ActionNetworkAutomation import ANAutomatorConfig
 from ..EventAutomation.GoogleCalendarAPI import GoogleCalendarConfig
@@ -57,3 +59,31 @@ def getOutlineReadConfig() -> OutlineConfig | None:
     if not baseUrl or not apiToken:
         return None
     return OutlineConfig(baseUrl=baseUrl, apiToken=apiToken)
+
+
+@dataclasses.dataclass
+class LCNotesConfig:
+    titlePattern: str
+    fallbackEmail: str
+    keywords: list[str]
+
+
+def getOutlineConfig() -> OutlineConfig:
+    return OutlineConfig(
+        baseUrl=OutlineBaseUrl(),
+        apiToken=OutlineApiToken(),
+    )
+
+
+def getLCNotesConfig() -> LCNotesConfig:
+    # Imported lazily to keep this module's import graph shallow at Django
+    # settings-load time (settings.py imports SecretManager).
+    from ..WikiAutomation.LCNotePublisher import DEFAULT_KEYWORDS, DEFAULT_TITLE_PATTERN
+
+    overrideKeywords = LCExecKeywords()
+    overrideTitlePattern = LCNotesTitlePattern()
+    return LCNotesConfig(
+        titlePattern=overrideTitlePattern if overrideTitlePattern else DEFAULT_TITLE_PATTERN,
+        fallbackEmail=LCNotesFallbackEmail(),
+        keywords=overrideKeywords if overrideKeywords else DEFAULT_KEYWORDS,
+    )

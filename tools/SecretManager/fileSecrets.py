@@ -21,6 +21,13 @@ class Keys:
     # and hidden, so the app still boots without these configured.
     OUTLINE_BASE_URL = "OutlineBaseUrl"
     OUTLINE_READ_API_TOKEN = "OutlineReadApiToken"
+    # Outline wiki / LC-note auto-publishing. These are mandatory: every Keys
+    # entry not in OPTIONAL_KEYS is validated at import (see
+    # _readSecretsFromFile), so they must be present in secrets.json.
+    # LCExecKeywords and LCNotesTitlePattern are intentionally NOT listed here -
+    # they are optional and read via secretObject.get() below.
+    OUTLINE_API_TOKEN = "OutlineApiToken"
+    LC_NOTES_FALLBACK_EMAIL = "LCNotesFallbackEmail"
 
 # Keys that are not required at import. The accessors below return None when an
 # optional key is missing; callers must handle the unconfigured case.
@@ -96,4 +103,24 @@ def OutlineBaseUrl():
 def OutlineReadApiToken():
     # Optional — None when not configured (see OPTIONAL_KEYS).
     return secretObject.get(Keys.OUTLINE_READ_API_TOKEN)
+
+
+def OutlineApiToken():
+    return secretObject[Keys.OUTLINE_API_TOKEN]
+
+
+def LCNotesFallbackEmail():
+    return secretObject[Keys.LC_NOTES_FALLBACK_EMAIL]
+
+
+def LCExecKeywords():
+    # Optional override; returns None if not configured (caller uses the code
+    # default keyword list). Not in Keys, so not import-time validated.
+    return secretObject.get("LCExecKeywords")
+
+
+def LCNotesTitlePattern():
+    # Optional regex selecting which drafts are LC notes by title; None means
+    # the caller uses the code default ("lc minutes"). Not in Keys.
+    return secretObject.get("LCNotesTitlePattern")
 
