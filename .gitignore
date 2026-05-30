@@ -15,3 +15,5 @@ deploy/secrets.txt
 deploy/args.txt
 
 data/*
+.vscode/settings.json
+.vscode/launch.json
