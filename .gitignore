@@ -15,3 +15,29 @@ deploy/secrets.txt
 deploy/args.txt
 
 data/*
+
+# --- Claude Code / AI assistant files (local dev only) ---
+CLAUDE.md
+.claude/
+.claude-work/
+.mcp.json
+
+# --- Local dev database ---
+*.sqlite3
+db.sqlite3
+
+# --- Environment / secrets ---
+.env
+.env.*
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log

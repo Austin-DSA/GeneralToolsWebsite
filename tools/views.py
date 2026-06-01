@@ -22,7 +22,9 @@ PAGES = [
     PageOption(href="new-event", title="Create an Event", permission=permissions.PUBLISH_EVENT),
     PageOption(href="new-delegated-event", title="Create Delegated Event Request", permission=permissions.REQUEST_DELEGATED_EVENT),
     PageOption(href="events", title="View Published Events", permission=permissions.VIEW_PUBLISHED_EVENTS),
-    PageOption(href="delegated-events", title="View Delegated Events", permission=permissions.VIEW_DELEGATED_EVENTS)
+    PageOption(href="delegated-events", title="View Delegated Events", permission=permissions.VIEW_DELEGATED_EVENTS),
+    PageOption(href="/admin/tools/linktree/", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE),
+    PageOption(href="link-metrics", title="Link Tree Metrics", permission=permissions.VIEW_LINK_METRICS),
 ]
 
 def getPagesForUser(user) -> list[dict[str,str]]:

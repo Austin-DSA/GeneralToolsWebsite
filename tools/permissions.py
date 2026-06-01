@@ -15,6 +15,11 @@ APPROVE_DELEGATED_EVENT = _publicPermissionName(_APPROVE_DELEGATED_EVENT)
 _VIEW_DELEGATED_EVENTS = "viewDelegatedEventList"
 VIEW_DELEGATED_EVENTS = _publicPermissionName(_VIEW_DELEGATED_EVENTS)
 
+_MANAGE_LINK_TREE = "manageLinkTree"
+MANAGE_LINK_TREE = _publicPermissionName(_MANAGE_LINK_TREE)
+_VIEW_LINK_METRICS = "viewLinkMetrics"
+VIEW_LINK_METRICS = _publicPermissionName(_VIEW_LINK_METRICS)
+
 class PermissionRights(models.Model):
     class Meta:
         managed = False
@@ -26,5 +31,7 @@ class PermissionRights(models.Model):
             (_REQUEST_DELEGATED_EVENT, 'Allowed to request delegated events'),
             (_APPROVE_DELEGATED_EVENT, 'Allowed to approve delegated events'),
             (_VIEW_DELEGATED_EVENTS, 'Allowed to view delegated events'),
-            (_VIEW_PUBLISHED_EVENTS, 'Allowed to view published events')
+            (_VIEW_PUBLISHED_EVENTS, 'Allowed to view published events'),
+            (_MANAGE_LINK_TREE, 'Allowed to manage link trees, items, and QR codes'),
+            (_VIEW_LINK_METRICS, 'Allowed to view link tree click/scan metrics'),
         )
