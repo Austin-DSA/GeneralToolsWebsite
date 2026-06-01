@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('tools', '0006_eventowners_ispermanent'),
+        ('tools', '0007_delegatedevents_eventtype'),
     ]
 
     operations = [

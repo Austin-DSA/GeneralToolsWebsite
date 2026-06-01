@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from .EventAutomation.EventAutomationDriver import EventInfo
+from .EventAutomation.EventAutomationDriver import EventInfo, ActionNetworkAutomation
 import datetime
 import pytz
 from django.urls import reverse
@@ -152,6 +152,8 @@ class DelegatedEvents(models.Model):
 
     zoomRequired = models.BooleanField(default=True)
 
+    eventType = models.IntegerField(default=ActionNetworkAutomation.ANTypes.HYBRID)
+
     def getStatusAsString(self) -> str:
         if self.status == DelegatedEvents.Status.REQUESTED:
             return "Requested"
@@ -220,6 +222,7 @@ class DelegatedEvents(models.Model):
                          description=self.description,
                          instructions=self.instructions,
                          country=self.country,
+                         eventType=self.eventType,
                          zoomRequired=self.zoomRequired)
 
 

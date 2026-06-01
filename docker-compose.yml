@@ -22,7 +22,6 @@ services:
   chrome:
         image: selenium/standalone-chrome:latest
         hostname: chrome
-        privileged: true
         shm_size: 2g #Should maybe be 2g?
   tools-site:
     restart: unless-stopped
