@@ -39,7 +39,7 @@ def getWebsiteEmailAccountPassword() -> str:
     return WebsiteEmailAccountPassword()
 
 
-def getOutlineReadConfig():
+def getOutlineReadConfig() -> OutlineConfig | None:
     """Outline client config for the Link Tree's read-only service account.
 
     This token needs the ``documents.search`` scope to surface published wiki
