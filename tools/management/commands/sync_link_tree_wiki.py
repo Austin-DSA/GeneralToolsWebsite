@@ -5,8 +5,11 @@ agenda"). This command resolves each one to a concrete document URL + title and
 caches the result on the item, so the public tree page never has to call Outline
 at request time (and keeps working if Outline is briefly down).
 
-Runs under the dedicated read-only Outline service-account token
-(SecretManager.getOutlineReadConfig), which needs the `documents.search` scope.
+Runs under the dedicated Outline service-account token
+(SecretManager.getOutlineReadConfig), which needs the `documents.search`,
+`documents.info`, `shares.create`, and `shares.update` scopes — resolved items
+link to the document's *published share URL* (get-or-create, auto-published) so
+readers never need a wiki login, falling back to the direct URL if sharing fails.
 
 Schedule via host cron / Windows Task Scheduler — there is no in-process
 scheduler. A daily run is plenty; agendas don't change minute to minute.
@@ -66,7 +69,11 @@ class Command(BaseCommand):
             raise SystemExit(1)
 
         if dryRun:
-            self.stdout.write(self.style.WARNING("DRY RUN — items will not be updated."))
+            self.stdout.write(self.style.WARNING(
+                "DRY RUN — items will not be updated and no wiki shares will be "
+                "created/published; URLs shown are direct doc URLs (a real run "
+                "caches the published share URL instead)."
+            ))
 
         items = list(LinkTreeItem.objects.filter(kind=LinkTreeItem.Kind.WIKI))
         resolved = 0
@@ -75,7 +82,9 @@ class Command(BaseCommand):
 
         for item in items:
             try:
-                result = self._resolve(api, item)
+                # Dry runs must be side-effect-free on Outline too — skip the
+                # share get-or-create, not just the DB write.
+                result = self._resolve(api, item, createShares=not dryRun)
             except Exception:
                 errored += 1
                 logger.exception("Error resolving wiki item %s", item.pk)
@@ -94,7 +103,9 @@ class Command(BaseCommand):
 
             resolved += 1
             if not quiet:
-                self.stdout.write(f"  [OK] item {item.pk}: {result.title} → {result.url}")
+                # ASCII arrow on purpose: U+2192 crashes Windows consoles
+                # (cp1252) with UnicodeEncodeError before the item is saved.
+                self.stdout.write(f"  [OK] item {item.pk}: {result.title} -> {result.url}")
             if not dryRun:
                 item.resolvedUrl = result.url
                 item.resolvedLabel = result.title
@@ -113,11 +124,14 @@ class Command(BaseCommand):
         if errored:
             raise SystemExit(1)
 
-    def _resolve(self, api, item):
+    def _resolve(self, api, item, createShares=True):
         if item.wikiMode == LinkTreeItem.WikiMode.PINNED:
-            return WikiLinkResolver.resolvePinned(api, item.pinnedWikiDocId)
+            return WikiLinkResolver.resolvePinned(
+                api, item.pinnedWikiDocId, createShares=createShares
+            )
         return WikiLinkResolver.resolveLatest(
-            api, item.wikiQuery, item.wikiCollectionId or None
+            api, item.wikiQuery, item.wikiCollectionId or None,
+            createShares=createShares,
         )
 
     def _describe(self, item) -> str:

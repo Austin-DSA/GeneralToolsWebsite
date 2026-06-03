@@ -77,9 +77,26 @@ only reads that cache, so it never calls Outline at request time and keeps
 working if Outline is down. An unresolved wiki item is simply hidden (never a
 dead button).
 
+Resolved items link to the document's **published share URL** (`/s/...`), not
+the direct `/doc/...` URL, so readers never hit a wiki login wall. The resolver
+get-or-creates the share and publishes it on demand — anything surfaced on a
+link tree is assumed OK to share (this also fixes the recurring mistake of docs
+meant to be public never actually being shared). If share creation fails
+(missing scope, sharing disabled), it falls back to the direct URL.
+
+In practice a share the service account creates comes back already published;
+the publish step only matters when a *human* previously created a share without
+toggling "publish to web" — and publishing someone else's share can be denied
+(403 → logged + direct-URL fallback). Remedy in Outline: publish that share
+manually, or delete it so the next sync recreates it published.
+
 ```bash
 python manage.py sync_link_tree_wiki [--dry-run] [--quiet]
 ```
+
+`--dry-run` is fully side-effect-free: it neither writes the cache nor
+creates/publishes any wiki share, so the URLs it prints are direct doc URLs
+(a real run caches the published share URL instead).
 
 Schedule it with the host scheduler (there is no in-process scheduler). A daily
 run is plenty. Example cron (8am CT-ish):
@@ -102,8 +119,9 @@ stay unresolved and hidden). To turn wiki surfacing on:
   `tools/SecretManager/secrets.json` (optional — both must be present to enable
   surfacing, but their absence no longer blocks boot).
 - Dev: set `OutlineReadApiToken()` in `tools/SecretManager/devSecrets.py`.
-- Required token scopes: `documents.search documents.info` (add
-  `collections.documents` only if you scope items to a collection).
+- Required token scopes: `documents.search documents.info shares.create
+  shares.update` (the share scopes power the published-share-URL resolution
+  above; add `collections.documents` only if you scope items to a collection).
 
 ## Privacy
 

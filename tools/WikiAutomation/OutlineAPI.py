@@ -7,8 +7,10 @@ wrapped in an envelope: ``{ "ok": bool, "data": ..., "pagination": {...}, ... }`
 This module is deliberately framework-free so it can be unit-tested by
 monkeypatching :meth:`OutlineAPI._call`. The only credential it needs is an API
 token, which in Outline acts *as* the user who minted it. The Link Tree uses it
-read-only: full-text search over published documents plus single-document
-lookups (see ``searchDocuments`` / ``getDocument``).
+for full-text search over published documents, single-document lookups (see
+``searchDocuments`` / ``getDocument``), and one deliberate write: get-or-create
+of a document's public share link (``ensurePublishedShareUrl``) so link-tree
+buttons never gate readers behind a wiki login.
 """
 
 import dataclasses
@@ -56,6 +58,21 @@ class OutlineDocument:
         last so undated docs never win the 'latest' pick.
         """
         return self.updatedAt or self.publishedAt or ""
+
+
+@dataclasses.dataclass
+class OutlineShare:
+    id: str
+    url: str  # absolute share URL, e.g. "https://wiki.example.org/s/<urlId>"
+    published: bool  # shares only bypass wiki login once published
+
+    @staticmethod
+    def fromApiObject(share: dict) -> "OutlineShare":
+        return OutlineShare(
+            id=share.get("id") or "",
+            url=share.get("url") or "",
+            published=bool(share.get("published")),
+        )
 
 
 class OutlineAPIError(Exception):
@@ -142,6 +159,31 @@ class OutlineAPI:
             docObject = result.get("document") if isinstance(result, dict) else None
             documents.append(OutlineDocument.fromApiObject(docObject or result))
         return documents
+
+    # --- shares (the one write: public share links) ----------------------------
+
+    def ensurePublishedShareUrl(self, documentId: str) -> str:
+        """Get-or-create the document's share link and make sure it is published.
+
+        ``shares.create`` is get-or-create in Outline: it returns the existing
+        share when one already exists. A share only bypasses wiki login once its
+        ``published`` flag is set, so unpublished shares are published here via
+        ``shares.update``. Anything surfaced on a link tree is by definition
+        meant to be readable without an account — historically docs were
+        sometimes "public" in intent but never actually shared, a mistake this
+        removes.
+
+        Requires the ``shares.create`` and ``shares.update`` token scopes.
+        Raises OutlineAPIError on any failure; callers fall back to the direct
+        document URL (see ``WikiLinkResolver._publicUrl``).
+        """
+        envelope = self._call("shares.create", {"documentId": documentId})
+        share = OutlineShare.fromApiObject(envelope.get("data") or {})
+        if not share.url:
+            raise OutlineAPIError("shares.create", None, "response had no share url")
+        if not share.published:
+            self._call("shares.update", {"id": share.id, "published": True})
+        return share.url
 
     def absoluteDocUrl(self, urlPath: str | None, documentId: str) -> str:
         """Absolute URL for a document, for building Link Tree button targets.

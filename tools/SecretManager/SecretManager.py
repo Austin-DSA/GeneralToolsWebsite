@@ -40,10 +40,12 @@ def getWebsiteEmailAccountPassword() -> str:
 
 
 def getOutlineReadConfig() -> OutlineConfig | None:
-    """Outline client config for the Link Tree's read-only service account.
+    """Outline client config for the Link Tree's wiki service account.
 
-    This token needs the ``documents.search`` scope to surface published wiki
-    content (e.g. GBM agendas) and is intended to live on a dedicated read-only
+    This token needs the ``documents.search`` + ``documents.info`` scopes to
+    surface published wiki content (e.g. GBM agendas), plus ``shares.create`` +
+    ``shares.update`` so resolved items can link to a published share URL
+    (readable without a wiki login). It is intended to live on a dedicated
     bot/service account, separate from any human editor's token.
 
     Returns ``None`` when the token isn't configured, so wiki surfacing degrades
