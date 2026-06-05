@@ -37,6 +37,11 @@ env = environ.Env(
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
 
+# Salt for the Link Tree's privacy-first visitor hash (see tools/LinkTree/tracking.py).
+# Defaults to SECRET_KEY; set independently so rotating SECRET_KEY doesn't reset
+# same-day visitor-uniqueness continuity.
+LINK_TRACKING_SALT = env("LINK_TRACKING_SALT", default=SECRET_KEY)
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 

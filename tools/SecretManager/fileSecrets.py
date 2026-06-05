@@ -16,6 +16,18 @@ class Keys:
     GOOGLE_DELEGATE_ACCOUNT = "GoogleDelegateAccount"
     WEBSITE_EMAIL_ACCOUNT_USERNAME = "WebsiteEmailAccountUsername"
     WEBSITE_EMAIL_ACCOUNT_PASSWORD = "WebsiteEmailAccountPassword"
+    # Outline wiki — Link Tree read-only service account. OPTIONAL (see
+    # OPTIONAL_KEYS): when absent, wiki-backed link items simply stay unresolved
+    # and hidden, so the app still boots without these configured.
+    OUTLINE_BASE_URL = "OutlineBaseUrl"
+    OUTLINE_READ_API_TOKEN = "OutlineReadApiToken"
+
+# Keys that are not required at import. The accessors below return None when an
+# optional key is missing; callers must handle the unconfigured case.
+OPTIONAL_KEYS = frozenset({
+    Keys.OUTLINE_BASE_URL,
+    Keys.OUTLINE_READ_API_TOKEN,
+})
 
 def _readSecretsFromFile():
     logger.info("Loading Secrets from File")
@@ -26,6 +38,8 @@ def _readSecretsFromFile():
     logger.info("Validating object")
     for name, value in vars(Keys).items():
         if not name.startswith("__") and not callable(value):
+            if value in OPTIONAL_KEYS:
+                continue
             if value not in secretObject:
                 logger.error("Key %s does not exist in secret file", value)
                 raise Exception(f"Key {value} does not exist in secret file")
@@ -72,4 +86,14 @@ def WebsiteEmailAccountUsername():
 
 def WebsiteEmailAccountPassword():
     return secretObject[Keys.WEBSITE_EMAIL_ACCOUNT_PASSWORD]
+
+
+def OutlineBaseUrl():
+    # Optional — None when not configured (see OPTIONAL_KEYS).
+    return secretObject.get(Keys.OUTLINE_BASE_URL)
+
+
+def OutlineReadApiToken():
+    # Optional — None when not configured (see OPTIONAL_KEYS).
+    return secretObject.get(Keys.OUTLINE_READ_API_TOKEN)
 
