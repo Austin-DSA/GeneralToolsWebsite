@@ -1,52 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Austin DSA Tools{% endblock title %}</title>
+    {% load static %}
+    <link rel="icon" href="{% static 'images/ATXDSA Circle Logo with Chapter Black.png' %}" />
+    <link rel="stylesheet" href="{% static 'css/output.css' %}" />
     <script>
       // Saves the users timezone in a cookie
-      // Timezone settings
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. "America/New_York"
       document.cookie = "django_timezone=" + timezone;
     </script>
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-    <title>{% block title %}Austin DSA Tools{% endblock title %}</title>
-    {% load static %}
-    <link
-      rel="stylesheet"
-      href="{% static 'css/output.css' %}"
-    />
   </head>
-  <body class="font-display text-dark max-w-full">
-    <header class="bg-primary w-full tools-header">
-      <div class="flex justify-start items-center">
+  <body class="font-display text-dark bg-paper min-h-screen flex flex-col">
+    <header class="bg-primary w-full tools-header shadow-md">
+      <div class="flex justify-start items-center h-full">
         <div class="bat-logo flex-none">
-          <img src="{% static 'images\ATXDSA Circle Logo with Chapter Black.png' %}">
+          <img src="{% static 'images/ATXDSA Circle Logo with Chapter Black.png' %}" alt="Austin DSA" />
         </div>
         <div class="app-title text-2xl flex-auto">
-          <h1><a href="/" style="text-decoration-line: none; color: black;">Austin DSA Tools</a></h1>
+          <h1><a class="header-link font-semibold" href="/">Austin DSA Tools</a></h1>
         </div>
-        {# px-4/text-sm aren't in the compiled output.css — use px-8 + inline size #}
-        <div class="flex-none px-8" style="font-size: 0.875rem;">
+        <div class="flex-none px-8 text-white" style="font-size: 0.875rem;">
           {% if user.is_authenticated %}
-            <span>{{ user.username }}</span>
-            · <a href="{% url 'password_change' %}">Change password</a>
-            <form action="{% url 'logout' %}" method="post" style="display: inline;">
-              {% csrf_token %}
-              · <button type="submit" style="background: none; border: none; cursor: pointer; text-decoration: underline; font-size: inherit; font-family: inherit; padding: 0;">Log out</button>
-            </form>
+            <details class="user-menu">
+              <summary>{{ user.username }}</summary>
+              <div class="user-menu-panel">
+                <span class="user-menu-header">Signed in as <b>{{ user.username }}</b></span>
+                <a class="user-menu-item" href="{% url 'password_change' %}">Change password</a>
+                <form action="{% url 'logout' %}" method="post">
+                  {% csrf_token %}
+                  <button type="submit" class="user-menu-item">Log out</button>
+                </form>
+              </div>
+            </details>
           {% else %}
-            <a href="{% url 'login' %}">Log in</a>
+            <a class="header-link" href="{% url 'login' %}">Log in</a>
           {% endif %}
         </div>
       </div>
     </header>
-    <div class="flex justify-center">
-      <div class="w-full px-8">
-        {% block page_content %}{% endblock page_content %}
-      </div>
-    </div>
+    <script>
+      // Close the user popover when clicking outside it or pressing Escape
+      document.addEventListener("click", (event) => {
+        for (const menu of document.querySelectorAll("details.user-menu[open]")) {
+          if (!menu.contains(event.target)) { menu.removeAttribute("open"); }
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          for (const menu of document.querySelectorAll("details.user-menu[open]")) {
+            menu.removeAttribute("open");
+          }
+        }
+      });
+    </script>
+    <main class="flex-auto w-full max-w-5xl mx-auto px-4 py-8">
+      {% block page_content %}{% endblock page_content %}
+    </main>
+    <footer class="w-full text-center text-sm text-gray-med py-6">
+      <a class="text-secondary hover:text-dark" href="https://www.austindsa.org">Austin DSA</a>
+      <span class="px-1">·</span>Tools
+    </footer>
   </body>
 </html>

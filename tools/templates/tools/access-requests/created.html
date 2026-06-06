@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block page_content %}
-<h1 class="text-xl py-8">Request submitted</h1>
-<p>Your request for <b>{{ accessRequest.getTargetDescription }}</b> has been sent to the approvers. You will receive an email once it has been reviewed.</p>
-<p class="py-2"><a href="{% url 'access-request-list' %}">View your requests</a> · <a href="/">Back to home</a></p>
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Request submitted</h1>
+  <div class="alert alert-success">Your request for <b>{{ accessRequest.getTargetDescription }}</b> has been sent to the approvers. You will receive an email once it has been reviewed.</div>
+  <p class="py-3">
+    <a class="btn btn-primary" href="{% url 'access-request-list' %}">View your requests</a>
+    <a class="btn btn-secondary" href="/">Back to home</a>
+  </p>
+</div>
 {% endblock page_content %}

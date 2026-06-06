@@ -1,5 +1,7 @@
 {% extends "base.html" %} {% block page_content %}
-<p> The following error occured and you event was not published </p>
-<hr>
-<p>{{ errorStr }}</p>
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Something went wrong</h1>
+  <div class="alert alert-error">The following error occured and the event was not published.</div>
+  <p>{{ errorStr }}</p>
+</div>
 {% endblock page_content %}

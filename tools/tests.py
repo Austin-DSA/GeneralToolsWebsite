@@ -675,11 +675,13 @@ class AccessRequestReviewTests(TestCase):
         permRequest.refresh_from_db()
         self.assertEqual(permRequest.status, AccessRequests.Status.REQUESTED)
 
-    def test_superuser_can_approve(self):
+    def test_superuser_can_approve_without_reason(self):
+        # reason is optional — an approval with no note must go through
         self.client.force_login(self.admin)
-        self._approve()
+        self.client.post(self._reviewUrl(), {"approve": "YES", "reason": ""})
         self.groupRequest.refresh_from_db()
         self.assertEqual(self.groupRequest.status, AccessRequests.Status.APPROVED)
+        self.assertEqual(self.groupRequest.reason, "")
 
     def test_deny_grants_nothing_and_stamps_reason(self):
         self.client.force_login(self.member)
@@ -738,6 +740,300 @@ class AccessRequestListTests(TestCase):
         resp = self.client.get(reverse("access-request-list"))
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, "Anti-ICE Campaign")
+
+    def test_dates_render_in_browser_timezone(self):
+        # TimezoneMiddleware activates the tz from the django_timezone cookie
+        # (set by base.html), so timestamps show local time instead of UTC.
+        self.client.cookies["django_timezone"] = "America/Chicago"
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("access-request-list"))
+        self.assertTrue(
+            b"CST" in resp.content or b"CDT" in resp.content,
+            "expected Central-time timestamp on the page",
+        )
+        self.assertNotContains(resp, "UTC")
+
+
+class MyAccessTests(TestCase):
+    def setUp(self):
+        self.group = Group.objects.create(name="Anti-ICE Campaign")
+        self.group.permissions.add(_permission("manageLinkTree"))
+
+    def test_requires_login(self):
+        resp = self.client.get(reverse("my-access"))
+        self.assertEqual(resp.status_code, 302)
+
+    def test_shows_groups_and_permission_sources(self):
+        member = _makeUser("member")
+        member.groups.add(self.group)
+        member.user_permissions.add(_permission("publishEvent"))
+        self.client.force_login(member)
+        resp = self.client.get(reverse("my-access"))
+        self.assertContains(resp, "Anti-ICE Campaign")
+        # group-derived permission, annotated with its source group
+        self.assertContains(resp, "Allowed to manage link trees, items, and QR codes")
+        self.assertContains(resp, "Via Anti-ICE Campaign")
+        # directly-granted permission
+        self.assertContains(resp, "Allowed to publish events")
+        self.assertContains(resp, "Granted directly")
+
+    def test_empty_state_for_fresh_account(self):
+        self.client.force_login(_makeUser("fresh"))
+        resp = self.client.get(reverse("my-access"))
+        self.assertContains(resp, "not in any groups")
+        self.assertContains(resp, "don't have any permissions")
+
+
+class ManageAccessTests(TestCase):
+    def setUp(self):
+        self.group = Group.objects.create(name="Anti-ICE Campaign")
+        self.admin = _makeUser("admin")
+        self.admin.user_permissions.add(_permission("approveAccessRequest"))
+        self.member = _makeUser("member")
+
+    def test_plain_user_cannot_open_manage_pages(self):
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("manage-access"))
+        self.assertEqual(resp.status_code, 302)  # bounced by permission_required
+        resp = self.client.post(
+            reverse("manage-access-user", kwargs={"userId": self.member.id}),
+            {"groups": [self.group.id], "permissions": []},
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertNotIn(self.group, self.member.groups.all())
+
+    def test_admin_sees_member_list(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get(reverse("manage-access"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "member")
+        self.assertContains(resp, reverse("manage-access-user", kwargs={"userId": self.member.id}))
+
+    def test_admin_grants_and_revokes_group_and_permission(self):
+        permission = _permission("manageLinkTree")
+        self.client.force_login(self.admin)
+        url = reverse("manage-access-user", kwargs={"userId": self.member.id})
+
+        # Grant a group + a direct permission
+        resp = self.client.post(url, {"groups": [self.group.id], "permissions": [permission.id]})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(self.group, self.member.groups.all())
+        self.assertIn(permission, self.member.user_permissions.all())
+
+        # Revoke everything
+        self.client.post(url, {"groups": [], "permissions": []})
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.groups.count(), 0)
+        self.assertNotIn(permission, self.member.user_permissions.all())
+
+    def test_non_custom_direct_permissions_are_preserved(self):
+        # A model permission granted outside this page must survive a save
+        otherPermission = Permission.objects.get(codename="view_linktree")
+        self.member.user_permissions.add(otherPermission)
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse("manage-access-user", kwargs={"userId": self.member.id}),
+            {"groups": [], "permissions": []},
+        )
+        self.assertIn(otherPermission, self.member.user_permissions.all())
+
+    def test_direct_grant_closes_matching_pending_request(self):
+        pending = AccessRequests.objects.create(
+            requester=self.member, group=self.group, justification="please"
+        )
+        unrelated = AccessRequests.objects.create(
+            requester=self.member,
+            permission=_permission("publishEvent"),
+            justification="separate ask",
+        )
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse("manage-access-user", kwargs={"userId": self.member.id}),
+            {"groups": [self.group.id], "permissions": []},
+        )
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, AccessRequests.Status.APPROVED)
+        self.assertEqual(pending.reviewer, self.admin)
+        self.assertEqual(pending.reason, "Access granted directly")
+        self.assertIsNotNone(pending.dateReviewed)
+        # requester is notified
+        recipients = [address for m in mail.outbox for address in m.to]
+        self.assertIn(self.member.email, recipients)
+        # the unrelated pending request is untouched
+        unrelated.refresh_from_db()
+        self.assertEqual(unrelated.status, AccessRequests.Status.REQUESTED)
+
+
+class ManageGroupsTests(TestCase):
+    def setUp(self):
+        self.group = Group.objects.create(name="Anti-ICE Campaign")
+        self.admin = _makeUser("admin")
+        self.admin.user_permissions.add(_permission("approveAccessRequest"))
+        self.member = _makeUser("member")
+
+    def test_plain_user_cannot_open_group_pages(self):
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("manage-groups"))
+        self.assertEqual(resp.status_code, 302)  # bounced by permission_required
+        resp = self.client.post(
+            reverse("manage-group", kwargs={"groupId": self.group.id}),
+            {"name": "Hijacked", "permissions": []},
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.name, "Anti-ICE Campaign")
+        resp = self.client.post(
+            reverse("manage-group-delete", kwargs={"groupId": self.group.id}),
+            {"confirmName": self.group.name},
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(Group.objects.filter(id=self.group.id).exists())
+
+    def test_admin_sees_group_list(self):
+        self.client.force_login(self.admin)
+        resp = self.client.get(reverse("manage-groups"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Anti-ICE Campaign")
+        self.assertContains(resp, reverse("manage-group", kwargs={"groupId": self.group.id}))
+
+    def test_create_group(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post(reverse("manage-groups"), {"name": "Mutual Aid"})
+        created = Group.objects.get(name="Mutual Aid")
+        self.assertRedirects(resp, reverse("manage-group", kwargs={"groupId": created.id}))
+
+    def test_create_duplicate_name_rejected(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post(reverse("manage-groups"), {"name": "anti-ice campaign"})
+        self.assertEqual(resp.status_code, 200)  # re-rendered with the error
+        self.assertContains(resp, "already exists")
+        self.assertEqual(Group.objects.count(), 1)
+
+    def test_edit_name_permissions_and_members(self):
+        permission = _permission("manageLinkTree")
+        self.client.force_login(self.admin)
+        resp = self.client.post(
+            reverse("manage-group", kwargs={"groupId": self.group.id}),
+            {"name": "Anti-ICE Organizers", "permissions": [permission.id], "addMembers": [self.member.id]},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.group.refresh_from_db()
+        self.assertEqual(self.group.name, "Anti-ICE Organizers")
+        self.assertIn(permission, self.group.permissions.all())
+        self.assertIn(self.member, self.group.user_set.all())
+        # the member now effectively holds the permission via the group
+        self.member = User.objects.get(id=self.member.id)  # fresh perm cache
+        self.assertTrue(self.member.has_perm("tools.manageLinkTree"))
+
+    def test_non_custom_group_permissions_preserved(self):
+        # A model permission attached in /admin/ must survive a save here
+        otherPermission = Permission.objects.get(codename="view_linktree")
+        self.group.permissions.add(otherPermission)
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse("manage-group", kwargs={"groupId": self.group.id}),
+            {"name": self.group.name, "permissions": []},
+        )
+        self.assertIn(otherPermission, self.group.permissions.all())
+
+    def test_adding_member_closes_their_pending_request(self):
+        pending = AccessRequests.objects.create(
+            requester=self.member, group=self.group, justification="please"
+        )
+        bystander = _makeUser("bystander")
+        bystanderPending = AccessRequests.objects.create(
+            requester=bystander, group=self.group, justification="me too"
+        )
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse("manage-group", kwargs={"groupId": self.group.id}),
+            {"name": self.group.name, "permissions": [], "addMembers": [self.member.id]},
+        )
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, AccessRequests.Status.APPROVED)
+        self.assertEqual(pending.reviewer, self.admin)
+        self.assertEqual(pending.reason, "Access granted directly")
+        recipients = [address for m in mail.outbox for address in m.to]
+        self.assertIn(self.member.email, recipients)
+        # the bystander wasn't added, so their request stays pending
+        bystanderPending.refresh_from_db()
+        self.assertEqual(bystanderPending.status, AccessRequests.Status.REQUESTED)
+
+    def test_remove_member(self):
+        self.member.groups.add(self.group)
+        self.client.force_login(self.admin)
+        self.client.post(
+            reverse("manage-group", kwargs={"groupId": self.group.id}),
+            {"name": self.group.name, "permissions": [], "removeMembers": [self.member.id]},
+        )
+        self.assertNotIn(self.group, self.member.groups.all())
+
+    def test_add_remove_overlap_rejected(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post(
+            reverse("manage-group", kwargs={"groupId": self.group.id}),
+            {
+                "name": self.group.name,
+                "permissions": [],
+                "addMembers": [self.member.id],
+                "removeMembers": [self.member.id],
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "both added and removed")
+        self.assertNotIn(self.group, self.member.groups.all())
+
+    def test_member_search_endpoint(self):
+        outsider = _makeUser("rosalind")
+        insider = _makeUser("rosamund")
+        insider.groups.add(self.group)
+        url = reverse("manage-group-member-search", kwargs={"groupId": self.group.id})
+        self.client.force_login(self.admin)
+
+        resp = self.client.get(url, {"q": "rosa"})
+        usernames = [match["username"] for match in resp.json()["results"]]
+        self.assertIn(outsider.username, usernames)
+        self.assertNotIn(insider.username, usernames)  # already a member
+
+        # short/empty queries return nothing rather than dumping the org
+        resp = self.client.get(url, {"q": "r"})
+        self.assertEqual(resp.json()["results"], [])
+
+        # gated like the rest of the manage pages
+        self.client.force_login(self.member)
+        resp = self.client.get(url, {"q": "rosa"})
+        self.assertEqual(resp.status_code, 302)
+
+    def test_delete_requires_exact_name(self):
+        self.client.force_login(self.admin)
+        resp = self.client.post(
+            reverse("manage-group-delete", kwargs={"groupId": self.group.id}),
+            {"confirmName": "wrong name"},
+        )
+        self.assertRedirects(resp, reverse("manage-group", kwargs={"groupId": self.group.id}))
+        self.assertTrue(Group.objects.filter(id=self.group.id).exists())
+
+    def test_delete_denies_pending_requests_and_removes_group(self):
+        self.member.groups.add(self.group)
+        pending = AccessRequests.objects.create(
+            requester=_makeUser("hopeful"), group=self.group, justification="please"
+        )
+        self.client.force_login(self.admin)
+        resp = self.client.post(
+            reverse("manage-group-delete", kwargs={"groupId": self.group.id}),
+            {"confirmName": "Anti-ICE Campaign"},
+        )
+        self.assertEqual(resp.status_code, 302)
+        self.assertFalse(Group.objects.filter(id=self.group.id).exists())
+        self.member.refresh_from_db()
+        self.assertEqual(self.member.groups.count(), 0)
+        # the stranded request was denied with an explanation, not deleted
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, AccessRequests.Status.DENIED)
+        self.assertIn("was deleted", pending.reason)
+        self.assertIsNone(pending.group)  # SET_NULL keeps the audit record
+        recipients = [address for m in mail.outbox for address in m.to]
+        self.assertIn("hopeful@example.com", recipients)
 
 
 class AdminGroupAssignmentTests(TestCase):

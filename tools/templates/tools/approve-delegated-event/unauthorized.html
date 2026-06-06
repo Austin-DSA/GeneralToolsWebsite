@@ -1,4 +1,6 @@
 {% extends "base.html" %} {% block page_content %}
-<p> You do not have authorization to approve event requests for {{ owner }}.</p>
-<hr>
+<div class="page-card page-card-narrow">
+  <h1 class="page-title">Not authorized</h1>
+  <div class="alert alert-error">You do not have authorization to approve event requests for {{ owner }}.</div>
+</div>
 {% endblock page_content %}

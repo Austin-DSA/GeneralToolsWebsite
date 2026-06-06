@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1 class="page-title">Manage Groups</h1>
+<p class="page-subtitle">What each group grants and who belongs to it. For per-member grants, see <a href="{% url 'manage-access' %}">member access</a>.</p>
+
+{% if deletedName %}
+<div class="alert alert-success">Group “{{ deletedName }}” deleted.</div>
+{% endif %}
+
+<div class="page-card">
+  <form action="" method="post" class="flex items-end gap-3 pb-6">
+    {% csrf_token %}
+    <div class="form-row flex-auto max-w-sm pb-0">
+      <label for="{{ createForm.name.id_for_label }}">Create a new group</label>
+      {{ createForm.name }}
+      {% if createForm.name.errors %}<div class="form-errors">{{ createForm.name.errors }}</div>{% endif %}
+    </div>
+    <input type="submit" value="Create group" class="btn btn-secondary" />
+  </form>
+
+  <input type="search" id="group-filter" class="form-field max-w-sm mb-4" placeholder="Filter by group or permission…" autocomplete="off" />
+  <table class="data-table">
+    <tr>
+      <th>Group</th>
+      <th>Members</th>
+      <th>Grants</th>
+      <th></th>
+    </tr>
+    {% for row in rows %}
+    <tr data-filter-text="{{ row.group.name|lower }}{% for name in row.permissionNames %} {{ name|lower }}{% endfor %}">
+      <td class="whitespace-nowrap"><b>{{ row.group.name }}</b></td>
+      <td>{{ row.memberCount }}</td>
+      <td class="text-sm text-secondary">{% if row.permissionNames %}{{ row.permissionNames|join:", " }}{% else %}—{% endif %}</td>
+      <td><a href="{% url 'manage-group' row.group.id %}">Manage</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="4" class="text-secondary">No groups yet — create the first one above.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<script>
+  document.getElementById("group-filter").addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    document.querySelectorAll("tr[data-filter-text]").forEach((row) => {
+      row.hidden = query && !row.dataset.filterText.includes(query);
+    });
+  });
+</script>
+{% endblock page_content %}

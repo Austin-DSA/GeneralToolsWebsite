@@ -24,6 +24,33 @@ _APPROVE_ACCESS_REQUEST = "approveAccessRequest"
 APPROVE_ACCESS_REQUEST = _publicPermissionName(_APPROVE_ACCESS_REQUEST)
 
 
+# Display taxonomy for the access pages — mirrors the home-menu categories.
+# A permission missing from every tuple lands in "Other", so new permissions
+# stay visible even before they're categorized here.
+PERMISSION_CATEGORIES = (
+    ("Events", (_PUBLISH_EVENT, _VIEW_PUBLISHED_EVENTS, _REQUEST_DELEGATED_EVENT,
+                _APPROVE_DELEGATED_EVENT, _VIEW_DELEGATED_EVENTS)),
+    ("Link Trees", (_MANAGE_LINK_TREE, _VIEW_LINK_METRICS)),
+    ("Access", (_APPROVE_ACCESS_REQUEST,)),
+)
+
+
+def getPermissionCategory(codename: str) -> str:
+    for title, codenames in PERMISSION_CATEGORIES:
+        if codename in codenames:
+            return title
+    return "Other"
+
+
+def shortPermissionLabel(name: str) -> str:
+    """'Allowed to publish events' -> 'Publish events', for compact checklists."""
+    prefix = "Allowed to "
+    if name.startswith(prefix) and len(name) > len(prefix):
+        rest = name[len(prefix):]
+        return rest[0].upper() + rest[1:]
+    return name
+
+
 def getRequestablePermissions():
     """The permissions a member may ask for on the request-access page.
 

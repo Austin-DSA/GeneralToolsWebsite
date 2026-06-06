@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @theme {
   --color-primary: #ec1f27;
+  --color-primary-dark: #c4151c;
   --color-secondary: #605c5c;
   --color-success: #00a02a;
   --color-info: #fbd2d4;
@@ -8,6 +9,7 @@
   --color-warning: #ffe45e;
   --color-dark: #231f20;
   --color-gray-med: #8c8989;
+  --color-paper: #f6f4f3;
   --font-display: "StyreneB", "ManifoldDSA", "sans-serif";
 }
 
@@ -38,12 +40,351 @@
   padding-left: 20px;
 }
 
-.form-field {
-  border: 1px solid var(--color-gray-med);
-  padding: 5px;
-  min-width: 200px;
+/* In @layer base so component classes (.header-link, .btn, .menu-tile) can
+   override it — unlayered rules would always win over layered ones. */
+@layer base {
+  a {
+    @apply underline text-blue-700 hover:text-blue-900 visited:text-purple-800;
+  }
 }
 
-a {
-   @apply underline text-blue-600 hover:text-blue-800 visited:text-purple-600
+/* --- Component layer: the site-wide design system ------------------------- */
+
+@layer components {
+  /* Header */
+  .header-link {
+    @apply text-white no-underline font-medium hover:text-white hover:underline visited:text-white;
+  }
+
+  /* User popover menu (native <details>; outside-click close is in base.html) */
+  .user-menu {
+    @apply relative inline-block;
+  }
+  .user-menu summary {
+    @apply text-white font-semibold cursor-pointer select-none;
+    list-style: none;
+  }
+  .user-menu summary::-webkit-details-marker {
+    display: none;
+  }
+  .user-menu summary::after {
+    content: "▾";
+    @apply pl-1.5 font-normal;
+  }
+  .user-menu[open] summary::after {
+    content: "▴";
+  }
+  .user-menu-panel {
+    @apply absolute right-0 mt-2 w-52 bg-white rounded-lg border border-neutral-200 shadow-lg py-1 z-50;
+  }
+  .user-menu-header {
+    @apply block px-4 py-2 text-xs text-secondary border-b border-neutral-100;
+  }
+  .user-menu-item {
+    @apply block w-full text-left px-4 py-2 text-sm text-dark no-underline bg-transparent border-0 cursor-pointer hover:bg-neutral-100 hover:text-dark visited:text-dark;
+    font-family: inherit;
+    font-size: 0.875rem;
+  }
+
+  /* Page structure */
+  .page-card {
+    @apply bg-white rounded-xl border border-neutral-200 shadow-sm p-8 mb-8;
+  }
+  /* combine: class="page-card page-card-narrow" */
+  .page-card-narrow {
+    @apply max-w-md mx-auto mt-8;
+  }
+  .page-title {
+    @apply text-2xl font-semibold text-dark pb-2;
+  }
+  .page-subtitle {
+    @apply text-secondary pb-6;
+  }
+  .section-title {
+    @apply text-lg font-semibold text-dark pt-6 pb-3;
+  }
+
+  /* Buttons — combine: class="btn btn-primary" */
+  .btn {
+    @apply inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-semibold cursor-pointer transition-colors no-underline;
+  }
+  .btn-primary {
+    @apply bg-primary text-white border-0 hover:bg-primary-dark;
+  }
+  .btn-secondary {
+    @apply bg-white text-dark border border-neutral-300 hover:bg-neutral-100;
+  }
+  .btn-danger {
+    @apply text-white border-0;
+    background-color: var(--color-danger);
+  }
+  .btn-danger:hover {
+    background-color: color-mix(in srgb, var(--color-danger) 85%, black);
+  }
+  .btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Forms — widgets carry .form-field from forms.py, so this restyles every
+     form on the site at once. */
+  .form-field {
+    @apply block w-full max-w-xl rounded-lg border border-neutral-300 bg-white px-3 py-2 text-dark;
+  }
+  .form-field:focus {
+    @apply outline-none border-primary ring-2 ring-primary/20;
+  }
+  .form-row {
+    @apply py-2;
+  }
+  .form-row label {
+    @apply block text-sm font-medium text-secondary pb-1;
+  }
+  /* Django's built-in auth forms (login, password change/reset) render bare
+     widgets with no class attr — give them the .form-field look without
+     having to subclass every contrib form. */
+  .form-row input:not([type="checkbox"]):not([type="submit"]):not([type="hidden"]):not(.form-field),
+  .form-row select:not(.form-field),
+  .form-row textarea:not(.form-field) {
+    @apply block w-full max-w-xl rounded-lg border border-neutral-300 bg-white px-3 py-2 text-dark;
+  }
+  .form-row input:not([type="checkbox"]):not([type="submit"]):not(.form-field):focus,
+  .form-row select:not(.form-field):focus,
+  .form-row textarea:not(.form-field):focus {
+    @apply outline-none border-primary ring-2 ring-primary/20;
+  }
+  .form-errors {
+    @apply text-danger text-sm;
+  }
+  .form-errors ul {
+    @apply list-none p-0 m-0;
+  }
+  .form-help {
+    @apply text-sm text-secondary pt-1 max-w-xl;
+  }
+  /* Checkbox rows: box and label on one line, help text underneath.
+     Declared after .form-row so its label rule wins on equal specificity. */
+  .form-row-checkbox label {
+    @apply flex items-center gap-2 text-dark font-medium cursor-pointer pb-0;
+    font-size: 1rem;
+  }
+  .form-row-checkbox input[type="checkbox"] {
+    width: 1.15rem;
+    height: 1.15rem;
+    accent-color: var(--color-primary);
+    @apply cursor-pointer flex-none;
+  }
+
+  /* Tables */
+  .data-table {
+    @apply w-full border-collapse text-left;
+  }
+  .data-table th {
+    @apply text-xs font-semibold uppercase tracking-wide text-secondary border-b-2 border-neutral-200 px-3 py-2;
+  }
+  .data-table td {
+    @apply border-b border-neutral-100 px-3 py-2.5 align-top;
+  }
+  .data-table tr:hover td {
+    @apply bg-neutral-50;
+  }
+
+  /* Status badges — combine: class="badge badge-{{ getStatusAsString|lower }}" */
+  .badge {
+    @apply inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap;
+  }
+  .badge-requested {
+    @apply bg-warning text-dark;
+  }
+  .badge-approved {
+    @apply text-white;
+    background-color: var(--color-success);
+  }
+  .badge-denied {
+    @apply text-white;
+    background-color: var(--color-danger);
+  }
+
+  /* Alerts / callouts — combine: class="alert alert-error" */
+  .alert {
+    @apply rounded-lg border px-4 py-3 my-4;
+  }
+  .alert-error {
+    @apply border-danger/40 text-danger;
+    background-color: color-mix(in srgb, var(--color-danger) 6%, white);
+  }
+  .alert-success {
+    @apply border-success/40;
+    background-color: color-mix(in srgb, var(--color-success) 7%, white);
+    color: #00611a;
+  }
+  .alert-warning {
+    @apply border-warning text-dark;
+    background-color: color-mix(in srgb, var(--color-warning) 25%, white);
+  }
+  .alert-info {
+    @apply border-info text-dark bg-info/40;
+  }
+
+  /* Definition grid for detail pages */
+  .detail-grid {
+    @apply grid gap-x-8 gap-y-2 py-2;
+    grid-template-columns: max-content 1fr;
+  }
+  .detail-grid dt {
+    @apply text-sm font-medium text-secondary pt-0.5;
+  }
+  .detail-grid dd {
+    @apply m-0 text-dark;
+  }
+
+  /* Checkbox grids (Django CheckboxSelectMultiple) on the manage-access page */
+  .checkbox-list ul {
+    @apply list-none p-0 m-0 grid gap-1;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  .checkbox-list label {
+    @apply flex items-center gap-2 text-dark cursor-pointer py-1;
+  }
+  .checkbox-list input[type="checkbox"] {
+    width: 1.05rem;
+    height: 1.05rem;
+    accent-color: var(--color-primary);
+    @apply cursor-pointer flex-none;
+  }
+
+  /* Selectable choice cards (manage-access): whole card is the label, so the
+     entire row is a click target. Combine with .choice-list for the grid. */
+  .choice-list {
+    @apply grid gap-2;
+  }
+  .choice-card {
+    @apply flex items-start gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 cursor-pointer transition-colors hover:border-neutral-400;
+  }
+  .choice-card input[type="checkbox"] {
+    width: 1.15rem;
+    height: 1.15rem;
+    margin-top: 0.15rem;
+    accent-color: var(--color-primary);
+    @apply cursor-pointer flex-none;
+  }
+  .choice-card:has(input:checked) {
+    @apply border-primary;
+    background-color: color-mix(in srgb, var(--color-primary) 4%, white);
+  }
+  .choice-card-body {
+    @apply flex-auto;
+  }
+  .choice-card-title {
+    @apply block font-medium text-dark;
+  }
+  .choice-card-desc {
+    @apply block text-sm text-secondary pt-0.5;
+  }
+  .choice-card-hint {
+    @apply block text-xs pt-0.5;
+    color: var(--color-success);
+  }
+  .choice-card.is-covered .choice-card-title {
+    @apply text-secondary;
+  }
+
+  /* Sticky action bar so Save stays reachable on long checklists */
+  .save-bar {
+    @apply sticky bottom-4 flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 mt-6 shadow-lg z-10;
+  }
+  .pending-note {
+    @apply text-sm text-secondary;
+  }
+
+  /* Member roster + search-to-add (manage-group): only current members
+     render; additions come from the typeahead so the page never holds the
+     whole org. */
+  .member-row {
+    @apply flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3;
+  }
+  .member-row.staged-removed {
+    @apply opacity-60 border-danger/40;
+  }
+  .member-row.staged-removed .choice-card-title {
+    @apply line-through;
+  }
+  .member-row.staged-add {
+    @apply border-success;
+    background-color: color-mix(in srgb, var(--color-success) 5%, white);
+  }
+  .search-results {
+    @apply mt-2 max-w-xl rounded-lg border border-neutral-200 bg-white shadow-lg divide-y divide-neutral-100;
+  }
+  .search-result-row {
+    @apply flex items-center justify-between gap-3 px-4 py-2.5;
+  }
+  .search-result-empty {
+    @apply px-4 py-2.5 text-sm text-secondary;
+  }
+  /* combine: class="btn btn-secondary btn-small" */
+  .btn-small {
+    @apply px-3 py-1 text-sm;
+  }
+
+  /* Password strength meter + live requirements checklist (registration) */
+  .pw-meter {
+    @apply w-full max-w-xl h-2 rounded-full bg-neutral-200 overflow-hidden mt-2;
+  }
+  .pw-meter-fill {
+    @apply h-full rounded-full;
+    width: 0%;
+    background-color: var(--color-gray-med);
+    transition: width 0.25s ease, background-color 0.25s ease;
+  }
+  .pw-strength-label {
+    @apply text-sm text-secondary pt-1;
+  }
+  .pw-rules {
+    @apply list-none p-0 m-0 pt-2 text-sm text-secondary;
+  }
+  .pw-rules li {
+    @apply py-0.5;
+  }
+  .pw-rules li::before {
+    content: "○ ";
+    color: var(--color-gray-med);
+  }
+  .pw-rules li.ok {
+    @apply text-dark;
+  }
+  .pw-rules li.ok::before {
+    content: "✓ ";
+    color: var(--color-success);
+    font-weight: 700;
+  }
+  .pw-match {
+    @apply text-sm pt-1;
+  }
+
+  /* Home menu: category sections of icon + title + description tiles */
+  .menu-section-title {
+    @apply text-xs font-semibold uppercase tracking-wide text-secondary pt-6 pb-2;
+  }
+  .menu-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+  .menu-tile {
+    @apply flex items-start gap-3 bg-white rounded-xl border border-neutral-200 shadow-sm px-5 py-4 no-underline text-dark hover:border-primary hover:text-dark visited:text-dark transition-colors;
+  }
+  .menu-tile-icon {
+    @apply text-2xl leading-none pt-0.5;
+  }
+  .menu-tile-body {
+    @apply flex-auto;
+  }
+  .menu-tile-title {
+    @apply block font-semibold;
+  }
+  .menu-tile-desc {
+    @apply block text-sm text-secondary pt-1;
+  }
+  .menu-tile .menu-tile-arrow {
+    @apply text-primary float-right pl-2;
+  }
 }

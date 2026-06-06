@@ -1,18 +1,20 @@
 import datetime
 import logging
+import urllib.parse
 
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import Permission
+from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.models import Group, Permission
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
-from django.shortcuts import render
+from django.http import JsonResponse
+from django.shortcuts import render, redirect
 from django.urls import reverse
 
 import settings
 
 from . import permissions
-from .forms import AccessRequestForm, ReviewAccessRequestForm
+from .forms import AccessRequestForm, GroupForm, ManageAccessForm, ReviewAccessRequestForm
 from .models import AccessRequests, User
 
 logger = logging.getLogger(__name__)
@@ -136,6 +138,386 @@ def access_request_list(request):
         request,
         "tools/access-requests/list.html",
         {"myRequests": myRequests, "actionable": actionable},
+    )
+
+
+@login_required
+def my_access(request):
+    """What the logged-in member can currently do, and where each piece of
+    access comes from."""
+    groupsInfo = []
+    for group in request.user.groups.prefetch_related("permissions__content_type").order_by("name"):
+        groupsInfo.append({
+            "name": group.name,
+            "permissionNames": [
+                permission.name
+                for permission in group.permissions.all()
+                if permission.content_type.model == "permissionrights"
+            ],
+        })
+
+    directIds = set(request.user.user_permissions.values_list("id", flat=True))
+    heldPermissions = []
+    for permission in permissions.getRequestablePermissions():
+        if not request.user.has_perm("tools." + permission.codename):
+            continue
+        if request.user.is_superuser:
+            source = "Superuser"
+        elif permission.id in directIds:
+            source = "Granted directly"
+        else:
+            viaGroups = request.user.groups.filter(permissions=permission)
+            source = "Via " + ", ".join(group.name for group in viaGroups) if viaGroups else "Granted directly"
+        heldPermissions.append({"name": permission.name, "source": source})
+
+    return render(request, "tools/access/my-access.html", {
+        "groupsInfo": groupsInfo,
+        "heldPermissions": heldPermissions,
+    })
+
+
+@login_required
+@permission_required(permissions.APPROVE_ACCESS_REQUEST)
+def manage_access(request):
+    users = (
+        User.objects.filter(is_active=True)
+        .prefetch_related("groups")
+        .order_by("username")
+    )
+    customIds = set(permissions.getRequestablePermissions().values_list("id", flat=True))
+    rows = []
+    for member in users:
+        rows.append({
+            "user": member,
+            "groups": list(member.groups.all()),
+            "directPermissionCount": member.user_permissions.filter(id__in=customIds).count(),
+        })
+    return render(request, "tools/access/manage-list.html", {"rows": rows})
+
+
+@login_required
+@permission_required(permissions.APPROVE_ACCESS_REQUEST)
+def manage_access_user(request, userId):
+    try:
+        target = User.objects.get(id=userId)
+    except User.DoesNotExist:
+        return redirect("manage-access")
+
+    customIds = set(permissions.getRequestablePermissions().values_list("id", flat=True))
+    saved = False
+    if request.method == "POST":
+        form = ManageAccessForm(request.POST)
+        if form.is_valid():
+            target.groups.set(form.cleaned_data[ManageAccessForm.Keys.GROUPS])
+            # Only manage the custom tools.* permissions here — leave any other
+            # directly-assigned permissions (e.g. model perms for staff) alone
+            keepOthers = list(target.user_permissions.exclude(id__in=customIds))
+            target.user_permissions.set(
+                keepOthers + list(form.cleaned_data[ManageAccessForm.Keys.PERMISSIONS])
+            )
+            logger.info(
+                "ManageAccess: %s set %s groups=%s directPerms=%s",
+                request.user.getUserNameString(),
+                target.getUserNameString(),
+                [group.name for group in form.cleaned_data[ManageAccessForm.Keys.GROUPS]],
+                [permission.codename for permission in form.cleaned_data[ManageAccessForm.Keys.PERMISSIONS]],
+            )
+            # A direct grant satisfies any pending request for the same thing —
+            # close those out so they stop cluttering approver queues
+            selectedGroupIds = {group.id for group in form.cleaned_data[ManageAccessForm.Keys.GROUPS]}
+            selectedPermissionIds = {
+                permission.id for permission in form.cleaned_data[ManageAccessForm.Keys.PERMISSIONS]
+            }
+            pendingRequests = AccessRequests.objects.filter(
+                requester=target, status=AccessRequests.Status.REQUESTED
+            )
+            for pending in pendingRequests:
+                satisfied = (
+                    (pending.group_id is not None and pending.group_id in selectedGroupIds)
+                    or (pending.permission_id is not None and pending.permission_id in selectedPermissionIds)
+                )
+                if not satisfied:
+                    continue
+                logger.info(
+                    "ManageAccess: closing pending request %d — access granted directly",
+                    pending.id,
+                )
+                pending.status = AccessRequests.Status.APPROVED
+                pending.reviewer = request.user
+                pending.dateReviewed = datetime.datetime.now(datetime.UTC)
+                pending.reason = "Access granted directly"
+                pending.save()
+                _sendDecisionEmail(pending)
+            saved = True
+    else:
+        form = ManageAccessForm(initial={
+            ManageAccessForm.Keys.GROUPS: target.groups.all(),
+            ManageAccessForm.Keys.PERMISSIONS: target.user_permissions.filter(id__in=customIds),
+        })
+
+    # Hand the template self-describing rows (rendered as plain checkboxes
+    # named groups/permissions, which is exactly what ManageAccessForm parses
+    # back on POST). Built after the save so a successful POST shows the
+    # member's new state.
+    groups = list(Group.objects.prefetch_related("permissions").order_by("name"))
+    targetGroupIds = set(target.groups.values_list("id", flat=True))
+    targetDirectIds = set(
+        target.user_permissions.filter(id__in=customIds).values_list("id", flat=True)
+    )
+
+    groupRows = []
+    for group in groups:
+        customPermissions = [p for p in group.permissions.all() if p.id in customIds]
+        groupRows.append({
+            "group": group,
+            "permissionNames": [permissions.shortPermissionLabel(p.name) for p in customPermissions],
+            "checked": group.id in targetGroupIds,
+        })
+
+    allPermissions = list(permissions.getRequestablePermissions())
+    grantedBy = {permission.id: [] for permission in allPermissions}
+    for group in groups:
+        for groupPermission in group.permissions.all():
+            if groupPermission.id in grantedBy:
+                grantedBy[groupPermission.id].append(group.id)
+
+    byCategory = {}
+    for permission in allPermissions:
+        category = permissions.getPermissionCategory(permission.codename)
+        byCategory.setdefault(category, []).append(permission)
+
+    categoryOrder = [title for title, _ in permissions.PERMISSION_CATEGORIES] + ["Other"]
+    permissionSections = []
+    for title in categoryOrder:
+        if title not in byCategory:
+            continue
+        permissionSections.append({
+            "title": title,
+            "rows": [{
+                "permission": permission,
+                "shortLabel": permissions.shortPermissionLabel(permission.name),
+                "viaGroupIds": ",".join(str(groupId) for groupId in grantedBy[permission.id]),
+                "checked": permission.id in targetDirectIds,
+            } for permission in byCategory[title]],
+        })
+
+    return render(request, "tools/access/manage-user.html", {
+        "target": target,
+        "form": form,
+        "saved": saved,
+        "groupRows": groupRows,
+        "permissionSections": permissionSections,
+    })
+
+
+@login_required
+@permission_required(permissions.APPROVE_ACCESS_REQUEST)
+def manage_groups(request):
+    createForm = GroupForm()
+    if request.method == "POST":
+        createForm = GroupForm(request.POST)
+        if createForm.is_valid():
+            group = Group.objects.create(name=createForm.cleaned_data[GroupForm.Keys.NAME])
+            logger.info(
+                "ManageGroups: %s created group '%s'",
+                request.user.getUserNameString(), group.name,
+            )
+            return redirect("manage-group", groupId=group.id)
+
+    customIds = set(permissions.getRequestablePermissions().values_list("id", flat=True))
+    rows = []
+    for group in Group.objects.prefetch_related("permissions").order_by("name"):
+        customPermissions = [p for p in group.permissions.all() if p.id in customIds]
+        rows.append({
+            "group": group,
+            "memberCount": group.user_set.filter(is_active=True).count(),
+            "permissionNames": [permissions.shortPermissionLabel(p.name) for p in customPermissions],
+        })
+    return render(request, "tools/access/manage-groups.html", {
+        "rows": rows,
+        "createForm": createForm,
+        "deletedName": request.GET.get("deleted", ""),
+    })
+
+
+@login_required
+@permission_required(permissions.APPROVE_ACCESS_REQUEST)
+def manage_group(request, groupId):
+    try:
+        group = Group.objects.get(id=groupId)
+    except Group.DoesNotExist:
+        return redirect("manage-groups")
+
+    customIds = set(permissions.getRequestablePermissions().values_list("id", flat=True))
+    saved = False
+    if request.method == "POST":
+        form = GroupForm(request.POST, group=group)
+        if form.is_valid():
+            previousMemberIds = set(group.user_set.values_list("id", flat=True))
+            group.name = form.cleaned_data[GroupForm.Keys.NAME]
+            group.save()
+            # Only manage the custom tools.* permissions here — leave any model
+            # permissions attached in /admin/ alone (mirrors manage_access_user)
+            keepOtherPermissions = list(group.permissions.exclude(id__in=customIds))
+            group.permissions.set(
+                keepOtherPermissions + list(form.cleaned_data[GroupForm.Keys.PERMISSIONS])
+            )
+            # Membership changes arrive as deltas (see GroupForm), so members
+            # not named in the request are never touched
+            addedMembers = [
+                member for member in form.cleaned_data[GroupForm.Keys.ADD_MEMBERS]
+                if member.id not in previousMemberIds
+            ]
+            group.user_set.add(*addedMembers)
+            group.user_set.remove(*form.cleaned_data[GroupForm.Keys.REMOVE_MEMBERS])
+            logger.info(
+                "ManageGroups: %s set group '%s' permissions=%s added=%s removed=%s",
+                request.user.getUserNameString(),
+                group.name,
+                [p.codename for p in form.cleaned_data[GroupForm.Keys.PERMISSIONS]],
+                [member.username for member in addedMembers],
+                [member.username for member in form.cleaned_data[GroupForm.Keys.REMOVE_MEMBERS]],
+            )
+            # Adding someone here satisfies their pending request for this group —
+            # close those out, same as a direct grant on the member page
+            newMemberIds = {member.id for member in addedMembers}
+            if newMemberIds:
+                pendingRequests = AccessRequests.objects.filter(
+                    group=group,
+                    status=AccessRequests.Status.REQUESTED,
+                    requester_id__in=newMemberIds,
+                )
+                for pending in pendingRequests:
+                    logger.info(
+                        "ManageGroups: closing pending request %d — access granted directly",
+                        pending.id,
+                    )
+                    pending.status = AccessRequests.Status.APPROVED
+                    pending.reviewer = request.user
+                    pending.dateReviewed = datetime.datetime.now(datetime.UTC)
+                    pending.reason = "Access granted directly"
+                    pending.save()
+                    _sendDecisionEmail(pending)
+            saved = True
+    else:
+        form = GroupForm(group=group, initial={GroupForm.Keys.NAME: group.name})
+
+    # Same self-describing-row pattern as manage_access_user; built after the
+    # save so a successful POST shows the group's new state
+    groupPermissionIds = set(group.permissions.values_list("id", flat=True))
+    allPermissions = list(permissions.getRequestablePermissions())
+    byCategory = {}
+    for permission in allPermissions:
+        category = permissions.getPermissionCategory(permission.codename)
+        byCategory.setdefault(category, []).append(permission)
+
+    categoryOrder = [title for title, _ in permissions.PERMISSION_CATEGORIES] + ["Other"]
+    permissionSections = []
+    for title in categoryOrder:
+        if title not in byCategory:
+            continue
+        permissionSections.append({
+            "title": title,
+            "rows": [{
+                "permission": permission,
+                "shortLabel": permissions.shortPermissionLabel(permission.name),
+                "checked": permission.id in groupPermissionIds,
+            } for permission in byCategory[title]],
+        })
+
+    # Only the current roster renders; additions come through the search
+    # endpoint below, so the page stays light no matter how big the org gets
+    memberRows = [
+        {"user": member}
+        for member in group.user_set.filter(is_active=True).order_by("username")
+    ]
+    activeMemberCount = len(memberRows)
+
+    return render(request, "tools/access/manage-group.html", {
+        "group": group,
+        "form": form,
+        "saved": saved,
+        "permissionSections": permissionSections,
+        "memberRows": memberRows,
+        "activeMemberCount": activeMemberCount,
+    })
+
+
+@login_required
+@permission_required(permissions.APPROVE_ACCESS_REQUEST)
+def manage_group_member_search(request, groupId):
+    """Typeahead backing for the group page's add-member box: the top matches
+    among active users who aren't already in the group."""
+    try:
+        group = Group.objects.get(id=groupId)
+    except Group.DoesNotExist:
+        return JsonResponse({"results": []})
+
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        return JsonResponse({"results": []})
+
+    matches = (
+        User.objects.filter(is_active=True)
+        .filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query)
+            | Q(email__icontains=query)
+        )
+        .exclude(groups=group)
+        .order_by("username")[:10]
+    )
+    return JsonResponse({"results": [{
+        "id": member.id,
+        "username": member.username,
+        "fullName": f"{member.first_name} {member.last_name}".strip(),
+        "email": member.email,
+    } for member in matches]})
+
+
+@login_required
+@permission_required(permissions.APPROVE_ACCESS_REQUEST)
+def manage_group_delete(request, groupId):
+    if request.method != "POST":
+        return redirect("manage-groups")
+    try:
+        group = Group.objects.get(id=groupId)
+    except Group.DoesNotExist:
+        return redirect("manage-groups")
+
+    # The page's JS keeps the delete button disabled until the typed name
+    # matches; this is the server-side backstop.
+    if request.POST.get("confirmName", "").strip() != group.name:
+        logger.warning(
+            "ManageGroups: %s sent a delete for '%s' with a mismatched confirmation",
+            request.user.getUserNameString(), group.name,
+        )
+        return redirect("manage-group", groupId=group.id)
+
+    # A pending request for a deleted group can never be granted — deny it
+    # with an explanation rather than leaving it stranded in approver queues.
+    # (AccessRequests.group is SET_NULL, so reviewed history survives.)
+    pendingRequests = AccessRequests.objects.filter(
+        group=group, status=AccessRequests.Status.REQUESTED
+    )
+    for pending in pendingRequests:
+        pending.status = AccessRequests.Status.DENIED
+        pending.reviewer = request.user
+        pending.dateReviewed = datetime.datetime.now(datetime.UTC)
+        pending.reason = f"The group '{group.name}' was deleted"
+        pending.save()
+        _sendDecisionEmail(pending)
+
+    deletedName = group.name
+    memberCount = group.user_set.count()
+    group.delete()
+    logger.info(
+        "ManageGroups: %s deleted group '%s' (%d members at deletion)",
+        request.user.getUserNameString(), deletedName, memberCount,
+    )
+    return redirect(
+        reverse("manage-groups") + "?" + urllib.parse.urlencode({"deleted": deletedName})
     )
 
 

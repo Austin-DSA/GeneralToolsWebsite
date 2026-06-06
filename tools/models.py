@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.utils import timezone as djangoTimezone
 from .EventAutomation.EventAutomationDriver import EventInfo, ActionNetworkAutomation
 import datetime
 import pytz
@@ -312,7 +313,11 @@ class AccessRequests(models.Model):
         return reverse("review-access-request", kwargs={"id": self.id})
 
     def getDateCreatedStr(self) -> str:
-        return self.dateCreated.strftime(utils.DATE_TIME_FORMAT) if self.dateCreated else ""
+        """Rendered in the request's active timezone (the browser's, via
+        TimezoneMiddleware) rather than raw UTC."""
+        if not self.dateCreated:
+            return ""
+        return djangoTimezone.localtime(self.dateCreated).strftime(utils.DATE_TIME_FORMAT)
 
     def canBeReviewedBy(self, user) -> bool:
         """Approver rules: admins (superuser or approveAccessRequest holders)

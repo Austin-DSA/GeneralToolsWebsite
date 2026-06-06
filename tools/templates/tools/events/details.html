@@ -1,23 +1,23 @@
-{% extends "base.html" %} 
+{% extends "base.html" %}
 {% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">{{ object.title }}</h1>
+  {% include "tools/common/commonEventDetails.html" %}
 
-<p>
-{% include "tools/common/commonEventDetails.html" %}
-{% if object.anManageLink %}
-<a href="{{ object.anManageLink }}"> AN Manage Link</a> <br>
-{% endif %}
-
-{% if object.anShareLink %}
-<a href="{{ object.anShareLink }}">An Share Link</a><br>
-{% endif %}
-
-{% if object.gCalLink %}
-<a href="{{ object.gCalLink }}">GCal Link</a><br>
-{% endif %}
-
-{% if object.zoomLink %}
-<a href="{{ object.zoomLink }}">Zoom Link ({{ object.zoomAccount }})</a><br>
-{% endif %}
-
-</p>
+  <h2 class="section-title">Links</h2>
+  <p class="flex flex-wrap gap-3">
+  {% if object.anManageLink %}
+  <a class="btn btn-secondary" href="{{ object.anManageLink }}">AN Manage</a>
+  {% endif %}
+  {% if object.anShareLink %}
+  <a class="btn btn-secondary" href="{{ object.anShareLink }}">AN Share</a>
+  {% endif %}
+  {% if object.gCalLink %}
+  <a class="btn btn-secondary" href="{{ object.gCalLink }}">Google Calendar</a>
+  {% endif %}
+  {% if object.zoomLink %}
+  <a class="btn btn-secondary" href="{{ object.zoomLink }}">Zoom ({{ object.zoomAccount }})</a>
+  {% endif %}
+  </p>
+</div>
 {% endblock page_content %}

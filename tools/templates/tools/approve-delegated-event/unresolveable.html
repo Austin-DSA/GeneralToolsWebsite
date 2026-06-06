@@ -1,22 +1,7 @@
 {% extends "base.html" %} {% block page_content %}
-<p> Your event request could not be created due to the following unresolveable conflicts. </p>
-<hr>
-<p>
-    <ul>
-    {% for conflict in conflicts %}
-    <li>
-        {% if conflict.type == 0 %}
-            Zoom Conflict 
-            {%if conflict.zoomUser %} 
-                ({{conflict.zoomUser}})
-            {% endif %}
-            :
-        {% else %}
-            Google Calendar Conflict: 
-        {% endif %}
-        {{ conflict.title }} - {{ conflict.start }} - {{conflict.end}}
-    </li>
-    {% endfor %}
-    </ul>
-</p>
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Schedule conflicts found</h1>
+  <div class="alert alert-error">The event could not be published due to the following <b>unresolveable</b> conflicts.</div>
+  {% include "tools/common/conflictList.html" %}
+</div>
 {% endblock page_content %}

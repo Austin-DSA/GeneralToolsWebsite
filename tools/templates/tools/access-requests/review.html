@@ -1,35 +1,36 @@
 {% extends "base.html" %}
 {% block page_content %}
-<h1 class="text-xl py-8">Access Request</h1>
-<p><b>Requester:</b> {{ accessRequest.getRequesterName }}</p>
-<p><b>Requested:</b> {{ accessRequest.getTargetDescription }}</p>
-<p><b>Why:</b> {{ accessRequest.justification }}</p>
-<p><b>Submitted:</b> {{ accessRequest.getDateCreatedStr }}</p>
-<p><b>Status:</b> {{ accessRequest.getStatusAsString }}</p>
-{% if accessRequest.reviewer %}
-<p><b>Reviewed by:</b> {{ accessRequest.getReviewerName }}</p>
-<p><b>Reason:</b> {{ accessRequest.reason }}</p>
-{% endif %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Access Request <span class="badge badge-{{accessRequest.getStatusAsString|lower}} align-middle">{{ accessRequest.getStatusAsString }}</span></h1>
+  <dl class="detail-grid">
+    <dt>Requester</dt><dd>{{ accessRequest.getRequesterName }}</dd>
+    <dt>Requested</dt><dd>{{ accessRequest.getTargetDescription }}</dd>
+    <dt>Why</dt><dd>{{ accessRequest.justification }}</dd>
+    <dt>Submitted</dt><dd>{{ accessRequest.getDateCreatedStr }}</dd>
+    {% if accessRequest.reviewer %}
+    <dt>Reviewed by</dt><dd>{{ accessRequest.getReviewerName }}</dd>
+    <dt>Reason</dt><dd>{{ accessRequest.reason }}</dd>
+    {% endif %}
+  </dl>
 
-{% if canAct %}
-<h2 class="text-lg py-4">Approve this request?</h2>
-<form action="" method="post">
-  {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
-  <div>
-    <div class="py-2">
-      <div>{{ field.label_tag }}</div>
-      <div>{{ field }}</div>
+  {% if canAct %}
+  <h2 class="section-title">Approve this request?</h2>
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    <div class="form-row">
+      {{ field.label_tag }}
+      {{ field }}
+      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
     </div>
-    <div class="text-danger">{{ field.errors }}</div>
-  </div>
-  {% endfor %}
+    {% endfor %}
 
-  <input
-    type="submit"
-    value="Submit"
-    class="bg-primary text-white p-2 my-3"
-  />
-</form>
-{% endif %}
-<p class="py-2"><a href="{% url 'access-request-list' %}">Back to access requests</a></p>
+    <input type="submit" value="Submit" class="btn btn-primary my-3" />
+  </form>
+  {% endif %}
+  <p class="py-2 text-sm"><a href="{% url 'access-request-list' %}">← Back to access requests</a></p>
+</div>
 {% endblock page_content %}

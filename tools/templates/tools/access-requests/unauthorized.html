@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block page_content %}
-<h1 class="text-xl py-8">Not authorized</h1>
-<p>You are not authorized to review this access request.</p>
-<p class="py-2"><a href="{% url 'access-request-list' %}">Back to access requests</a></p>
+<div class="page-card page-card-narrow">
+  <h1 class="page-title">Not authorized</h1>
+  <div class="alert alert-error">You are not authorized to review this access request.</div>
+  <p class="py-3"><a class="btn btn-secondary" href="{% url 'access-request-list' %}">Back to access requests</a></p>
+</div>
 {% endblock page_content %}

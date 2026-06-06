@@ -3,27 +3,142 @@
 {% block title %}Register - Austin DSA Tools{% endblock title %}
 
 {% block page_content %}
-<h1 class="text-xl py-8">Create an account</h1>
-<p>New accounts start without any access. Once you're signed in you can request the groups or permissions you need from the home page.</p>
-<form action="{% url 'register' %}" method="post">
-  {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
-  <div>
-    <div class="py-2">
-      <div>{{ field.label_tag }}</div>
-      <div>{{ field }}</div>
+<div class="page-card page-card-narrow">
+  <h1 class="page-title">Create an account</h1>
+  <p class="page-subtitle">New accounts start without any access. Once you're signed in you can request the groups or permissions you need from the home page.</p>
+  <form action="{% url 'register' %}" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    <div class="form-row" data-field="{{ field.name }}">
+      {{ field.label_tag }}
+      {{ field }}
+      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+      {% if field.name == "password1" %}
+      {% comment %} Live strength meter + requirements checklist; the same
+      rules are enforced server-side by AUTH_PASSWORD_VALIDATORS. {% endcomment %}
+      <div class="pw-meter"><div id="pw-meter-fill" class="pw-meter-fill"></div></div>
+      <div class="pw-strength-label">Strength: <span id="pw-strength-text">&mdash;</span></div>
+      <ul id="pw-rules" class="pw-rules">
+        <li data-rule="length">At least 8 characters</li>
+        <li data-rule="numeric">Not entirely numbers</li>
+        <li data-rule="common">Not a commonly-used password</li>
+        <li data-rule="similar">Not too similar to your name, username, or email</li>
+      </ul>
+      {% endif %}
+      {% if field.name == "password2" %}
+      <div id="pw-match" class="pw-match"></div>
+      {% endif %}
     </div>
-    <div class="text-danger">{{ field.errors }}</div>
-  </div>
-  {% endfor %}
+    {% endfor %}
 
-  <input
-    type="submit"
-    value="Sign Up"
-    class="bg-primary text-white p-2 my-3"
-  />
+    <input type="submit" value="Sign Up" class="btn btn-primary my-3" />
 
-  <p>
-    Already have an account? <a href="{% url 'login' %}">Login here.</a>
-  </p>
-</form>
+    <p class="text-sm">
+      Already have an account? <a href="{% url 'login' %}">Login here.</a>
+    </p>
+  </form>
+</div>
+
+<script>
+window.addEventListener("load", () => {
+  const pw1 = document.querySelector('[name="password1"]');
+  const pw2 = document.querySelector('[name="password2"]');
+  const meterFill = document.getElementById("pw-meter-fill");
+  const strengthText = document.getElementById("pw-strength-text");
+  const ruleItems = document.querySelectorAll("#pw-rules li");
+  const matchLine = document.getElementById("pw-match");
+
+  // Client-side hint only — the server checks Django's full 20k-entry list.
+  const COMMON = new Set([
+    "password", "passwort", "passw0rd", "password1", "password123", "12345678",
+    "123456789", "1234567890", "qwerty", "qwertyuiop", "qwerty123", "abc123",
+    "letmein", "iloveyou", "welcome", "monkey", "dragon", "sunshine", "princess",
+    "football", "baseball", "starwars", "whatever", "trustno1", "superman",
+    "michael", "shadow", "master", "jennifer", "jordan", "harley", "hunter",
+    "austin", "texas", "solidarity", "socialism",
+  ]);
+
+  function personalTokens() {
+    const tokens = [];
+    for (const name of ["username", "email", "first_name", "last_name"]) {
+      const field = document.querySelector('[name="' + name + '"]');
+      if (!field || !field.value) { continue; }
+      // email also contributes its local part ("rosa" from rosa@example.com)
+      const parts = field.value.toLowerCase().split(/[@.\s+_-]+/).concat(field.value.toLowerCase());
+      for (const part of parts) {
+        if (part.length >= 3) { tokens.push(part); }
+      }
+    }
+    return tokens;
+  }
+
+  function checkRules(pw) {
+    const lower = pw.toLowerCase();
+    return {
+      length: pw.length >= 8,
+      numeric: pw.length > 0 && !/^\d+$/.test(pw),
+      common: pw.length > 0 && !COMMON.has(lower),
+      similar: pw.length > 0 && !personalTokens().some(
+        (token) => lower.includes(token) || (lower.length >= 3 && token.includes(lower))
+      ),
+    };
+  }
+
+  function score(pw, rules) {
+    if (!pw) { return 0; }
+    // A password that can't pass the server validators is Weak, full stop —
+    // never show a flattering meter for something that will be rejected.
+    if (!rules.length || !rules.numeric || !rules.common || !rules.similar) { return 1; }
+    let s = 1;
+    if (pw.length >= 12) { s++; }
+    const variety = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length;
+    if (variety >= 2) { s++; }
+    if (variety >= 4 || (variety >= 3 && pw.length >= 10)) { s++; }
+    return Math.min(s, 4);
+  }
+
+  const LEVELS = [
+    { label: "—", width: "0%", color: "var(--color-gray-med)" },
+    { label: "Weak", width: "25%", color: "var(--color-danger)" },
+    { label: "Fair", width: "50%", color: "#e8841f" },
+    { label: "Good", width: "75%", color: "#caa910" },
+    { label: "Strong", width: "100%", color: "var(--color-success)" },
+  ];
+
+  function updateMatch() {
+    if (!pw2.value) { matchLine.textContent = ""; return; }
+    if (pw1.value === pw2.value) {
+      matchLine.textContent = "✓ Passwords match";
+      matchLine.style.color = "var(--color-success)";
+    } else {
+      matchLine.textContent = "✗ Passwords don't match";
+      matchLine.style.color = "var(--color-danger)";
+    }
+  }
+
+  function update() {
+    const pw = pw1.value;
+    const rules = checkRules(pw);
+    for (const item of ruleItems) {
+      item.classList.toggle("ok", Boolean(rules[item.dataset.rule]));
+    }
+    const level = LEVELS[score(pw, rules)];
+    meterFill.style.width = level.width;
+    meterFill.style.backgroundColor = level.color;
+    strengthText.textContent = level.label;
+    updateMatch();
+  }
+
+  pw1.addEventListener("input", update);
+  pw2.addEventListener("input", updateMatch);
+  // The "similar" rule depends on these fields too
+  for (const name of ["username", "email", "first_name", "last_name"]) {
+    const field = document.querySelector('[name="' + name + '"]');
+    if (field) { field.addEventListener("input", update); }
+  }
+});
+</script>
 {% endblock page_content %}

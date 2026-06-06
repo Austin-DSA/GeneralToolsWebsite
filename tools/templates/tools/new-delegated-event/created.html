@@ -1,4 +1,7 @@
 {% extends "base.html" %} {% block page_content %}
-<h1 class="text-xl py-8">Event Published</h1>
-<p>Your event request was created for {{ owner }}. If approved you will recieve an email with the created event information.</p>
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Event request created</h1>
+  <div class="alert alert-success">Your event request was created for <b>{{ owner }}</b>. If approved you will receive an email with the created event information.</div>
+  <p class="py-3"><a class="btn btn-secondary" href="/">Back to home</a></p>
+</div>
 {% endblock page_content %}

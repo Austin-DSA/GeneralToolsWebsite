@@ -123,13 +123,24 @@ class NewEventForm(forms.Form):
         choices={timezone: timezone for timezone in ActionNetworkAutomation.TimeZone.TZ_TO_AN_TZ.keys()},
         initial="America/Chicago",
     )
+    # type="datetime-local" gives the native browser date/time picker; its
+    # value format is fixed as YYYY-MM-DDTHH:MM, hence the explicit
+    # widget format + input_formats.
     startTime = forms.DateTimeField(
         label="Start time",
-        widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
+        widget=forms.DateTimeInput(
+            attrs={"class": "form-field w-full", "type": "datetime-local", "step": "60"},
+            format="%Y-%m-%dT%H:%M",
+        ),
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"],
     )
     endTime = forms.DateTimeField(
         label="End time",
-        widget=forms.DateTimeInput(attrs={"class": "form-field w-full"}),
+        widget=forms.DateTimeInput(
+            attrs={"class": "form-field w-full", "type": "datetime-local", "step": "60"},
+            format="%Y-%m-%dT%H:%M",
+        ),
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"],
     )
     instructions = forms.CharField(
         label="Instructions",
@@ -167,7 +178,9 @@ class NewEventForm(forms.Form):
         required=False,
     )
     ignoreResolveableConflics = forms.BooleanField(
-        label="Ignore Resolveable Conflicts",
+        label="Publish even if the calendar is busy",
+        help_text="Normally we stop if another event already overlaps this time on Google Calendar. "
+        "Check this to publish anyway. (A Zoom conflict can never be overridden — there has to be a free Zoom account.)",
         widget=forms.CheckboxInput(),
         required=False,
     )
@@ -241,8 +254,9 @@ class ApproveDelegatedEventForm(forms.Form):
         initial="YES",
     )
     reason = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
-        min_length=1
+        label="Reason (optional)",
+        widget=forms.Textarea(attrs={"rows": "3", "class": "form-field w-full"}),
+        required=False,
     )
 
 
@@ -262,6 +276,18 @@ class RegisterForm(UserCreationForm):
             self.fields[name].required = True
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "form-field w-full")
+        # Autocomplete hints so browser password managers treat this as a
+        # proper sign-up form (offer to generate + save the password).
+        # UserCreationForm already sets autocomplete="new-password" on both
+        # password fields and "username" on username.
+        for name, token in (
+            ("email", "email"),
+            ("first_name", "given-name"),
+            ("last_name", "family-name"),
+        ):
+            self.fields[name].widget.attrs.setdefault("autocomplete", token)
+        # Mirror MinimumLengthValidator for native browser validation
+        self.fields["password1"].widget.attrs.setdefault("minlength", "8")
 
     def clean_email(self):
         email = self.cleaned_data["email"]
@@ -350,6 +376,100 @@ class ReviewAccessRequestForm(forms.Form):
         initial="YES",
     )
     reason = forms.CharField(
-        widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
-        min_length=1
+        label="Reason (optional)",
+        widget=forms.Textarea(attrs={"rows": "3", "class": "form-field w-full"}),
+        required=False,
     )
+
+
+class _PermissionMultipleChoiceField(forms.ModelMultipleChoiceField):
+    def label_from_instance(self, obj):
+        return obj.name
+
+
+class ManageAccessForm(forms.Form):
+    """Direct grant/revoke of a member's groups and custom permissions
+    (the admin-side counterpart to the request/approve flow)."""
+
+    class Keys:
+        GROUPS = "groups"
+        PERMISSIONS = "permissions"
+
+    groups = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.order_by("name"),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Groups",
+    )
+    permissions = _PermissionMultipleChoiceField(
+        queryset=Permission.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Directly-granted permissions",
+        help_text="Permissions the member holds individually, on top of whatever their groups grant.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields[self.Keys.PERMISSIONS].queryset = permissions.getRequestablePermissions()
+
+
+class GroupForm(forms.Form):
+    """Create/edit a group on the front-end Manage Groups pages.
+
+    The list page renders only the name field (create); the detail page
+    renders all three. Like ManageAccessForm, the checkboxes are rendered
+    manually in the template — this form just parses them back."""
+
+    class Keys:
+        NAME = "name"
+        PERMISSIONS = "permissions"
+        ADD_MEMBERS = "addMembers"
+        REMOVE_MEMBERS = "removeMembers"
+
+    name = forms.CharField(
+        max_length=150,
+        label="Group name",
+        widget=forms.TextInput(attrs={"class": "form-field"}),
+    )
+    permissions = _PermissionMultipleChoiceField(
+        queryset=Permission.objects.none(),
+        required=False,
+        label="Permissions this group grants",
+    )
+    # Membership is submitted as deltas, not the full set — the page only ever
+    # names the members it's changing, so a stale tab can't wipe a roster and
+    # the form scales past orgs too big to render as checkboxes.
+    addMembers = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+    )
+    removeMembers = forms.ModelMultipleChoiceField(
+        queryset=User.objects.none(),
+        required=False,
+    )
+
+    def __init__(self, *args, group: Group | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._group = group
+        self.fields[self.Keys.PERMISSIONS].queryset = permissions.getRequestablePermissions()
+        activeUsers = User.objects.filter(is_active=True).order_by("username")
+        self.fields[self.Keys.ADD_MEMBERS].queryset = activeUsers
+        self.fields[self.Keys.REMOVE_MEMBERS].queryset = activeUsers
+
+    def clean_name(self):
+        name = self.cleaned_data[self.Keys.NAME].strip()
+        existing = Group.objects.filter(name__iexact=name)
+        if self._group is not None:
+            existing = existing.exclude(id=self._group.id)
+        if existing.exists():
+            raise ValidationError("A group with that name already exists.")
+        return name
+
+    def clean(self):
+        cleaned = super().clean()
+        adds = set(cleaned.get(self.Keys.ADD_MEMBERS) or [])
+        removes = set(cleaned.get(self.Keys.REMOVE_MEMBERS) or [])
+        if adds & removes:
+            raise ValidationError("A member can't be both added and removed in the same save.")
+        return cleaned

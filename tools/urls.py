@@ -12,6 +12,13 @@ urlpatterns = [
     path("request-access", accessViews.request_access, name="request-access"),
     path("access-requests", accessViews.access_request_list, name="access-request-list"),
     path("access-requests/<int:id>/review", accessViews.review_access_request, name="review-access-request"),
+    path("my-access", accessViews.my_access, name="my-access"),
+    path("manage-access", accessViews.manage_access, name="manage-access"),
+    path("manage-access/<int:userId>", accessViews.manage_access_user, name="manage-access-user"),
+    path("manage-groups", accessViews.manage_groups, name="manage-groups"),
+    path("manage-groups/<int:groupId>", accessViews.manage_group, name="manage-group"),
+    path("manage-groups/<int:groupId>/member-search", accessViews.manage_group_member_search, name="manage-group-member-search"),
+    path("manage-groups/<int:groupId>/delete", accessViews.manage_group_delete, name="manage-group-delete"),
 
     path("new-event", eventViews.new_event, name="new-event"),
     path("new-delegated-event", eventViews.new_delegated_event, name="new-delegated-event"),

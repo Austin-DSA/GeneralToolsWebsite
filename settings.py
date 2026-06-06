@@ -74,6 +74,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Activates the browser-reported timezone (django_timezone cookie set in
+    # base.html) so timestamps render in the member's local time
+    "tools.middleware.TimezoneMiddleware",
 ]
 
 ROOT_URLCONF = "urls"

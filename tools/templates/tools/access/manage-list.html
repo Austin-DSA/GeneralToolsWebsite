@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1 class="page-title">Manage Member Access</h1>
+<p class="page-subtitle">Grant or revoke group membership and permissions directly. To change what a group grants, see <a href="{% url 'manage-groups' %}">Manage Groups</a>; for request-driven grants, see <a href="{% url 'access-request-list' %}">access requests</a>.</p>
+
+<div class="page-card">
+  <input type="search" id="member-filter" class="form-field max-w-sm mb-4" placeholder="Filter by name, email, or group…" autocomplete="off" />
+  <table class="data-table">
+    <tr>
+      <th>Member</th>
+      <th>Email</th>
+      <th>Groups</th>
+      <th>Direct permissions</th>
+      <th></th>
+    </tr>
+    {% for row in rows %}
+    <tr data-filter-text="{{ row.user.username|lower }} {{ row.user.first_name|lower }} {{ row.user.last_name|lower }} {{ row.user.email|lower }}{% for group in row.groups %} {{ group.name|lower }}{% endfor %}">
+      <td class="whitespace-nowrap">
+        <b>{{ row.user.username }}</b>
+        {% if row.user.is_superuser %}<span class="badge badge-approved">superuser</span>{% endif %}
+        <br><span class="text-sm text-secondary">{{ row.user.first_name }} {{ row.user.last_name }}</span>
+      </td>
+      <td>{{ row.user.email }}</td>
+      <td>
+        {% for group in row.groups %}<span class="badge badge-requested">{{ group.name }}</span> {% empty %}—{% endfor %}
+      </td>
+      <td>{{ row.directPermissionCount }}</td>
+      <td><a href="{% url 'manage-access-user' row.user.id %}">Manage</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<script>
+  document.getElementById("member-filter").addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    document.querySelectorAll("tr[data-filter-text]").forEach((row) => {
+      row.hidden = query && !row.dataset.filterText.includes(query);
+    });
+  });
+</script>
+{% endblock page_content %}
