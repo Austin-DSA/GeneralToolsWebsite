@@ -17,7 +17,7 @@ class MyAccessTests(LoginClientMixin, TestCase):
 
     def test_shows_groups_and_permission_sources(self):
         # Brittle: asserts the exact human-readable permission label strings.
-        # Source of truth for these labels is tools/permissions.py — if a label
+        # Source of truth for these labels is tools/permissions.py - if a label
         # is reworded there, update the literals here. Assertion unchanged.
         member = UserFactory.make("member", groups=[self.group], perms=("publishEvent",))
         self.loginAs(member)

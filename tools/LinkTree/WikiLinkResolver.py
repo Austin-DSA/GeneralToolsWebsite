@@ -24,14 +24,14 @@ class ResolveResult:
 def _publicUrl(api: OutlineAPI, doc: OutlineDocument, createShares: bool = True) -> str:
     """Best public URL for a resolved doc: its published share link if possible.
 
-    Share links open without a wiki login — a GBM agenda on a public link tree
+    Share links open without a wiki login - a GBM agenda on a public link tree
     must be readable by non-members. Anything surfaced on a link tree is assumed
     shareable, so the share is created (and published) on demand. On any share
     failure (missing token scope, sharing disabled, transient error) fall back
-    to the direct ``/doc/...`` URL — no worse than not sharing at all.
+    to the direct ``/doc/...`` URL - no worse than not sharing at all.
 
     ``createShares=False`` skips Outline share calls entirely and returns the
-    direct URL — the dry-run path, which must be side-effect-free.
+    direct URL - the dry-run path, which must be side-effect-free.
     """
     if not createShares:
         return api.absoluteDocUrl(doc.url, doc.id)

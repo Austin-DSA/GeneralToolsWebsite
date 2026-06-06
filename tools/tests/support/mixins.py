@@ -5,7 +5,7 @@ from .factories import UserFactory, permission
 
 class AccessFixtureMixin:
     """The recurring access-feature cast: an approver-admin, a plain member, and
-    the 'Anti-ICE Campaign' group. Opt-in — suites that don't need users (Link
+    the 'Anti-ICE Campaign' group. Opt-in - suites that don't need users (Link
     Tree) simply don't mix this in (Interface Segregation).
 
     Provides a single buildCast() builder rather than a fat setUp, so a suite can

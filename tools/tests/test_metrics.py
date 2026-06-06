@@ -28,7 +28,7 @@ class MetricsTests(TestCase):
 
     def test_daily_series_buckets_web_and_qr(self):
         # Brittle (timing): assumes all events fall in a single "today" bucket.
-        # Could flake if the suite straddles a UTC midnight. Left as-is — a real
+        # Could flake if the suite straddles a UTC midnight. Left as-is - a real
         # fix needs time-freezing, which is out of scope for this refactor.
         series = metrics.dailySeries(LinkEvent.objects.filter(tree=self.tree))
         self.assertEqual(len(series), 1)  # all created "today"

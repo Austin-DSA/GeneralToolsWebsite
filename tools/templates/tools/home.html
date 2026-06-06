@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block page_content %}
 <h1 class="page-title">Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
-<p class="page-subtitle">Austin DSA's line on events, link trees, and access — pick an area to get started.</p>
+<p class="page-subtitle">Austin DSA's line on events, link trees, and access. Pick an area to get started.</p>
 
 {% if pendingReviewCount %}
 <div class="alert alert-warning">
-  <b>{{ pendingReviewCount }}</b> access request{{ pendingReviewCount|pluralize }} waiting on your review —
+  <b>{{ pendingReviewCount }}</b> access request{{ pendingReviewCount|pluralize }} waiting on your review -
   <a href="{% url 'access-request-list' %}">review now</a>.
 </div>
 {% endif %}

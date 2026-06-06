@@ -11,7 +11,7 @@
 <p class="page-subtitle">What you can do on this site, and where each piece of access comes from.</p>
 
 {% if user.is_superuser %}
-<div class="alert alert-info">You are a <b>superuser</b> — you implicitly hold every permission, regardless of groups.</div>
+<div class="alert alert-info">You are a <b>superuser</b> - you implicitly hold every permission, regardless of groups.</div>
 {% endif %}
 
 <div class="page-card">
@@ -25,7 +25,7 @@
     {% for group in groupsInfo %}
     <tr>
       <td class="md:whitespace-nowrap">{{ group.name }}</td>
-      <td data-label="Grants">{{ group.permissionNames|join:" · "|default:"—" }}</td>
+      <td data-label="Grants">{{ group.permissionNames|join:" · "|default:"-" }}</td>
     </tr>
     {% endfor %}
   </table>

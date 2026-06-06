@@ -180,7 +180,7 @@ class NewEventForm(forms.Form):
     ignoreResolveableConflics = forms.BooleanField(
         label="Publish even if the calendar is busy",
         help_text="Normally we stop if another event already overlaps this time on Google Calendar. "
-        "Check this to publish anyway. (A Zoom conflict can never be overridden — there has to be a free Zoom account.)",
+        "Check this to publish anyway. (A Zoom conflict can never be overridden - there has to be a free Zoom account.)",
         widget=forms.CheckboxInput(),
         required=False,
     )
@@ -262,7 +262,7 @@ class ApproveDelegatedEventForm(forms.Form):
 
 class RegisterForm(UserCreationForm):
     """Self-service account creation. New accounts are active immediately but
-    carry no permissions — everything useful is granted later via groups or an
+    carry no permissions - everything useful is granted later via groups or an
     access request."""
 
     class Meta(UserCreationForm.Meta):
@@ -419,7 +419,7 @@ class GroupForm(forms.Form):
 
     The list page renders only the name field (create); the detail page
     renders all three. Like ManageAccessForm, the checkboxes are rendered
-    manually in the template — this form just parses them back."""
+    manually in the template - this form just parses them back."""
 
     class Keys:
         NAME = "name"
@@ -437,7 +437,7 @@ class GroupForm(forms.Form):
         required=False,
         label="Permissions this group grants",
     )
-    # Membership is submitted as deltas, not the full set — the page only ever
+    # Membership is submitted as deltas, not the full set - the page only ever
     # names the members it's changing, so a stale tab can't wipe a roster and
     # the form scales past orgs too big to render as checkboxes.
     addMembers = forms.ModelMultipleChoiceField(

@@ -1,14 +1,14 @@
 """Privacy-first click/scan tracking for the Link Tree.
 
 Austin DSA is a political org wary of surveillance, so this deliberately stores
-**no raw IP address**. Instead it records a ``visitorHash`` — a salted, daily-
+**no raw IP address**. Instead it records a ``visitorHash`` - a salted, daily-
 rotating digest of (IP + user-agent) that is good only for rough *same-day*
 unique counts and is useless as a cross-day identifier (the salt rotates every
 day, and the IP is never persisted).
 
 The pure helpers (``visitorHash``, ``uaFamily``, ``referrerHost``,
 ``clientIpFromMeta``) are framework-light and unit-testable without a request.
-``recordEvent`` performs the Django write and is deliberately exception-safe —
+``recordEvent`` performs the Django write and is deliberately exception-safe -
 mirroring the "a dropped email must never fail a publish" ethos elsewhere in the
 codebase, a tracking failure must never break a redirect.
 """
@@ -68,7 +68,7 @@ def uaFamily(userAgent: str) -> str:
 
 
 def referrerHost(referrer: str) -> str:
-    """Host portion of the referrer only — never the full URL (no path/query)."""
+    """Host portion of the referrer only - never the full URL (no path/query)."""
     if not referrer:
         return ""
     try:

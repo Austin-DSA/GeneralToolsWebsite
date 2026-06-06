@@ -29,7 +29,7 @@
       </td>
       <td data-label="Email">{{ row.user.email }}</td>
       <td data-label="Groups">
-        {% for group in row.groups %}<span class="badge badge-requested">{{ group.name }}</span> {% empty %}—{% endfor %}
+        {% for group in row.groups %}<span class="badge badge-requested">{{ group.name }}</span> {% empty %}-{% endfor %}
       </td>
       <td data-label="Permissions">{{ row.directPermissionCount }}</td>
       <td><a href="{% url 'manage-access-user' row.user.id %}">Manage</a></td>

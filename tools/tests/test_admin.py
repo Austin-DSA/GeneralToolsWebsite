@@ -7,7 +7,7 @@ from tools.tests.support import UserFactory, fastHashing
 
 
 # Admin add form POSTs a real password, but the assertions are about group
-# assignment, not hash verification — safe to use the fast hasher.
+# assignment, not hash verification - safe to use the fast hasher.
 @fastHashing
 class AdminGroupAssignmentTests(TestCase):
     def setUp(self):

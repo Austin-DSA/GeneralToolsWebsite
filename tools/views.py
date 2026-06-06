@@ -18,7 +18,7 @@ class PageOption:
     icon : str = ""
     description : str = ""
     category : str = "Tools"
-    # Some pages are noise for superusers (e.g. My Access — they implicitly
+    # Some pages are noise for superusers (e.g. My Access - they implicitly
     # hold every permission, so there's nothing meaningful to show)
     hideForSuperusers : bool = False
 
@@ -46,7 +46,7 @@ class Domain:
     icon : str
     description : str
     # URL prefixes beyond the slug and the domain's own PAGES hrefs that still
-    # belong to it (detail/review pages) — used to highlight the active nav link.
+    # belong to it (detail/review pages) - used to highlight the active nav link.
     extraPathPrefixes : tuple = ()
 
     @property
@@ -58,7 +58,7 @@ class Domain:
 # renders if the user can see at least one of its tools.
 DOMAINS = [
     Domain(slug="events", title="Events", icon="calendar",
-           description="Publish chapter events to Zoom, Action Network, and Google Calendar — directly or through delegated review.",
+           description="Publish chapter events to Zoom, Action Network, and Google Calendar, directly or through delegated review.",
            extraPathPrefixes=("/event/", "/delegated-event/", "/approve-delegated-event/")),
     Domain(slug="link-trees", title="Link Trees", icon="link",
            description="The chapter's link pages, QR codes, and click analytics."),
@@ -90,7 +90,7 @@ PAGES = [
                description="The groups you belong to and the permissions you currently have."),
     PageOption(href="request-access", title="Request Access", permission=None,
                icon="key", category="Access",
-               description="Ask to join a group or get a permission — approvers are emailed a review link."),
+               description="Ask to join a group or get a permission. Approvers are emailed a review link."),
     PageOption(href="access-requests", title="View Access Requests", permission=None,
                icon="mail", category="Access",
                description="Your requests and their status, plus any waiting on your review."),

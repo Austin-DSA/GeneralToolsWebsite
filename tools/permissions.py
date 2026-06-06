@@ -24,7 +24,7 @@ _APPROVE_ACCESS_REQUEST = "approveAccessRequest"
 APPROVE_ACCESS_REQUEST = _publicPermissionName(_APPROVE_ACCESS_REQUEST)
 
 
-# Display taxonomy for the access pages — mirrors the home-menu categories.
+# Display taxonomy for the access pages - mirrors the home-menu categories.
 # A permission missing from every tuple lands in "Other", so new permissions
 # stay visible even before they're categorized here.
 PERMISSION_CATEGORIES = (
@@ -54,7 +54,7 @@ def shortPermissionLabel(name: str) -> str:
 def getRequestablePermissions():
     """The permissions a member may ask for on the request-access page.
 
-    Scoped to the custom permissions registered on PermissionRights below —
+    Scoped to the custom permissions registered on PermissionRights below -
     users request things like manageLinkTree, never Django's internal model
     CRUD permissions (add_user, delete_linktree, ...).
     """

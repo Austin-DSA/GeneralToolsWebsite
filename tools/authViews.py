@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 def register(request):
     """Self-service account creation.
 
-    New accounts are active immediately but carry no permissions — the home
+    New accounts are active immediately but carry no permissions - the home
     menu stays empty until access is granted (see accessViews for the
     self-service request flow).
     """

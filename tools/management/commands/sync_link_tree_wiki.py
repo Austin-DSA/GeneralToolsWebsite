@@ -7,11 +7,11 @@ at request time (and keeps working if Outline is briefly down).
 
 Runs under the dedicated Outline service-account token
 (SecretManager.getOutlineReadConfig), which needs the `documents.search`,
-`documents.info`, `shares.create`, and `shares.update` scopes — resolved items
+`documents.info`, `shares.create`, and `shares.update` scopes - resolved items
 link to the document's *published share URL* (get-or-create, auto-published) so
 readers never need a wiki login, falling back to the direct URL if sharing fails.
 
-Schedule via host cron / Windows Task Scheduler — there is no in-process
+Schedule via host cron / Windows Task Scheduler - there is no in-process
 scheduler. A daily run is plenty; agendas don't change minute to minute.
 
 Run from the repo root:
@@ -52,11 +52,11 @@ class Command(BaseCommand):
 
         config = SecretManager.getOutlineReadConfig()
         if config is None:
-            # Outline read token not configured — wiki surfacing is opt-in.
+            # Outline read token not configured - wiki surfacing is opt-in.
             # Benign: WIKI items just stay unresolved/hidden. Exit 0.
             self.stdout.write(self.style.WARNING(
                 "Outline read token not configured (OutlineBaseUrl / "
-                "OutlineReadApiToken) — skipping wiki resolution. WIKI link "
+                "OutlineReadApiToken) - skipping wiki resolution. WIKI link "
                 "items will remain unresolved and hidden."
             ))
             return
@@ -64,13 +64,13 @@ class Command(BaseCommand):
         try:
             api = OutlineAPI(config)
         except Exception as e:
-            # Misconfigured secrets — nothing can be resolved. Surface it.
+            # Misconfigured secrets - nothing can be resolved. Surface it.
             self.stderr.write(self.style.ERROR(f"FATAL: could not build Outline client: {e}"))
             raise SystemExit(1)
 
         if dryRun:
             self.stdout.write(self.style.WARNING(
-                "DRY RUN — items will not be updated and no wiki shares will be "
+                "DRY RUN - items will not be updated and no wiki shares will be "
                 "created/published; URLs shown are direct doc URLs (a real run "
                 "caches the published share URL instead)."
             ))
@@ -82,7 +82,7 @@ class Command(BaseCommand):
 
         for item in items:
             try:
-                # Dry runs must be side-effect-free on Outline too — skip the
+                # Dry runs must be side-effect-free on Outline too - skip the
                 # share get-or-create, not just the DB write.
                 result = self._resolve(api, item, createShares=not dryRun)
             except Exception:
@@ -120,7 +120,7 @@ class Command(BaseCommand):
 
         # Non-zero exit if any item hit an unexpected error so the scheduler
         # surfaces real breakage. An unresolved item (no matching doc) is an
-        # expected, benign state — exit 0.
+        # expected, benign state - exit 0.
         if errored:
             raise SystemExit(1)
 

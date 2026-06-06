@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Register — Party Line{% endblock title %}
+{% block title %}Register - Party Line{% endblock title %}
 
 {% block page_content %}
 <div class="page-card page-card-narrow">
@@ -20,7 +20,7 @@
       {% comment %} Live strength meter + requirements checklist; the same
       rules are enforced server-side by AUTH_PASSWORD_VALIDATORS. {% endcomment %}
       <div class="pw-meter"><div id="pw-meter-fill" class="pw-meter-fill"></div></div>
-      <div class="pw-strength-label">Strength: <span id="pw-strength-text">&mdash;</span></div>
+      <div class="pw-strength-label">Strength: <span id="pw-strength-text">-</span></div>
       <ul id="pw-rules" class="pw-rules">
         <li data-rule="length">At least 8 characters</li>
         <li data-rule="numeric">Not entirely numbers</li>
@@ -51,7 +51,7 @@ window.addEventListener("load", () => {
   const ruleItems = document.querySelectorAll("#pw-rules li");
   const matchLine = document.getElementById("pw-match");
 
-  // Client-side hint only — the server checks Django's full 20k-entry list.
+  // Client-side hint only - the server checks Django's full 20k-entry list.
   const COMMON = new Set([
     "password", "passwort", "passw0rd", "password1", "password123", "12345678",
     "123456789", "1234567890", "qwerty", "qwertyuiop", "qwerty123", "abc123",
@@ -89,7 +89,7 @@ window.addEventListener("load", () => {
 
   function score(pw, rules) {
     if (!pw) { return 0; }
-    // A password that can't pass the server validators is Weak, full stop —
+    // A password that can't pass the server validators is Weak, full stop -
     // never show a flattering meter for something that will be rejected.
     if (!rules.length || !rules.numeric || !rules.common || !rules.similar) { return 1; }
     let s = 1;
@@ -101,7 +101,7 @@ window.addEventListener("load", () => {
   }
 
   const LEVELS = [
-    { label: "—", width: "0%", color: "var(--color-gray-med)" },
+    { label: "-", width: "0%", color: "var(--color-gray-med)" },
     { label: "Weak", width: "25%", color: "var(--color-danger)" },
     { label: "Fair", width: "50%", color: "#e8841f" },
     { label: "Good", width: "75%", color: "#caa910" },

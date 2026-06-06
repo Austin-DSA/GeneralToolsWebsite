@@ -1,4 +1,4 @@
-"""Builders for test objects. No assertions, no client, no settings — just rows."""
+"""Builders for test objects. No assertions, no client, no settings - just rows."""
 from django.contrib.auth.models import Group, Permission
 
 from tools.models import User
@@ -40,7 +40,7 @@ class UserFactory:
 
 
 def refetchForPerms(user):
-    """Return a fresh User so Django's per-instance permission cache is clean —
+    """Return a fresh User so Django's per-instance permission cache is clean -
     makes the 'grant then re-read to test has_perm' idiom explicit (was an
     inline `User.objects.get(id=...)` at tests.py:663 and :926)."""
     return User.objects.get(id=user.id)

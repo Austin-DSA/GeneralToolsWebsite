@@ -1,4 +1,4 @@
-"""Pure Outline wiki REST client — stdlib only, no Django imports.
+"""Pure Outline wiki REST client - stdlib only, no Django imports.
 
 Outline exposes an RPC-style API: every call is ``POST {baseUrl}/api/{method}``
 with a JSON body and an ``Authorization: Bearer <token>`` header. Responses are
@@ -52,7 +52,7 @@ class OutlineDocument:
         )
 
     def recencyKey(self) -> str:
-        """Sort key for 'newest first' — most recent of updatedAt/publishedAt.
+        """Sort key for 'newest first' - most recent of updatedAt/publishedAt.
 
         ISO-8601 timestamps sort correctly as plain strings. Empty string sorts
         last so undated docs never win the 'latest' pick.
@@ -100,7 +100,7 @@ class OutlineAPI:
 
         No retry/backoff: a 429 (Outline returns one with a ``Retry-After``
         header) surfaces as an OutlineAPIError. Acceptable for a low-volume
-        daily sweep — the caller treats a failed listing as a fatal error.
+        daily sweep - the caller treats a failed listing as a fatal error.
         """
         url = f"{self._config.baseUrl.rstrip('/')}/api/{method}"
         data = json.dumps(payload).encode("utf-8")
@@ -139,7 +139,7 @@ class OutlineAPI:
         """Full-text search PUBLISHED documents via ``documents.search``.
 
         Used by the Link Tree to surface wiki content (e.g. the latest GBM
-        agenda). Requires the ``documents.search`` token scope — which the LC
+        agenda). Requires the ``documents.search`` token scope - which the LC
         secretary token deliberately does NOT have, so this runs under a separate
         read-only token (see SecretManager.getOutlineReadConfig).
 
@@ -169,7 +169,7 @@ class OutlineAPI:
         share when one already exists. A share only bypasses wiki login once its
         ``published`` flag is set, so unpublished shares are published here via
         ``shares.update``. Anything surfaced on a link tree is by definition
-        meant to be readable without an account — historically docs were
+        meant to be readable without an account - historically docs were
         sometimes "public" in intent but never actually shared, a mistake this
         removes.
 

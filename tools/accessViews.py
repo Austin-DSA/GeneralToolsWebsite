@@ -21,14 +21,14 @@ logger = logging.getLogger(__name__)
 
 # NOTE: unlike the event flows this uses Django's built-in mail module (the
 # TODOs in eventViews suggest moving there anyway): it honors the configured
-# EMAIL_BACKEND (console in dev — handy for grabbing the review link) and is
-# assertable in tests. Send failures are logged and never fail the request —
+# EMAIL_BACKEND (console in dev - handy for grabbing the review link) and is
+# assertable in tests. Send failures are logged and never fail the request -
 # same convention as everywhere else in this app.
 
 
 def _getApproversFor(accessRequest: AccessRequests):
     """Everyone who may act on this request: superusers, holders of
-    approveAccessRequest (directly or via a group), and — for group requests —
+    approveAccessRequest (directly or via a group), and - for group requests -
     existing members of the requested group. The requester is excluded."""
     approvePermission = Permission.objects.filter(
         codename=permissions.APPROVE_ACCESS_REQUEST.split(".")[1],
@@ -96,7 +96,7 @@ def _sendDecisionEmail(accessRequest: AccessRequests):
 @login_required
 def request_access(request):
     """Any logged-in member may ask for group membership or one of the custom
-    tools.* permissions — no permission required, since fresh self-registered
+    tools.* permissions - no permission required, since fresh self-registered
     accounts start with none."""
     if request.method == "POST":
         form = AccessRequestForm(request.user, request.POST)
@@ -209,7 +209,7 @@ def manage_access_user(request, userId):
         form = ManageAccessForm(request.POST)
         if form.is_valid():
             target.groups.set(form.cleaned_data[ManageAccessForm.Keys.GROUPS])
-            # Only manage the custom tools.* permissions here — leave any other
+            # Only manage the custom tools.* permissions here - leave any other
             # directly-assigned permissions (e.g. model perms for staff) alone
             keepOthers = list(target.user_permissions.exclude(id__in=customIds))
             target.user_permissions.set(
@@ -222,7 +222,7 @@ def manage_access_user(request, userId):
                 [group.name for group in form.cleaned_data[ManageAccessForm.Keys.GROUPS]],
                 [permission.codename for permission in form.cleaned_data[ManageAccessForm.Keys.PERMISSIONS]],
             )
-            # A direct grant satisfies any pending request for the same thing —
+            # A direct grant satisfies any pending request for the same thing -
             # close those out so they stop cluttering approver queues
             selectedGroupIds = {group.id for group in form.cleaned_data[ManageAccessForm.Keys.GROUPS]}
             selectedPermissionIds = {
@@ -239,7 +239,7 @@ def manage_access_user(request, userId):
                 if not satisfied:
                     continue
                 logger.info(
-                    "ManageAccess: closing pending request %d — access granted directly",
+                    "ManageAccess: closing pending request %d - access granted directly",
                     pending.id,
                 )
                 pending.status = AccessRequests.Status.APPROVED
@@ -356,7 +356,7 @@ def manage_group(request, groupId):
             previousMemberIds = set(group.user_set.values_list("id", flat=True))
             group.name = form.cleaned_data[GroupForm.Keys.NAME]
             group.save()
-            # Only manage the custom tools.* permissions here — leave any model
+            # Only manage the custom tools.* permissions here - leave any model
             # permissions attached in /admin/ alone (mirrors manage_access_user)
             keepOtherPermissions = list(group.permissions.exclude(id__in=customIds))
             group.permissions.set(
@@ -378,7 +378,7 @@ def manage_group(request, groupId):
                 [member.username for member in addedMembers],
                 [member.username for member in form.cleaned_data[GroupForm.Keys.REMOVE_MEMBERS]],
             )
-            # Adding someone here satisfies their pending request for this group —
+            # Adding someone here satisfies their pending request for this group -
             # close those out, same as a direct grant on the member page
             newMemberIds = {member.id for member in addedMembers}
             if newMemberIds:
@@ -389,7 +389,7 @@ def manage_group(request, groupId):
                 )
                 for pending in pendingRequests:
                     logger.info(
-                        "ManageGroups: closing pending request %d — access granted directly",
+                        "ManageGroups: closing pending request %d - access granted directly",
                         pending.id,
                     )
                     pending.status = AccessRequests.Status.APPROVED
@@ -495,7 +495,7 @@ def manage_group_delete(request, groupId):
         )
         return redirect("manage-group", groupId=group.id)
 
-    # A pending request for a deleted group can never be granted — deny it
+    # A pending request for a deleted group can never be granted - deny it
     # with an explanation rather than leaving it stranded in approver queues.
     # (AccessRequests.group is SET_NULL, so reviewed history survives.)
     pendingRequests = AccessRequests.objects.filter(
@@ -592,7 +592,7 @@ def review_access_request(request, id):
             accessRequest.dateReviewed = datetime.datetime.now(datetime.UTC)
             accessRequest.reason = formData[ReviewAccessRequestForm.Keys.REASON]
             accessRequest.save()
-        # The grant is already committed — a failed email never rolls it back
+        # The grant is already committed - a failed email never rolls it back
         _sendDecisionEmail(accessRequest)
         return render(
             request,

@@ -37,11 +37,11 @@
     <tr data-filter-text="{{ row.group.name|lower }}{% for name in row.permissionNames %} {{ name|lower }}{% endfor %}">
       <td class="md:whitespace-nowrap"><b>{{ row.group.name }}</b></td>
       <td data-label="Members">{{ row.memberCount }}</td>
-      <td data-label="Grants" class="text-sm text-secondary">{% if row.permissionNames %}{{ row.permissionNames|join:", " }}{% else %}—{% endif %}</td>
+      <td data-label="Grants" class="text-sm text-secondary">{% if row.permissionNames %}{{ row.permissionNames|join:", " }}{% else %}-{% endif %}</td>
       <td><a href="{% url 'manage-group' row.group.id %}">Manage</a></td>
     </tr>
     {% empty %}
-    <tr><td colspan="4" class="text-secondary">No groups yet — create the first one above.</td></tr>
+    <tr><td colspan="4" class="text-secondary">No groups yet - create the first one above.</td></tr>
     {% endfor %}
   </table>
 </div>

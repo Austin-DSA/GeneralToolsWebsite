@@ -248,7 +248,7 @@ class AccessRequests(models.Model):
         related_name="accessRequestsCreated",
     )
 
-    # Exactly one of these is set — see clean().
+    # Exactly one of these is set - see clean().
     group = models.ForeignKey(
         Group, on_delete=models.SET_NULL, blank=True, null=True,
         related_name="accessRequests",
@@ -368,8 +368,8 @@ class LinkTree(models.Model):
         MEMBERS = 1  # login required
 
     VISIBILITY_CHOICES = (
-        (Visibility.PUBLIC, "Public — anyone with the link"),
-        (Visibility.MEMBERS, "Members only — requires login"),
+        (Visibility.PUBLIC, "Public - anyone with the link"),
+        (Visibility.MEMBERS, "Members only - requires login"),
     )
 
     slug = models.SlugField(
@@ -458,7 +458,7 @@ class LinkTreeItem(models.Model):
 
     label = models.CharField(
         max_length=200, blank=True,
-        help_text="Button text — or the heading text for a section header. For wiki "
+        help_text="Button text - or the heading text for a section header. For wiki "
         "links, leave blank to use the document's own title.",
     )
     subtitle = models.CharField(
@@ -511,11 +511,11 @@ class LinkTreeItem(models.Model):
     # Cache written by sync_link_tree_wiki; read by the public page.
     resolvedUrl = models.TextField(
         blank=True,
-        help_text="Auto-filled for wiki links by the sync command — the resolved document URL.",
+        help_text="Auto-filled for wiki links by the sync command - the resolved document URL.",
     )
     resolvedLabel = models.CharField(
         max_length=300, blank=True,
-        help_text="Auto-filled for wiki links by the sync command — the resolved document title.",
+        help_text="Auto-filled for wiki links by the sync command - the resolved document title.",
     )
     resolvedAt = models.DateTimeField(
         null=True, blank=True,
@@ -540,7 +540,7 @@ class LinkTreeItem(models.Model):
         return self.isHeader() or self.isResolved()
 
     def displayLabel(self) -> str:
-        """What to show on the button — explicit label wins, else resolved title."""
+        """What to show on the button - explicit label wins, else resolved title."""
         return self.label or (self.resolvedLabel if self.isWiki() else "")
 
     def destinationUrl(self) -> str | None:
@@ -555,7 +555,7 @@ class LinkTreeItem(models.Model):
     def trackedUrl(self) -> str | None:
         """Site URL that logs a click then redirects (what the page links to).
 
-        None for a section header — a header is not a link, so it has no tracked
+        None for a section header - a header is not a link, so it has no tracked
         destination. Callers (and the template) gate on isHeader() before using
         this, and this makes that contract honest rather than relying on the
         template alone.
@@ -568,7 +568,7 @@ class LinkTreeItem(models.Model):
 class QRCode(models.Model):
     """A repointable, tracked QR code.
 
-    The generated image encodes the site's /qr/<code>/ URL — NOT the destination.
+    The generated image encodes the site's /qr/<code>/ URL - NOT the destination.
     Scans hit qr_redirect, which logs the scan and 302s to the current target, so
     a printed code can be repointed in admin without reprinting and every scan is
     still counted. Exactly one of tree / item / rawUrl is the target.
@@ -631,7 +631,7 @@ class QRCode(models.Model):
         Returns ``(destinationUrl, tree, item)`` where destinationUrl is where a
         scan should 302 (or None if not yet resolvable), and tree/item are the
         objects to attribute the scan to in analytics. Centralizing this here
-        means a new target type is added in exactly one place — the view and any
+        means a new target type is added in exactly one place - the view and any
         other caller just consume the tuple.
         """
         if self.tree is not None:

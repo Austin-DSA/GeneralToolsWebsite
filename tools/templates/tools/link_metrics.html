@@ -38,7 +38,7 @@
   </div>
 
 {% else %}
-  <h1 class="page-title">{{ tree.title }} — Metrics</h1>
+  <h1 class="page-title">{{ tree.title }} - Metrics</h1>
   <p class="page-subtitle">Click and scan activity for <a href="{{ tree.getPublicUrl }}">/t/{{ tree.slug }}/</a>.</p>
 
   <p class="flex items-center gap-3 pb-2">
@@ -92,7 +92,7 @@
         {% for row in qrRows %}
           <tr>
             <td>{{ row.qr__label }} <span class="text-sm text-secondary">/qr/{{ row.qr__code }}/</span></td>
-            <td data-label="Campaign">{{ row.qr__campaign|default:"—" }}</td>
+            <td data-label="Campaign">{{ row.qr__campaign|default:"-" }}</td>
             <td data-label="Scans" class="text-right">{{ row.scans }}</td>
           </tr>
         {% empty %}

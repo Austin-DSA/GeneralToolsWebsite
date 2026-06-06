@@ -5,7 +5,7 @@ def navigation(request):
     """Permission-filtered domain links for the masthead, on every page.
 
     Reuses the home page's DOMAINS/PAGES so the nav, the home cards, and the
-    domain landing pages can never drift apart — adding a PageOption or a
+    domain landing pages can never drift apart - adding a PageOption or a
     Domain updates all three.
     """
     # Imported here to avoid import-time cycles (views imports models, which

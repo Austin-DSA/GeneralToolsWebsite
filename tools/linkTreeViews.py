@@ -1,6 +1,6 @@
 """Link Tree views.
 
-Three of these are PUBLIC (no login) — the whole point of a link tree is a page
+Three of these are PUBLIC (no login) - the whole point of a link tree is a page
 anyone can open, plus the tracked redirect endpoints a click/scan lands on:
 
     public_tree   GET /t/<slug>/           render the tree (members trees gate on login)
@@ -168,7 +168,7 @@ def link_metrics(request, slug=None):
 
 @permission_required(permissions.VIEW_LINK_METRICS)
 def link_metrics_csv(request, slug):
-    """Per-day, per-source aggregate export for a tree (privacy-safe — no PII)."""
+    """Per-day, per-source aggregate export for a tree (privacy-safe - no PII)."""
     tree = get_object_or_404(LinkTree, slug=slug)
 
     response = HttpResponse(content_type="text/csv")

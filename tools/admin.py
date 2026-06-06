@@ -10,7 +10,7 @@ from .models import *
 # --- Users & Groups ---------------------------------------------------------
 #
 # Stock UserAdmin only offers groups on the *change* form, and stock GroupAdmin
-# offers no member management at all — so "adding people to groups" required
+# offers no member management at all - so "adding people to groups" required
 # creating the user, then knowing to re-open them. Fixed from both sides:
 # groups are assignable while creating a user, and members are editable on the
 # group page itself.
@@ -26,7 +26,7 @@ class UserAdmin(DjangoUserAdmin):
 
     @admin.display(description="Groups")
     def groupNames(self, obj):
-        return ", ".join(group.name for group in obj.groups.all()) or "—"
+        return ", ".join(group.name for group in obj.groups.all()) or "-"
 
 
 class GroupAdminForm(forms.ModelForm):
@@ -116,17 +116,17 @@ class LinkTreeAdmin(admin.ModelAdmin):
     @admin.display(description="Public page")
     def publicLink(self, obj):
         if not obj.pk:
-            return "—"
+            return "-"
         url = obj.getPublicUrl()
         return format_html('<a href="{}" target="_blank">{}</a>', url, url)
 
     @admin.display(description="Metrics")
     def metricsLink(self, obj):
-        # One click from a tree to its click/scan dashboard — the admin
+        # One click from a tree to its click/scan dashboard - the admin
         # otherwise has no path to /link-metrics (opening it still requires
         # the viewLinkMetrics permission).
         if not obj.pk:
-            return "—"
+            return "-"
         url = reverse("link-metrics-tree", kwargs={"slug": obj.slug})
         return format_html('<a href="{}" target="_blank">View metrics</a>', url)
 
@@ -153,14 +153,14 @@ class QRCodeAdmin(admin.ModelAdmin):
     @admin.display(description="Scan URL (what the QR encodes)")
     def scanLink(self, obj):
         if not obj.pk:
-            return "—"
+            return "-"
         url = obj.scanUrl()
         return format_html('<a href="{}" target="_blank">{}</a>', url, url)
 
     @admin.display(description="Download QR image")
     def downloadLinks(self, obj):
         if not obj.pk:
-            return "—"
+            return "-"
         base = reverse("qr-image", kwargs={"code": obj.code})
         return format_html(
             '<a href="{}?fmt=svg&download=1" target="_blank">SVG</a> · '

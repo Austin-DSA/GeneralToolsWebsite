@@ -2,7 +2,7 @@
 
 Idempotently mints the QR codes the chapter prints on flyers / table tents.
 Each code targets a *link tree item* (not a raw URL) so scans are attributed to
-that item in analytics and the code stays repointable — edit the item's URL in
+that item in analytics and the code stays repointable - edit the item's URL in
 admin and the printed code follows, no reprint.
 
 Currently seeds:
@@ -43,13 +43,13 @@ class Command(BaseCommand):
                 tree = LinkTree.objects.get(slug=treeSlug)
             except LinkTree.DoesNotExist:
                 raise SystemExit(
-                    f"Tree '{treeSlug}' not found — run `python manage.py seed_link_trees` first."
+                    f"Tree '{treeSlug}' not found - run `python manage.py seed_link_trees` first."
                 )
             try:
                 item = tree.items.get(label=itemLabel, kind=LinkTreeItem.Kind.MANUAL)
             except LinkTreeItem.DoesNotExist:
                 raise SystemExit(
-                    f"Item '{itemLabel}' not found in tree '{treeSlug}' — re-run `seed_link_trees`."
+                    f"Item '{itemLabel}' not found in tree '{treeSlug}' - re-run `seed_link_trees`."
                 )
 
             qr, created = QRCode.objects.update_or_create(

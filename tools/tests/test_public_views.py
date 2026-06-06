@@ -41,7 +41,7 @@ class PublicViewTests(TestCase):
 
     def test_go_logs_web_event_and_redirects_to_stored_destination(self):
         url = reverse("link-go", kwargs={"item_id": self.item.pk})
-        # An attacker-supplied ?next must be ignored — no open redirect.
+        # An attacker-supplied ?next must be ignored - no open redirect.
         resp = self.client.get(url + "?next=https://evil.example.com")
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp["Location"], "https://example.org/join")
@@ -73,7 +73,7 @@ class PublicViewTests(TestCase):
 
     def test_qr_redirect_into_members_tree_gates_anonymous_scanner(self):
         # A QR whose target is an item in a MEMBERS tree must not 302 an
-        # anonymous scanner straight to the destination — it gates to login,
+        # anonymous scanner straight to the destination - it gates to login,
         # the same as the /t/ page and /go/ click, and logs no scan event.
         members_item = LinkTreeItem.objects.create(
             tree=self.members, order=0, kind=LinkTreeItem.Kind.MANUAL,

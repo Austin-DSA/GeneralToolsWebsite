@@ -40,7 +40,7 @@ class DomainPageTests(LoginClientMixin, TestCase):
         self.assertContains(resp, "Request access")
 
     def test_superuser_does_not_see_my_access(self):
-        # Superusers implicitly hold every permission — My Access is noise
+        # Superusers implicitly hold every permission - My Access is noise
         self.loginAs(UserFactory.superuser("root"))
         resp = self.client.get("/access")
         self.assertNotContains(resp, "My Access")

@@ -21,7 +21,7 @@ class AccessRequestCreateTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.group, self.member = cast["group"], cast["member"]
         self.admin, self.requester = cast["admin"], cast["requester"]
         # buildCast's admin holds approveAccessRequest; the original suite's
-        # admin was a superuser — keep both so the cast matches the old fixture.
+        # admin was a superuser - keep both so the cast matches the old fixture.
         self.admin.is_superuser = True
         self.admin.save()
         self.approver = UserFactory.make("approver", perms=("approveAccessRequest",))
@@ -51,7 +51,7 @@ class AccessRequestCreateTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.assertIsNone(request.dateReviewed)
 
     def test_group_request_emails_admins_approvers_and_members_once_each(self):
-        # admin is also a group member — must still get exactly one email
+        # admin is also a group member - must still get exactly one email
         self.admin.groups.add(self.group)
         self.loginAs(self.requester)
         self._post(f"g:{self.group.id}")
@@ -108,7 +108,7 @@ class AccessRequestReviewTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.group, self.member = cast["group"], cast["member"]
         self.admin, self.requester = cast["admin"], cast["requester"]
         # buildCast's admin holds approveAccessRequest; the original suite's
-        # admin was a superuser — keep both so the cast matches the old fixture.
+        # admin was a superuser - keep both so the cast matches the old fixture.
         self.admin.is_superuser = True
         self.admin.save()
         # extras this suite needs on top of the standard cast
@@ -141,7 +141,7 @@ class AccessRequestReviewTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.assertNotIn(self.group, self.requester.groups.all())
 
     def test_nonexistent_request_is_indistinguishable_from_unauthorized(self):
-        # Brittle by design: this asserts the anti-enumeration CONTRACT — a
+        # Brittle by design: this asserts the anti-enumeration CONTRACT - a
         # missing id and a forbidden id must render the SAME template so ids
         # can't be probed. It is not coupled to template internals; keep it.
         # Probing ids must not reveal which requests exist (no enumeration
@@ -211,7 +211,7 @@ class AccessRequestReviewTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.assertEqual(permRequest.status, AccessRequests.Status.REQUESTED)
 
     def test_superuser_can_approve_without_reason(self):
-        # reason is optional — an approval with no note must go through
+        # reason is optional - an approval with no note must go through
         self.loginAs(self.admin)
         self.client.post(self._reviewUrl(), {"approve": "YES", "reason": ""})
         self.groupRequest.refresh_from_db()

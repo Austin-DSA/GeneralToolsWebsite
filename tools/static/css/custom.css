@@ -36,7 +36,7 @@
    it still appears full-size on the public link-tree pages and the favicon). */
 
 /* In @layer base so component classes (.header-link, .btn, .menu-tile) can
-   override it — unlayered rules would always win over layered ones. */
+   override it - unlayered rules would always win over layered ones. */
 @layer base {
   a {
     @apply underline text-blue-700 hover:text-blue-900 visited:text-purple-800;
@@ -164,7 +164,7 @@
     font-size: 0.875rem;
   }
 
-  /* Breadcrumb trail — the site's single navigation convention. Every tool
+  /* Breadcrumb trail - the site's single navigation convention. Every tool
      page declares its place in the hierarchy; ad-hoc "back" links are out. */
   .breadcrumbs {
     @apply flex flex-wrap items-center gap-x-2 text-sm text-secondary pb-4;
@@ -197,7 +197,7 @@
     @apply text-lg font-semibold text-dark pt-6 pb-3;
   }
 
-  /* Buttons — combine: class="btn btn-primary" */
+  /* Buttons - combine: class="btn btn-primary" */
   .btn {
     @apply inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-semibold cursor-pointer transition-colors no-underline;
   }
@@ -218,7 +218,7 @@
     @apply opacity-50 cursor-not-allowed;
   }
 
-  /* Forms — widgets carry .form-field from forms.py, so this restyles every
+  /* Forms - widgets carry .form-field from forms.py, so this restyles every
      form on the site at once. */
   .form-field {
     @apply block w-full max-w-xl rounded-lg border border-neutral-300 bg-white px-3 py-2 text-dark;
@@ -233,7 +233,7 @@
     @apply block text-sm font-medium text-secondary pb-1;
   }
   /* Django's built-in auth forms (login, password change/reset) render bare
-     widgets with no class attr — give them the .form-field look without
+     widgets with no class attr - give them the .form-field look without
      having to subclass every contrib form. */
   .form-row input:not([type="checkbox"]):not([type="submit"]):not([type="hidden"]):not(.form-field),
   .form-row select:not(.form-field),
@@ -282,7 +282,7 @@
   }
   /* Under md, data tables collapse into stacked cards: header rows vanish,
      each data row becomes a bordered card, and each data-label'd cell renders
-     as a LABEL → value line. Unlabeled cells span the full card width — the
+     as a LABEL → value line. Unlabeled cells span the full card width - the
      leading one is the card's title, trailing ones hold the action links. */
   @media (width < 48rem) {
     .data-table,
@@ -325,7 +325,7 @@
     }
   }
 
-  /* Status badges — combine: class="badge badge-{{ getStatusAsString|lower }}" */
+  /* Status badges - combine: class="badge badge-{{ getStatusAsString|lower }}" */
   .badge {
     @apply inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap;
   }
@@ -341,7 +341,7 @@
     background-color: var(--color-danger);
   }
 
-  /* Alerts / callouts — combine: class="alert alert-error" */
+  /* Alerts / callouts - combine: class="alert alert-error" */
   .alert {
     @apply rounded-lg border px-4 py-3 my-4;
   }

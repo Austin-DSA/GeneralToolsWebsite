@@ -32,7 +32,7 @@ class WikiResolverTests(TestCase):
         self.assertEqual(result.url, "https://wiki.example.org/s/may-share")
         self.assertEqual(result.title, "2026-05-01 GBM Agenda")
         self.assertIn(("shares.create", {"documentId": "b"}), api.calls)
-        # Already published — no shares.update needed.
+        # Already published - no shares.update needed.
         self.assertNotIn("shares.update", [method for method, _ in api.calls])
 
     def test_resolve_latest_ignores_drafts_and_non_title_matches(self):
@@ -82,7 +82,7 @@ class WikiResolverTests(TestCase):
         self.assertEqual([method for method, _ in api.calls], ["documents.info"])
 
     def test_resolver_falls_back_to_direct_url_when_sharing_fails(self):
-        # Missing scope / sharing disabled must never kill resolution — the
+        # Missing scope / sharing disabled must never kill resolution - the
         # direct /doc/ url is no worse than not sharing at all.
         api = FakeOutline({
             "documents.info": {"data": {"id": "x", "title": "Onboarding",
