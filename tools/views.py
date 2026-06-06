@@ -18,6 +18,14 @@ class PageOption:
     icon : str = ""
     description : str = ""
     category : str = "Tools"
+    # Some pages are noise for superusers (e.g. My Access — they implicitly
+    # hold every permission, so there's nothing meaningful to show)
+    hideForSuperusers : bool = False
+
+    def isVisibleTo(self, user) -> bool:
+        if self.hideForSuperusers and user.is_superuser:
+            return False
+        return self.permission is None or user.has_perm(self.permission)
 
     def getOptionDict(self):
         return {
@@ -78,7 +86,7 @@ PAGES = [
                icon="bar-chart", category="Link Trees",
                description="Click and scan analytics for every link tree."),
     PageOption(href="my-access", title="My Access", permission=None,
-               icon="user", category="Access",
+               icon="user", category="Access", hideForSuperusers=True,
                description="The groups you belong to and the permissions you currently have."),
     PageOption(href="request-access", title="Request Access", permission=None,
                icon="key", category="Access",
@@ -97,7 +105,7 @@ PAGES = [
 def getPagesForUser(user) -> list[dict[str,str]]:
     pagesForUser = []
     for x in PAGES:
-        if x.permission is None or user.has_perm(x.permission):
+        if x.isVisibleTo(user):
             option = x.getOptionDict()
             # Hrefs are stored root-relative ("new-event"); links render from
             # "/", "/events", etc., so make them absolute once, here.

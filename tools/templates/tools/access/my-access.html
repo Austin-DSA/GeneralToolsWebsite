@@ -24,8 +24,8 @@
     </tr>
     {% for group in groupsInfo %}
     <tr>
-      <td class="whitespace-nowrap">{{ group.name }}</td>
-      <td>{{ group.permissionNames|join:" · "|default:"—" }}</td>
+      <td class="md:whitespace-nowrap">{{ group.name }}</td>
+      <td data-label="Grants">{{ group.permissionNames|join:" · "|default:"—" }}</td>
     </tr>
     {% endfor %}
   </table>
@@ -45,7 +45,7 @@
     {% for permission in heldPermissions %}
     <tr>
       <td>{{ permission.name }}</td>
-      <td class="whitespace-nowrap">{{ permission.source }}</td>
+      <td data-label="Source" class="md:whitespace-nowrap">{{ permission.source }}</td>
     </tr>
     {% endfor %}
   </table>

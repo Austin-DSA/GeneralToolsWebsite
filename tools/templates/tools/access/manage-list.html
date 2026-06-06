@@ -22,16 +22,16 @@
     </tr>
     {% for row in rows %}
     <tr data-filter-text="{{ row.user.username|lower }} {{ row.user.first_name|lower }} {{ row.user.last_name|lower }} {{ row.user.email|lower }}{% for group in row.groups %} {{ group.name|lower }}{% endfor %}">
-      <td class="whitespace-nowrap">
+      <td class="md:whitespace-nowrap">
         <b>{{ row.user.username }}</b>
         {% if row.user.is_superuser %}<span class="badge badge-approved">superuser</span>{% endif %}
         <br><span class="text-sm text-secondary">{{ row.user.first_name }} {{ row.user.last_name }}</span>
       </td>
-      <td>{{ row.user.email }}</td>
-      <td>
+      <td data-label="Email">{{ row.user.email }}</td>
+      <td data-label="Groups">
         {% for group in row.groups %}<span class="badge badge-requested">{{ group.name }}</span> {% empty %}—{% endfor %}
       </td>
-      <td>{{ row.directPermissionCount }}</td>
+      <td data-label="Permissions">{{ row.directPermissionCount }}</td>
       <td><a href="{% url 'manage-access-user' row.user.id %}">Manage</a></td>
     </tr>
     {% endfor %}

@@ -267,6 +267,50 @@
   .data-table tr:hover td {
     @apply bg-neutral-50;
   }
+  /* Under md, data tables collapse into stacked cards: header rows vanish,
+     each data row becomes a bordered card, and each data-label'd cell renders
+     as a LABEL → value line. Unlabeled cells span the full card width — the
+     leading one is the card's title, trailing ones hold the action links. */
+  @media (width < 48rem) {
+    .data-table,
+    .data-table tbody,
+    .data-table tr,
+    .data-table td {
+      display: block;
+    }
+    .data-table thead,
+    .data-table tr:first-child:has(th) {
+      display: none;
+    }
+    .data-table tr {
+      @apply border border-neutral-200 rounded-lg px-4 py-3 mb-3;
+    }
+    .data-table tr[hidden] {
+      display: none; /* keep the JS list filters working */
+    }
+    .data-table tr:hover td {
+      @apply bg-transparent;
+    }
+    .data-table td {
+      @apply border-0 px-0 py-1 text-left;
+      overflow-wrap: anywhere; /* last resort for unbreakable values (URLs) */
+    }
+    .data-table td[data-label] {
+      display: grid;
+      grid-template-columns: 6rem 1fr;
+      @apply gap-3 items-baseline;
+    }
+    .data-table td[data-label] > * {
+      min-width: 0; /* let grid values shrink instead of widening the card */
+    }
+    .data-table td[data-label]::before {
+      content: attr(data-label);
+      @apply text-xs font-semibold uppercase tracking-wide text-secondary;
+    }
+    .data-table tr:has(td[data-label]) > td:first-child:not([data-label]) {
+      @apply font-semibold pb-2;
+    }
+  }
 
   /* Status badges — combine: class="badge badge-{{ getStatusAsString|lower }}" */
   .badge {
@@ -314,7 +358,8 @@
     @apply text-sm font-medium text-secondary pt-0.5;
   }
   .detail-grid dd {
-    @apply m-0 text-dark;
+    @apply m-0 text-dark min-w-0;
+    overflow-wrap: anywhere; /* zoom/AN links and the like can't widen the card */
   }
 
   /* Checkbox grids (Django CheckboxSelectMultiple) on the manage-access page */

@@ -22,10 +22,10 @@
       </tr>
       {% for accessRequest in actionable %}
           <tr>
-              <td>{{accessRequest.getRequesterName}}</td>
-              <td>{{accessRequest.getTargetDescription}}</td>
-              <td>{{accessRequest.justification}}</td>
-              <td class="whitespace-nowrap">{{accessRequest.getDateCreatedStr}}</td>
+              <td>{{accessRequest.requester.getDisplayName}}</td>
+              <td data-label="Requested">{{accessRequest.getTargetDescription}}</td>
+              <td data-label="Why">{{accessRequest.justification}}</td>
+              <td data-label="Date" class="md:whitespace-nowrap">{{accessRequest.getDateCreatedStr}}</td>
               <td><a href="{{accessRequest.getUrl}}">Review</a></td>
           </tr>
       {% endfor %}
@@ -47,10 +47,10 @@
       {% for accessRequest in myRequests %}
           <tr>
               <td>{{accessRequest.getTargetDescription}}</td>
-              <td><span class="badge badge-{{accessRequest.getStatusAsString|lower}}">{{accessRequest.getStatusAsString}}</span></td>
-              <td class="whitespace-nowrap">{{accessRequest.getDateCreatedStr}}</td>
-              <td>{{accessRequest.getReviewerName}}</td>
-              <td>{{accessRequest.reason}}</td>
+              <td data-label="Status"><span class="badge badge-{{accessRequest.getStatusAsString|lower}}">{{accessRequest.getStatusAsString}}</span></td>
+              <td data-label="Date" class="md:whitespace-nowrap">{{accessRequest.getDateCreatedStr}}</td>
+              <td data-label="Reviewed by">{{accessRequest.reviewer.getDisplayName}}</td>
+              <td data-label="Reason">{{accessRequest.reason}}</td>
           </tr>
       {% endfor %}
   </table>

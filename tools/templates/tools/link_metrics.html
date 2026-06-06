@@ -26,8 +26,8 @@
         {% for row in overview %}
           <tr>
             <td>{{ row.tree.title }} <span class="text-sm text-secondary">/t/{{ row.tree.slug }}/</span></td>
-            <td class="text-right">{{ row.web }}</td>
-            <td class="text-right">{{ row.qr }}</td>
+            <td data-label="Web clicks" class="text-right">{{ row.web }}</td>
+            <td data-label="QR scans" class="text-right">{{ row.qr }}</td>
             <td class="text-right"><a href="{% url 'link-metrics-tree' row.tree.slug %}">View →</a></td>
           </tr>
         {% empty %}
@@ -76,7 +76,7 @@
       <thead><tr><th>Link</th><th class="text-right">Opens</th></tr></thead>
       <tbody>
         {% for row in topItems %}
-          <tr><td>{{ row.label }}</td><td class="text-right">{{ row.total }}</td></tr>
+          <tr><td>{{ row.label }}</td><td data-label="Opens" class="text-right">{{ row.total }}</td></tr>
         {% empty %}
           <tr><td colspan="2" class="text-secondary">No link clicks recorded yet.</td></tr>
         {% endfor %}
@@ -92,8 +92,8 @@
         {% for row in qrRows %}
           <tr>
             <td>{{ row.qr__label }} <span class="text-sm text-secondary">/qr/{{ row.qr__code }}/</span></td>
-            <td>{{ row.qr__campaign|default:"—" }}</td>
-            <td class="text-right">{{ row.scans }}</td>
+            <td data-label="Campaign">{{ row.qr__campaign|default:"—" }}</td>
+            <td data-label="Scans" class="text-right">{{ row.scans }}</td>
           </tr>
         {% empty %}
           <tr><td colspan="3" class="text-secondary">No QR scans recorded yet.</td></tr>

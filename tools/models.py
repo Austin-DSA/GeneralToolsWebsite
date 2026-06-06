@@ -12,6 +12,11 @@ class User(AbstractUser):
     def getUserNameString(self) -> str:
         return f"{self.first_name} {self.last_name} - {self.email}"
 
+    def getDisplayName(self) -> str:
+        """Compact name for list tables (detail pages keep name + email)."""
+        fullName = f"{self.first_name} {self.last_name}".strip()
+        return fullName or self.username
+
 class EventOwners(models.Model):
     name = models.CharField(max_length=100, unique=True)
     authorizers = models.ManyToManyField(User, related_name="eventAuthorizations")

@@ -39,6 +39,13 @@ class DomainPageTests(LoginClientMixin, TestCase):
         resp = self.client.get("/events")
         self.assertContains(resp, "Request access")
 
+    def test_superuser_does_not_see_my_access(self):
+        # Superusers implicitly hold every permission — My Access is noise
+        self.loginAs(UserFactory.superuser("root"))
+        resp = self.client.get("/access")
+        self.assertNotContains(resp, "My Access")
+        self.assertContains(resp, "Manage Member Access")
+
     def test_unknown_domain_404s(self):
         self.loginAs(UserFactory.make("nobody"))
         self.assertEqual(self.client.get("/no-such-domain").status_code, 404)
