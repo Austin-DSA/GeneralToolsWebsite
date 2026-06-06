@@ -304,8 +304,8 @@
   .max-w-xs {
     max-width: var(--container-xs);
   }
-  .min-w-48 {
-    min-width: calc(var(--spacing) * 48);
+  .min-w-40 {
+    min-width: calc(var(--spacing) * 40);
   }
   .flex-auto {
     flex: auto;
@@ -840,6 +840,7 @@
     padding: calc(var(--spacing) * 8);
     --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
     box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+    overflow-x: auto;
   }
   .page-card-narrow {
     margin-inline: auto;
@@ -1025,7 +1026,7 @@
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 2px;
     border-color: var(--color-neutral-200);
-    padding-inline: calc(var(--spacing) * 3);
+    padding-inline: calc(var(--spacing) * 2);
     padding-block: calc(var(--spacing) * 2);
     font-size: var(--text-xs);
     line-height: var(--tw-leading, var(--text-xs--line-height));
@@ -1040,7 +1041,7 @@
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 1px;
     border-color: var(--color-neutral-100);
-    padding-inline: calc(var(--spacing) * 3);
+    padding-inline: calc(var(--spacing) * 2);
     padding-block: calc(var(--spacing) * 2.5);
     vertical-align: top;
   }

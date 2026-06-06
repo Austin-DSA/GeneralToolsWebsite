@@ -182,6 +182,8 @@
   /* Page structure */
   .page-card {
     @apply bg-white rounded-xl border border-neutral-200 shadow-sm p-8 mb-8;
+    /* Wide tables scroll inside the card instead of spilling past its edge */
+    overflow-x: auto;
   }
   /* combine: class="page-card page-card-narrow" */
   .page-card-narrow {
@@ -272,10 +274,10 @@
     @apply w-full border-collapse text-left;
   }
   .data-table th {
-    @apply text-xs font-semibold uppercase tracking-wide text-secondary border-b-2 border-neutral-200 px-3 py-2;
+    @apply text-xs font-semibold uppercase tracking-wide text-secondary border-b-2 border-neutral-200 px-2 py-2;
   }
   .data-table td {
-    @apply border-b border-neutral-100 px-3 py-2.5 align-top;
+    @apply border-b border-neutral-100 px-2 py-2.5 align-top;
   }
   .data-table tr:hover td {
     @apply bg-neutral-50;

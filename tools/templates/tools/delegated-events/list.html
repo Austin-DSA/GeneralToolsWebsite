@@ -21,7 +21,7 @@
       </tr>
       {% for event in object_list %}
           <tr>
-              <td class="min-w-48">{{event.title}}</td>
+              <td class="min-w-40">{{event.title}}</td>
               <td data-label="Status"><span class="badge badge-{{event.getStatusAsString|lower}}">{{event.getStatusAsString}}</span></td>
               <td data-label="Start" class="md:whitespace-nowrap">{{event.getStartLocalizedStr}}</td>
               <td data-label="End" class="md:whitespace-nowrap">{{event.getEndLocalizedStr}}</td>
