@@ -1,17 +1,7 @@
 {% extends "base.html" %}
+{% load navigation_tags %}
 {% block title %}Link Tree Metrics{% endblock title %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'link-trees' %}">Link Trees</a><span class="crumb-sep">›</span>
-  {% if tree %}
-  <a href="{% url 'link-metrics' %}">Link Tree Metrics</a><span class="crumb-sep">›</span>
-  <span aria-current="page">{{ tree.title }}</span>
-  {% else %}
-  <span aria-current="page">Link Tree Metrics</span>
-  {% endif %}
-</nav>
-{% endblock breadcrumbs %}
+{% block breadcrumbs %}{% if tree %}{% url 'link-metrics' as parentToolUrl %}{% breadcrumbs parentLabel="Link Tree Metrics" parentUrl=parentToolUrl currentLabel=tree.title %}{% else %}{% breadcrumbs %}{% endif %}{% endblock breadcrumbs %}
 {% block page_content %}
 {% if not tree %}
   <h1 class="page-title">Link Tree Metrics</h1>

@@ -1,27 +1,24 @@
 {% extends "base.html" %}
 {% block title %}{{ domain.title }} - Party Line{% endblock title %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <span aria-current="page">{{ domain.title }}</span>
-</nav>
-{% endblock breadcrumbs %}
 {% block page_content %}
 <h1 class="page-title">{{ domain.title }}</h1>
 <p class="page-subtitle">{{ domain.description }}</p>
 
 {% if pages %}
-<div class="menu-grid">
+<ul class="tool-list max-w-3xl">
   {% for page in pages %}
-  <a class="menu-tile" href="{{ page.href }}">
-    <span class="menu-tile-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>
-    <span class="menu-tile-body">
-      <span class="menu-tile-title">{{ page.title }}<span class="menu-tile-arrow">→</span></span>
-      <span class="menu-tile-desc">{{ page.description }}</span>
-    </span>
-  </a>
+  <li>
+    <a class="tool-row" href="{{ page.href }}">
+      <span class="tool-row-index" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+      <span class="tool-row-body">
+        <span class="tool-row-title">{{ page.title }}</span>
+        <span class="tool-row-desc">{{ page.description }}</span>
+      </span>
+      <span class="tool-row-arrow" aria-hidden="true">→</span>
+    </a>
+  </li>
   {% endfor %}
-</div>
+</ul>
 {% else %}
 <div class="page-card page-card-narrow">
   <p class="pb-4">You don't have access to any {{ domain.title }} tools yet.</p>

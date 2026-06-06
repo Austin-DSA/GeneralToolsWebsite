@@ -1,10 +1,13 @@
-from django.urls import path, include
+import re
+
+from django.urls import path, re_path, include
 from django.contrib import admin
 from . import views
 from . import accessViews
 from . import eventViews
 from . import linkTreeViews
 from . import ownerViews
+from .navigation import NAV_DOMAINS
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -47,6 +50,7 @@ urlpatterns = [
     path("link-metrics/<slug:slug>.csv", linkTreeViews.link_metrics_csv, name="link-metrics-csv"),
     # --- Link Tree (gated: in-app management UI) ---
     path("manage-link-trees", linkTreeViews.manage_link_tree_list, name="manage-link-tree-list"),
+    path("manage-link-trees/new", linkTreeViews.manage_link_tree_create, name="manage-link-tree-new"),
     path("manage-link-trees/<int:treeId>", linkTreeViews.manage_link_tree_edit, name="manage-link-tree-edit"),
     path("manage-link-trees/<int:treeId>/reorder", linkTreeViews.manage_link_tree_item_reorder, name="manage-link-tree-item-reorder"),
     path("manage-link-trees/<int:treeId>/items/new", linkTreeViews.manage_link_tree_item_edit, name="manage-link-tree-item-new"),
@@ -56,8 +60,13 @@ urlpatterns = [
     path("manage-qr-codes/<slug:code>", linkTreeViews.manage_qr_code_edit, name="manage-qr-code-edit"),
 
     # --- Domain landing pages (/events, /link-trees, /access) ---
-    # Deliberately last: any single-segment path not claimed above is tried as
-    # a domain slug; views.domain 404s the unknown ones. Adding a Domain to
-    # views.DOMAINS is all it takes to route a new landing page.
-    path("<slug:domainSlug>", views.domain, name="domain"),
+    # The slug set is bounded by NAV_DOMAINS: adding a NavDomain in
+    # tools/navigation.py routes its landing page here automatically, and
+    # unknown slugs fall through to a normal 404. Because only the known slugs
+    # match (no open catch-all), route ordering is no longer load-bearing.
+    re_path(
+        r"^(?P<domainSlug>" + "|".join(re.escape(domain.slug) for domain in NAV_DOMAINS) + r")$",
+        views.domain,
+        name="domain",
+    ),
 ]

@@ -1,11 +1,4 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'access' %}">Access</a><span class="crumb-sep">›</span>
-  <span aria-current="page">Manage Member Access</span>
-</nav>
-{% endblock breadcrumbs %}
 {% block page_content %}
 <h1 class="page-title">Manage Member Access</h1>
 <p class="page-subtitle">Grant or revoke group membership and permissions directly. To change what a group grants, see <a href="{% url 'manage-groups' %}">Manage Groups</a>; for request-driven grants, see <a href="{% url 'access-request-list' %}">access requests</a>.</p>

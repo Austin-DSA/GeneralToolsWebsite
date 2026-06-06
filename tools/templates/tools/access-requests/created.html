@@ -1,12 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'access' %}">Access</a><span class="crumb-sep">›</span>
-  <a href="{% url 'request-access' %}">Request Access</a><span class="crumb-sep">›</span>
-  <span aria-current="page">Submitted</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'request-access' as parentToolUrl %}{% breadcrumbs parentLabel="Request Access" parentUrl=parentToolUrl currentLabel="Submitted" %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Request submitted</h1>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block page_content %}
 <h1 class="page-title">Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
-<p class="page-subtitle">Austin DSA's line on events, link trees, and access. Pick an area to get started.</p>
+<p class="page-subtitle">Austin DSA's line on events, link trees, and access. Every tool you can reach, one list.</p>
 
 {% if pendingReviewCount %}
 <div class="alert alert-warning">
@@ -10,14 +10,29 @@
 </div>
 {% endif %}
 
-<div class="domain-grid">
+<div class="tool-directory">
   {% for domain in domains %}
-  <a class="domain-card" href="{{ domain.href }}">
-    <span class="domain-card-icon">{% include "tools/common/icon.html" with name=domain.icon %}</span>
-    <span class="domain-card-title">{{ domain.title }}</span>
-    <span class="domain-card-desc">{{ domain.description }}</span>
-    <span class="domain-card-count">{{ domain.pages|length }} tool{{ domain.pages|length|pluralize }} <span class="domain-card-arrow">→</span></span>
-  </a>
+  <section class="tool-directory-section" aria-label="{{ domain.title }} tools">
+    <div class="tool-directory-header">
+      <a class="tool-directory-domain" href="{{ domain.href }}">{{ domain.title }}</a>
+      <span class="tool-directory-count">{{ domain.pages|length }} tool{{ domain.pages|length|pluralize }}</span>
+    </div>
+    <p class="tool-directory-desc">{{ domain.description }}</p>
+    <ul class="tool-list">
+      {% for page in domain.pages %}
+      <li>
+        <a class="tool-row" href="{{ page.href }}">
+          <span class="tool-row-index" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+          <span class="tool-row-body">
+            <span class="tool-row-title">{{ page.title }}</span>
+            <span class="tool-row-desc">{{ page.description }}</span>
+          </span>
+          <span class="tool-row-arrow" aria-hidden="true">→</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
   {% endfor %}
 </div>
 {% endblock page_content %}

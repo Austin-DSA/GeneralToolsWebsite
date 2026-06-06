@@ -1,13 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'link-trees' %}">Link Trees</a><span class="crumb-sep">›</span>
-  <a href="{% url 'manage-link-tree-list' %}">Manage Link Trees</a><span class="crumb-sep">›</span>
-  <a href="{% url 'manage-link-tree-edit' tree.id %}">{{ tree.title }}</a><span class="crumb-sep">›</span>
-  <span aria-current="page">{% if item %}Edit item{% else %}Add item{% endif %}</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% breadcrumbs parentCrumbs=breadcrumbParentCrumbs currentLabel=item|yesno:"Edit item,Add item" %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">{% if item %}Edit item{% else %}Add item{% endif %}</h1>

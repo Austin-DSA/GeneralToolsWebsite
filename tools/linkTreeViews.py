@@ -28,6 +28,7 @@ from django.contrib.auth.views import redirect_to_login
 from django.db import models, transaction
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from . import permissions
 from .forms import LinkTreeItemForm, LinkTreeSettingsForm, QRCodeForm
@@ -202,23 +203,6 @@ def _formatVisibleWindow(value):
 @login_required
 @permission_required(permissions.MANAGE_LINK_TREE)
 def manage_link_tree_list(request):
-    createForm = LinkTreeSettingsForm()
-    if request.method == "POST":
-        createForm = LinkTreeSettingsForm(request.POST)
-        if createForm.is_valid():
-            tree = LinkTree()
-            tree.slug = createForm.cleaned_data[LinkTreeSettingsForm.Keys.SLUG]
-            tree.title = createForm.cleaned_data[LinkTreeSettingsForm.Keys.TITLE]
-            tree.description = createForm.cleaned_data[LinkTreeSettingsForm.Keys.DESCRIPTION]
-            tree.visibility = createForm.cleaned_data[LinkTreeSettingsForm.Keys.VISIBILITY]
-            tree.isActive = createForm.cleaned_data[LinkTreeSettingsForm.Keys.IS_ACTIVE]
-            tree.save()
-            logger.info(
-                "ManageLinkTree: %s created link tree '%s'",
-                request.user.get_username(), tree.slug,
-            )
-            return redirect("manage-link-tree-edit", treeId=tree.pk)
-
     treeRows = [
         {
             "tree": tree,
@@ -229,8 +213,32 @@ def manage_link_tree_list(request):
     ]
     return render(request, "tools/manage-link-trees/list.html", {
         "treeRows": treeRows,
-        "createForm": createForm,
     })
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_link_tree_create(request):
+    """Dedicated create page: a tree's settings first, then straight into the
+    edit page to add its items."""
+    if request.method == "POST":
+        form = LinkTreeSettingsForm(request.POST)
+        if form.is_valid():
+            tree = LinkTree()
+            tree.slug = form.cleaned_data[LinkTreeSettingsForm.Keys.SLUG]
+            tree.title = form.cleaned_data[LinkTreeSettingsForm.Keys.TITLE]
+            tree.description = form.cleaned_data[LinkTreeSettingsForm.Keys.DESCRIPTION]
+            tree.visibility = form.cleaned_data[LinkTreeSettingsForm.Keys.VISIBILITY]
+            tree.isActive = form.cleaned_data[LinkTreeSettingsForm.Keys.IS_ACTIVE]
+            tree.save()
+            logger.info(
+                "ManageLinkTree: %s created link tree '%s'",
+                request.user.get_username(), tree.slug,
+            )
+            return redirect("manage-link-tree-edit", treeId=tree.pk)
+    else:
+        form = LinkTreeSettingsForm()
+    return render(request, "tools/manage-link-trees/new.html", {"form": form})
 
 
 @login_required
@@ -337,6 +345,13 @@ def manage_link_tree_item_edit(request, treeId, itemId=None):
         "tree": tree,
         "item": item,
         "form": form,
+        # The item page's trail has two crumbs between the domain and the
+        # leaf; the tree crumb's reverse() needs tree.id, so the list is
+        # built here for {% breadcrumbs parentCrumbs=... %}.
+        "breadcrumbParentCrumbs": [
+            {"label": "Manage Link Trees", "url": reverse("manage-link-tree-list")},
+            {"label": tree.title, "url": reverse("manage-link-tree-edit", args=[tree.id])},
+        ],
     })
 
 

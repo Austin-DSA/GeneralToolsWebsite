@@ -4,14 +4,14 @@ from tools.tests.support import LoginClientMixin, UserFactory, fastHashing
 
 
 @fastHashing
-class HomeDomainCardTests(LoginClientMixin, TestCase):
-    """The home page shows one card per domain the user can see into; tool
-    titles live on the domain landing pages, not here."""
+class HomeDirectoryTests(LoginClientMixin, TestCase):
+    """The home page is the switchboard: a directory section per domain the
+    user can see into, listing every tool they can reach."""
 
-    def test_permissionless_user_sees_access_card_only(self):
-        # Access has permission=None tools, so its card always renders; Events
-        # and Link Trees need perms this user lacks, so theirs (and their nav
-        # links) don't.
+    def test_permissionless_user_sees_access_section_only(self):
+        # Access has permission=None tools, so its section always renders;
+        # Events and Link Trees need perms this user lacks, so theirs (and
+        # their nav dropdowns) don't.
         self.loginAs(UserFactory.make("nobody"))
         resp = self.client.get("/")
         self.assertContains(resp, "Access")
@@ -22,8 +22,9 @@ class HomeDomainCardTests(LoginClientMixin, TestCase):
         self.loginAs(UserFactory.make("publisher", perms=("publishEvent",)))
         resp = self.client.get("/")
         self.assertContains(resp, "Events")
-        # Tool titles moved off the home page onto the domain landing pages
-        self.assertNotContains(resp, "Create an Event")
+        # The directory lists the tools themselves right on the home page
+        self.assertContains(resp, "Create an Event")
+        self.assertNotContains(resp, "View Published Events")
 
 
 @fastHashing
@@ -47,6 +48,9 @@ class DomainPageTests(LoginClientMixin, TestCase):
         self.assertContains(resp, "Manage Member Access")
 
     def test_unknown_domain_404s(self):
+        # Since the bounded domain route replaced the <slug:domainSlug>
+        # catch-all, this 404 comes from the resolver (no route matches) rather
+        # than from views.domain raising Http404 - same observable result.
         self.loginAs(UserFactory.make("nobody"))
         self.assertEqual(self.client.get("/no-such-domain").status_code, 404)
 

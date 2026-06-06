@@ -1,0 +1,9 @@
+{% comment %} The single breadcrumb partial, rendered by {% breadcrumbs %}
+(tools/templatetags/navigation_tags.py). Crumbs with a url render as links;
+the final crumb (url None) is the current page. {% endcomment %}
+{% if breadcrumbTrail %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  {% for crumb in breadcrumbTrail %}{% if not forloop.first %}<span class="crumb-sep">›</span>{% endif %}{% if crumb.url %}<a href="{{ crumb.url }}">{{ crumb.label }}</a>{% else %}<span aria-current="page">{{ crumb.label }}</span>{% endif %}
+  {% endfor %}
+</nav>
+{% endif %}

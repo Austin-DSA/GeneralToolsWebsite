@@ -58,7 +58,7 @@ class ManageLinkTreeTests(LoginClientMixin, TestCase):
 
     def test_create_tree_with_duplicate_slug_fails(self):
         self.loginAs(self.maintainer)
-        resp = self.client.post(reverse("manage-link-tree-list"), {
+        resp = self.client.post(reverse("manage-link-tree-new"), {
             "slug": "links", "title": "Dupe", "visibility": LinkTree.Visibility.PUBLIC, "isActive": "on",
         })
         self.assertEqual(resp.status_code, 200)
@@ -79,7 +79,7 @@ class ManageLinkTreeTests(LoginClientMixin, TestCase):
 
     def test_create_and_edit_tree_settings(self):
         self.loginAs(self.maintainer)
-        resp = self.client.post(reverse("manage-link-tree-list"), {
+        resp = self.client.post(reverse("manage-link-tree-new"), {
             "slug": "newsletter", "title": "Newsletter",
             "visibility": LinkTree.Visibility.MEMBERS, "isActive": "on",
         })

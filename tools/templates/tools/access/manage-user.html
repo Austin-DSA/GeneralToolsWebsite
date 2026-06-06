@@ -1,12 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'access' %}">Access</a><span class="crumb-sep">›</span>
-  <a href="{% url 'manage-access' %}">Manage Member Access</a><span class="crumb-sep">›</span>
-  <span aria-current="page">{{ target.username }}</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-access' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Member Access" parentUrl=parentToolUrl currentLabel=target.username %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-3xl">
   <h1 class="page-title">{{ target.username }}

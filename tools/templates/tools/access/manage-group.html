@@ -1,12 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'access' %}">Access</a><span class="crumb-sep">›</span>
-  <a href="{% url 'manage-groups' %}">Manage Groups</a><span class="crumb-sep">›</span>
-  <span aria-current="page">{{ group.name }}</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-groups' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Groups" parentUrl=parentToolUrl currentLabel=group.name %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-3xl">
   <h1 class="page-title">{{ group.name }}</h1>

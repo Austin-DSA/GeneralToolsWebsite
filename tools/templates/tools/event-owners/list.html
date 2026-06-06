@@ -1,11 +1,4 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'events' %}">Events</a><span class="crumb-sep">›</span>
-  <span aria-current="page">Manage Event Owners</span>
-</nav>
-{% endblock breadcrumbs %}
 {% block page_content %}
 <h1 class="page-title">Manage Event Owners</h1>
 <p class="page-subtitle">Owners that delegated requests are filed against, and the authorizers who can approve them.</p>

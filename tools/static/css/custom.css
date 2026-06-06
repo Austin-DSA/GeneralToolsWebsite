@@ -35,7 +35,7 @@
    carries the brand (the detailed circle seal is unreadable at header size;
    it still appears full-size on the public link-tree pages and the favicon). */
 
-/* In @layer base so component classes (.header-link, .btn, .menu-tile) can
+/* In @layer base so component classes (.header-link, .btn, .tool-row) can
    override it - unlayered rules would always win over layered ones. */
 @layer base {
   a {
@@ -121,6 +121,22 @@
     @apply px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide;
     color: rgb(255 255 255 / 0.75);
   }
+  /* Tappable domain headers grouping the mobile menu's tool links */
+  .mobile-menu-domain {
+    @apply flex items-center justify-between px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide no-underline;
+    color: rgb(255 255 255 / 0.75);
+  }
+  .mobile-menu-domain:hover,
+  .mobile-menu-domain:visited {
+    color: rgb(255 255 255 / 0.75);
+  }
+  .mobile-menu-domain:hover {
+    @apply text-white;
+  }
+  .mobile-menu-domain.is-active {
+    @apply text-white;
+    background-color: rgb(255 255 255 / 0.12);
+  }
   .mobile-menu-item {
     @apply flex w-full items-center gap-3 px-5 py-3 text-base text-white no-underline bg-transparent border-0 cursor-pointer text-left hover:text-white visited:text-white;
     font-family: inherit;
@@ -132,6 +148,42 @@
   .mobile-menu-item.is-active {
     @apply font-semibold;
     background-color: rgb(255 255 255 / 0.12);
+  }
+
+  /* Masthead domain dropdowns (native <details>, same outside-click close as
+     the user menu): every tool is one click away from any page. The summary
+     reuses .main-nav-link so the active underline keeps working. */
+  .nav-menu {
+    @apply relative inline-block;
+  }
+  .nav-menu summary {
+    @apply cursor-pointer select-none;
+    list-style: none;
+  }
+  .nav-menu summary::-webkit-details-marker {
+    display: none;
+  }
+  .nav-menu-caret {
+    /* margin, not padding: the [open] rotation pivots on the border box, and
+       padding inside it would shove the rotated glyph off-center */
+    @apply inline-block ml-1.5 text-xs font-normal transition-transform duration-150;
+  }
+  .nav-menu[open] .nav-menu-caret {
+    transform: rotate(180deg);
+  }
+  .nav-menu-panel {
+    @apply absolute left-0 mt-1 w-64 bg-white rounded-lg border border-neutral-200 shadow-lg py-1 z-50;
+    animation: mobileMenuIn 0.16s ease-out;
+  }
+  .nav-menu-overview {
+    @apply block px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary no-underline border-b border-neutral-100 hover:text-primary visited:text-secondary;
+  }
+  .nav-menu-link {
+    @apply flex items-center gap-2.5 px-4 py-2 text-sm text-dark no-underline hover:bg-neutral-100 hover:text-dark visited:text-dark;
+    transition: box-shadow 0.1s ease-out;
+  }
+  .nav-menu-link:hover {
+    box-shadow: inset 2px 0 0 var(--color-primary);
   }
 
   /* User popover menu (native <details>; outside-click close is in base.html) */
@@ -218,6 +270,15 @@
   }
   .btn:disabled {
     @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Icons inline in buttons ("+ New QR code") track the button's text size.
+     A bare .icon has no base size - containers that need another size set
+     their own (.nav-menu-icon, .reorder-controls, ...). */
+  .btn .icon {
+    width: 1.1em;
+    height: 1.1em;
+    flex: none;
   }
 
   /* Forms - widgets carry .form-field from forms.py, so this restyles every
@@ -562,33 +623,69 @@
     background-color: var(--color-primary);
   }
 
-  /* Home: one card per domain (Events / Link Trees / Access) linking to its
-     landing page, where the menu-grid of tool tiles lives */
-  .domain-grid {
-    @apply grid gap-4 mt-2 grid-cols-1 md:grid-cols-3;
+  /* Home: the switchboard. A broadsheet-style directory of every tool the
+     user can reach - numbered index rows under thick-ruled domain headers,
+     replacing the old domain-card grid. Also used (single column) on the
+     domain landing pages in place of the old menu-grid tiles. */
+  .tool-directory {
+    @apply grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-8 mt-4;
   }
-  .domain-card {
-    @apply flex flex-col bg-white rounded-xl border border-neutral-200 shadow-sm px-6 py-5 no-underline text-dark hover:border-primary hover:text-dark visited:text-dark transition-colors;
+  .tool-directory-section {
+    animation: directoryIn 0.4s ease-out backwards;
   }
-  .domain-card-icon {
-    @apply text-primary pb-3;
+  .tool-directory-section:nth-child(2) {
+    animation-delay: 0.07s;
   }
-  .domain-card-icon .icon {
-    width: 32px;
-    height: 32px;
-    stroke-width: 1.5;
+  .tool-directory-section:nth-child(3) {
+    animation-delay: 0.14s;
   }
-  .domain-card-title {
-    @apply text-lg font-semibold;
+  @keyframes directoryIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-  .domain-card-desc {
-    @apply flex-auto text-sm text-secondary pt-1 pb-5;
+  .tool-directory-header {
+    @apply flex items-baseline justify-between pt-3;
+    border-top: 3px solid var(--color-dark);
   }
-  .domain-card-count {
-    @apply text-sm font-medium text-primary;
+  .tool-directory-domain {
+    @apply text-sm font-semibold uppercase no-underline text-dark hover:text-primary visited:text-dark;
+    letter-spacing: 0.14em;
   }
-  .domain-card-arrow {
-    @apply pl-1;
+  .tool-directory-count {
+    @apply text-xs text-secondary;
+  }
+  .tool-directory-desc {
+    @apply text-sm text-secondary pt-1.5;
+  }
+  .tool-list {
+    @apply mt-3 list-none p-0;
+  }
+  .tool-row {
+    @apply flex items-baseline gap-3 py-3 no-underline text-dark hover:text-dark visited:text-dark border-b border-neutral-200;
+  }
+  .tool-row-index {
+    @apply flex-none w-6 text-sm font-semibold text-primary;
+    font-variant-numeric: tabular-nums;
+  }
+  .tool-row-body {
+    @apply flex-auto;
+  }
+  .tool-row-title {
+    @apply block font-semibold transition-colors duration-100;
+  }
+  .tool-row:hover .tool-row-title {
+    color: var(--color-primary);
+  }
+  .tool-row-desc {
+    @apply block text-sm text-secondary pt-0.5;
+  }
+  .tool-row-arrow {
+    @apply flex-none text-primary opacity-0 transition-all duration-150;
+    transform: translateX(-4px);
+  }
+  .tool-row:hover .tool-row-arrow {
+    @apply opacity-100;
+    transform: translateX(0);
   }
 
   /* Section heading style shared by the access-management category lists */
@@ -596,32 +693,4 @@
     @apply text-xs font-semibold uppercase tracking-wide text-secondary pt-6 pb-2;
   }
 
-  /* Domain landing pages: icon + title + description tiles, one per tool */
-  .menu-grid {
-    @apply grid gap-4;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  }
-  .menu-tile {
-    @apply flex items-start gap-3 bg-white rounded-xl border border-neutral-200 shadow-sm px-5 py-4 no-underline text-dark hover:border-primary hover:text-dark visited:text-dark transition-colors;
-  }
-  .menu-tile-icon {
-    @apply flex-none pt-0.5 text-primary;
-  }
-  .menu-tile-icon .icon {
-    width: 26px;
-    height: 26px;
-    stroke-width: 1.75;
-  }
-  .menu-tile-body {
-    @apply flex-auto;
-  }
-  .menu-tile-title {
-    @apply block font-semibold;
-  }
-  .menu-tile-desc {
-    @apply block text-sm text-secondary pt-1;
-  }
-  .menu-tile .menu-tile-arrow {
-    @apply text-primary float-right pl-2;
-  }
 }

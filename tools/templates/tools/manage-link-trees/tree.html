@@ -1,12 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'link-trees' %}">Link Trees</a><span class="crumb-sep">›</span>
-  <a href="{% url 'manage-link-tree-list' %}">Manage Link Trees</a><span class="crumb-sep">›</span>
-  <span aria-current="page">{{ tree.title }}</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-link-tree-list' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Link Trees" parentUrl=parentToolUrl currentLabel=tree.title %}{% endblock breadcrumbs %}
 {% block page_content %}
 <h1 class="page-title">{{ tree.title }}</h1>
 <p class="page-subtitle">Public page: <a href="{{ tree.getPublicUrl }}">/t/{{ tree.slug }}/</a></p>

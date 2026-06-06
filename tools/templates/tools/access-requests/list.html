@@ -1,11 +1,4 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'access' %}">Access</a><span class="crumb-sep">›</span>
-  <span aria-current="page">Access Requests</span>
-</nav>
-{% endblock breadcrumbs %}
 {% block page_content %}
 <h1 class="page-title">Access Requests</h1>
 

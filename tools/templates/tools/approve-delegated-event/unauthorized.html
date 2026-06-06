@@ -1,12 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'events' %}">Events</a><span class="crumb-sep">›</span>
-  <a href="{% url 'delegated-event-list' %}">Delegated Events</a><span class="crumb-sep">›</span>
-  <span aria-current="page">Not authorized</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'delegated-event-list' as parentToolUrl %}{% breadcrumbs parentLabel="Delegated Events" parentUrl=parentToolUrl currentLabel="Not authorized" %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card page-card-narrow">
   <h1 class="page-title">Not authorized</h1>

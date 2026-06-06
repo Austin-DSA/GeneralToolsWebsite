@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{% block title %}Party Line - Austin DSA{% endblock title %}</title>
     {% load static %}
+    {% load navigation_tags %}
     <link rel="icon" href="{% static 'images/ATXDSA Circle Logo with Chapter Black.png' %}" />
     <link rel="stylesheet" href="{% static 'css/output.css' %}" />
     <script>
@@ -26,10 +27,19 @@
         </div>
         {% if user.is_authenticated %}
           {% if navDomains %}
-          {% comment %} Desktop: plain links to the domain landing pages. Mobile gets the hamburger menu below. {% endcomment %}
+          {% comment %} Desktop: one dropdown per domain (native <details>, registry-fed) so
+          every tool is one click from any page. Mobile gets the hamburger menu below. {% endcomment %}
           <nav class="main-nav hidden md:flex" aria-label="Primary">
             {% for domain in navDomains %}
-            <a class="main-nav-link{% if domain.active %} is-active{% endif %}"{% if domain.active %} aria-current="page"{% endif %} href="{{ domain.href }}">{{ domain.title }}</a>
+            <details class="nav-menu">
+              <summary class="main-nav-link{% if domain.isActiveNavDomain %} is-active{% endif %}"{% if domain.isActiveNavDomain %} aria-current="true"{% endif %}>{{ domain.title }}<span class="nav-menu-caret" aria-hidden="true">&#9662;</span></summary>
+              <div class="nav-menu-panel">
+                <a class="nav-menu-overview" href="{{ domain.href }}">{{ domain.title }} overview</a>
+                {% for page in domain.pages %}
+                <a class="nav-menu-link" href="{{ page.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>{{ page.title }}</a>
+                {% endfor %}
+              </div>
+            </details>
             {% endfor %}
           </nav>
           {% endif %}
@@ -59,7 +69,10 @@
       {% if user.is_authenticated %}
       <nav id="mobile-menu" class="mobile-menu" aria-label="Mobile" hidden>
         {% for domain in navDomains %}
-        <a class="mobile-menu-item{% if domain.active %} is-active{% endif %}"{% if domain.active %} aria-current="page"{% endif %} href="{{ domain.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=domain.icon %}</span>{{ domain.title }}</a>
+        <a class="mobile-menu-domain{% if domain.isActiveNavDomain %} is-active{% endif %}"{% if domain.isActiveNavDomain %} aria-current="page"{% endif %} href="{{ domain.href }}">{{ domain.title }}<span aria-hidden="true">&rarr;</span></a>
+        {% for page in domain.pages %}
+        <a class="mobile-menu-item" href="{{ page.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>{{ page.title }}</a>
+        {% endfor %}
         {% endfor %}
         <div class="mobile-menu-section">{{ user.username }}</div>
         <a class="mobile-menu-item" href="{% url 'password_change' %}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name="lock" %}</span>Change password</a>
@@ -71,10 +84,11 @@
       {% endif %}
     </header>
     <script>
-      // Close the user-menu popover when clicking outside it or pressing
-      // Escape. (Kept as a selector loop: any future header <details> popover
-      // can join the list and inherit the behavior.)
-      const headerMenus = "details.user-menu";
+      // Close the header popovers (user menu + the domain nav dropdowns) when
+      // clicking outside them or pressing Escape. (Kept as a selector loop:
+      // any future header <details> popover can join the list and inherit
+      // the behavior.)
+      const headerMenus = "details.user-menu, details.nav-menu";
       document.addEventListener("click", (event) => {
         for (const menu of document.querySelectorAll(headerMenus)) {
           if (menu.hasAttribute("open") && !menu.contains(event.target)) {
@@ -117,7 +131,10 @@
       }
     </script>
     <main class="flex-auto w-full max-w-5xl mx-auto px-4 py-8">
-      {% block breadcrumbs %}{% endblock breadcrumbs %}
+      {% comment %} Default trail (Home > Domain > Page) derived from the nav
+      registry; pages whose route has no registry tile override this block
+      with an explicit {% breadcrumbs %} call. {% endcomment %}
+      {% block breadcrumbs %}{% breadcrumbs %}{% endblock breadcrumbs %}
       {% block page_content %}{% endblock page_content %}
     </main>
   </body>

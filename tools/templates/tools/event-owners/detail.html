@@ -1,12 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'events' %}">Events</a><span class="crumb-sep">›</span>
-  <a href="{% url 'manage-event-owners' %}">Manage Event Owners</a><span class="crumb-sep">›</span>
-  <span aria-current="page">{{ owner.name }}</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-event-owners' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Event Owners" parentUrl=parentToolUrl currentLabel=owner.name %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-3xl">
   <h1 class="page-title">{{ owner.name }}</h1>
@@ -123,6 +117,11 @@
     const note = document.getElementById("pending-note");
     note.hidden = !(adds || removes);
     note.textContent = `Pending: ${adds} addition${adds === 1 ? "" : "s"}, ${removes} removal${removes === 1 ? "" : "s"}`;
+    // The server-rendered "No authorizers yet" note describes the saved
+    // roster - hide it while additions are staged so it does not contradict
+    // the staged rows above it.
+    const emptyRosterNote = document.getElementById("empty-roster-note");
+    if (emptyRosterNote) { emptyRosterNote.hidden = adds > 0; }
   }
 
   function authorizerBody(user) {

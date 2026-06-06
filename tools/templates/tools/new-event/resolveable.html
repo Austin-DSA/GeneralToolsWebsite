@@ -1,12 +1,6 @@
 {% extends "base.html" %}
-{% block breadcrumbs %}
-<nav class="breadcrumbs" aria-label="Breadcrumb">
-  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
-  <a href="{% url 'domain' 'events' %}">Events</a><span class="crumb-sep">›</span>
-  <a href="{% url 'new-event' %}">Create an Event</a><span class="crumb-sep">›</span>
-  <span aria-current="page">Calendar conflict</span>
-</nav>
-{% endblock breadcrumbs %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'new-event' as parentToolUrl %}{% breadcrumbs parentLabel="Create an Event" parentUrl=parentToolUrl currentLabel="Calendar conflict" %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Schedule conflicts found</h1>
