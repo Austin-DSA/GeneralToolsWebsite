@@ -250,6 +250,9 @@
   .my-3 {
     margin-block: calc(var(--spacing) * 3);
   }
+  .mt-3 {
+    margin-top: calc(var(--spacing) * 3);
+  }
   .mt-8 {
     margin-top: calc(var(--spacing) * 8);
   }
@@ -333,6 +336,9 @@
   }
   .justify-between {
     justify-content: space-between;
+  }
+  .gap-2 {
+    gap: calc(var(--spacing) * 2);
   }
   .gap-3 {
     gap: calc(var(--spacing) * 3);
@@ -1137,6 +1143,14 @@
     color: var(--color-white);
     background-color: var(--color-success);
   }
+  .badge-inactive {
+    background-color: var(--color-neutral-200);
+    color: var(--color-secondary);
+  }
+  .badge-unresolved {
+    background-color: var(--color-warning);
+    color: var(--color-dark);
+  }
   .badge-expired {
     color: var(--color-white);
     background-color: var(--color-danger);
@@ -1397,6 +1411,14 @@
     padding-block: calc(var(--spacing) * 1);
     font-size: var(--text-sm);
     line-height: var(--tw-leading, var(--text-sm--line-height));
+  }
+  .reorder-controls {
+    display: inline-flex;
+    gap: calc(var(--spacing) * 1);
+  }
+  .reorder-controls .icon {
+    width: 16px;
+    height: 16px;
   }
   .pw-meter {
     margin-top: calc(var(--spacing) * 2);

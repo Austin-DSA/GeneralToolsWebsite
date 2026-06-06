@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'domain' 'link-trees' %}">Link Trees</a><span class="crumb-sep">›</span>
+  <a href="{% url 'manage-link-tree-list' %}">Manage Link Trees</a><span class="crumb-sep">›</span>
+  <a href="{% url 'manage-qr-code-list' %}">QR Codes</a><span class="crumb-sep">›</span>
+  <span aria-current="page">{% if qr %}Edit{% else %}Add{% endif %}</span>
+</nav>
+{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">{% if qr %}Edit QR code{% else %}Add QR code{% endif %}</h1>
+  <p class="page-subtitle">Point the code at exactly one target: a link tree, a single item, or a raw URL.</p>
+
+  {% if qr %}
+  <div class="detail-grid pb-4">
+    <dt>Scan URL</dt><dd><a href="{{ qr.scanUrl }}">/qr/{{ qr.code }}/</a></dd>
+    <dt>Image</dt>
+    <dd class="flex flex-wrap gap-2">
+      <a href="{% url 'qr-image' qr.code %}?fmt=svg&download=1" class="btn btn-secondary btn-small no-underline">SVG</a>
+      <a href="{% url 'qr-image' qr.code %}?fmt=png&download=1" class="btn btn-secondary btn-small no-underline">PNG</a>
+      <a href="{% url 'qr-image' qr.code %}?fmt=svg" class="btn btn-secondary btn-small no-underline">Preview</a>
+    </dd>
+  </div>
+  {% endif %}
+
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    {% include "tools/common/formRow.html" with field=field %}
+    {% endfor %}
+
+    <div class="save-bar">
+      <button type="submit" class="btn btn-primary">Save QR code</button>
+      <a href="{% url 'manage-qr-code-list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Picking one target clears the other two (a UX nicety; QRCodeForm.clean() is
+  // the real exactly-one-target guard).
+  (function () {
+    const tree = document.querySelector('[name="tree"]');
+    const item = document.querySelector('[name="item"]');
+    const rawUrl = document.querySelector('[name="rawUrl"]');
+    const targets = [tree, item, rawUrl].filter(Boolean);
+
+    function clearOthers(chosen) {
+      targets.forEach((field) => {
+        if (field !== chosen) { field.value = ""; }
+      });
+    }
+
+    if (tree) { tree.addEventListener("change", () => { if (tree.value) { clearOthers(tree); } }); }
+    if (item) { item.addEventListener("change", () => { if (item.value) { clearOthers(item); } }); }
+    if (rawUrl) { rawUrl.addEventListener("input", () => { if (rawUrl.value) { clearOthers(rawUrl); } }); }
+  })();
+</script>
+{% endblock page_content %}

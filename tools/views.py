@@ -82,7 +82,7 @@ PAGES = [
     PageOption(href="manage-event-owners", title="Manage Event Owners", permission=permissions.MANAGE_EVENT_OWNERS,
                icon="users", category="Events",
                description="Owners that delegated requests are filed against, and who can approve them."),
-    PageOption(href="/admin/tools/linktree/", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE,
+    PageOption(href="manage-link-trees", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE,
                icon="link", category="Link Trees",
                description="Edit the chapter's link pages, items, and QR codes."),
     PageOption(href="link-metrics", title="Link Tree Metrics", permission=permissions.VIEW_LINK_METRICS,

@@ -342,11 +342,19 @@
     @apply text-white;
     background-color: var(--color-danger);
   }
-  /* Owner lifecycle badges (Manage Event Owners) */
+  /* Shared by Link Tree management and Manage Event Owners */
   .badge-active {
     @apply text-white;
     background-color: var(--color-success);
   }
+  /* Link Tree management: inactive/unresolved item + tree state */
+  .badge-inactive {
+    @apply bg-neutral-200 text-secondary;
+  }
+  .badge-unresolved {
+    @apply bg-warning text-dark;
+  }
+  /* Owner lifecycle badge (Manage Event Owners) */
   .badge-expired {
     @apply text-white;
     background-color: var(--color-danger);
@@ -479,6 +487,14 @@
   /* combine: class="btn btn-secondary btn-small" */
   .btn-small {
     @apply px-3 py-1 text-sm;
+  }
+  /* Link Tree item reorder: the up/down icon buttons sit side by side */
+  .reorder-controls {
+    @apply inline-flex gap-1;
+  }
+  .reorder-controls .icon {
+    width: 16px;
+    height: 16px;
   }
 
   /* Password strength meter + live requirements checklist (registration) */
