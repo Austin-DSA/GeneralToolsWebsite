@@ -1,4 +1,12 @@
-{% extends "base.html" %} {% block page_content %}
+{% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'new-event' %}">Create an Event</a><span class="crumb-sep">›</span>
+  <span aria-current="page">Error</span>
+</nav>
+{% endblock breadcrumbs %}
+{% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Something went wrong</h1>
   <div class="alert alert-error">The following error occured and your event was not published.</div>

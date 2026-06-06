@@ -1,4 +1,11 @@
-{% extends "base.html" %} {% block page_content %}
+{% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <span aria-current="page">Create an Event</span>
+</nav>
+{% endblock breadcrumbs %}
+{% block page_content %}
 <script>
 window.addEventListener("load", () => {
     const locationFields = ["locationName", "address", "city", "state", "country", "zipcode"];

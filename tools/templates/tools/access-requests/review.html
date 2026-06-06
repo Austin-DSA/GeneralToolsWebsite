@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'access-request-list' %}">Access Requests</a><span class="crumb-sep">›</span>
+  <span aria-current="page">Request #{{ accessRequest.id }}</span>
+</nav>
+{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Access Request <span class="badge badge-{{accessRequest.getStatusAsString|lower}} align-middle">{{ accessRequest.getStatusAsString }}</span></h1>
@@ -31,6 +38,5 @@
     <input type="submit" value="Submit" class="btn btn-primary my-3" />
   </form>
   {% endif %}
-  <p class="py-2 text-sm"><a href="{% url 'access-request-list' %}">← Back to access requests</a></p>
 </div>
 {% endblock page_content %}

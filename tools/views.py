@@ -30,41 +30,41 @@ class PageOption:
 
 # Section order on the home page follows CATEGORIES; a section only renders
 # if the user can see at least one of its tools.
-CATEGORIES = ["Events", "Link Trees", "Access & Account"]
+CATEGORIES = ["Events", "Link Trees", "Access"]
 
 PAGES = [
     PageOption(href="new-event", title="Create an Event", permission=permissions.PUBLISH_EVENT,
-               icon="📅", category="Events",
+               icon="calendar", category="Events",
                description="Publish an event to Zoom, Action Network, and Google Calendar in one go."),
     PageOption(href="new-delegated-event", title="Create Delegated Event Request", permission=permissions.REQUEST_DELEGATED_EVENT,
-               icon="📨", category="Events",
+               icon="send", category="Events",
                description="Draft an event for an owner's authorizers to approve and publish."),
     PageOption(href="events", title="View Published Events", permission=permissions.VIEW_PUBLISHED_EVENTS,
-               icon="🗂️", category="Events",
+               icon="archive", category="Events",
                description="Everything that has been published, with all the links."),
     PageOption(href="delegated-events", title="View Delegated Events", permission=permissions.VIEW_DELEGATED_EVENTS,
-               icon="📥", category="Events",
+               icon="inbox", category="Events",
                description="Track event requests and where they are in review."),
     PageOption(href="/admin/tools/linktree/", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE,
-               icon="🔗", category="Link Trees",
+               icon="link", category="Link Trees",
                description="Edit the chapter's link pages, items, and QR codes."),
     PageOption(href="link-metrics", title="Link Tree Metrics", permission=permissions.VIEW_LINK_METRICS,
-               icon="📊", category="Link Trees",
+               icon="bar-chart", category="Link Trees",
                description="Click and scan analytics for every link tree."),
     PageOption(href="my-access", title="My Access", permission=None,
-               icon="🪪", category="Access & Account",
+               icon="user", category="Access",
                description="The groups you belong to and the permissions you currently have."),
     PageOption(href="request-access", title="Request Access", permission=None,
-               icon="🔑", category="Access & Account",
+               icon="key", category="Access",
                description="Ask to join a group or get a permission — approvers are emailed a review link."),
     PageOption(href="access-requests", title="View Access Requests", permission=None,
-               icon="📬", category="Access & Account",
+               icon="mail", category="Access",
                description="Your requests and their status, plus any waiting on your review."),
     PageOption(href="manage-access", title="Manage Member Access", permission=permissions.APPROVE_ACCESS_REQUEST,
-               icon="🛂", category="Access & Account",
+               icon="user-check", category="Access",
                description="Grant or revoke groups and permissions directly, without a request."),
     PageOption(href="manage-groups", title="Manage Groups", permission=permissions.APPROVE_ACCESS_REQUEST,
-               icon="👥", category="Access & Account",
+               icon="users", category="Access",
                description="Create groups and decide what they grant and who belongs to them."),
 ]
 

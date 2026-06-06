@@ -1,11 +1,17 @@
 {% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'request-access' %}">Request Access</a><span class="crumb-sep">›</span>
+  <span aria-current="page">Submitted</span>
+</nav>
+{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Request submitted</h1>
   <div class="alert alert-success">Your request for <b>{{ accessRequest.getTargetDescription }}</b> has been sent to the approvers. You will receive an email once it has been reviewed.</div>
   <p class="py-3">
     <a class="btn btn-primary" href="{% url 'access-request-list' %}">View your requests</a>
-    <a class="btn btn-secondary" href="/">Back to home</a>
   </p>
 </div>
 {% endblock page_content %}

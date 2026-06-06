@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'manage-groups' %}">Manage Groups</a><span class="crumb-sep">›</span>
+  <span aria-current="page">{{ group.name }}</span>
+</nav>
+{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-3xl">
   <h1 class="page-title">{{ group.name }}</h1>
@@ -65,7 +72,7 @@
 
     <div class="save-bar">
       <input type="submit" value="Save group" class="btn btn-primary" />
-      <a href="{% url 'manage-groups' %}" class="btn btn-secondary">Back to all groups</a>
+      <a href="{% url 'manage-groups' %}" class="btn btn-secondary">Cancel</a>
       <span class="pending-note" id="pending-note" hidden></span>
     </div>
   </form>

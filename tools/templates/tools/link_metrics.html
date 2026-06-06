@@ -1,5 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Link Tree Metrics{% endblock title %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  {% if tree %}
+  <a href="{% url 'link-metrics' %}">Link Tree Metrics</a><span class="crumb-sep">›</span>
+  <span aria-current="page">{{ tree.title }}</span>
+  {% else %}
+  <span aria-current="page">Link Tree Metrics</span>
+  {% endif %}
+</nav>
+{% endblock breadcrumbs %}
 {% block page_content %}
 {% if not tree %}
   <h1 class="page-title">Link Tree Metrics</h1>
@@ -32,7 +43,6 @@
   <p class="flex items-center gap-3 pb-2">
     <a href="{{ tree.getPublicUrl }}" class="btn btn-secondary btn-small no-underline">Open public page ↗</a>
     <a href="{% url 'link-metrics-csv' tree.slug %}" class="btn btn-secondary btn-small no-underline">Download CSV</a>
-    <a href="{% url 'link-metrics' %}" class="text-sm">← All trees</a>
   </p>
 
   <div class="stat-grid">

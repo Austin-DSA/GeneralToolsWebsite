@@ -1,4 +1,12 @@
-{% extends "base.html" %} {% block page_content %}
+{% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'delegated-event-list' %}">Delegated Events</a><span class="crumb-sep">›</span>
+  <span aria-current="page">Conflict</span>
+</nav>
+{% endblock breadcrumbs %}
+{% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Schedule conflicts found</h1>
   <div class="alert alert-error">The event could not be published due to the following <b>unresolveable</b> conflicts.</div>

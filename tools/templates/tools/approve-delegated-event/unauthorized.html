@@ -1,4 +1,12 @@
-{% extends "base.html" %} {% block page_content %}
+{% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'delegated-event-list' %}">Delegated Events</a><span class="crumb-sep">›</span>
+  <span aria-current="page">Not authorized</span>
+</nav>
+{% endblock breadcrumbs %}
+{% block page_content %}
 <div class="page-card page-card-narrow">
   <h1 class="page-title">Not authorized</h1>
   <div class="alert alert-error">You do not have authorization to approve event requests for {{ owner }}.</div>

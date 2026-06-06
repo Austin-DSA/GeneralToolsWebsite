@@ -1,4 +1,11 @@
 {% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'event-list' %}">Published Events</a><span class="crumb-sep">›</span>
+  <span aria-current="page">{{ object.title }}</span>
+</nav>
+{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">{{ object.title }}</h1>

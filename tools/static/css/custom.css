@@ -28,16 +28,12 @@
 }
 
 .tools-header {
-  height: 60px;
+  min-height: 60px; /* grows when the nav wraps to its own row on mobile */
 }
 
 .bat-logo {
   height: 60px;
   width: 60px;
-}
-
-.app-title {
-  padding-left: 20px;
 }
 
 /* In @layer base so component classes (.header-link, .btn, .menu-tile) can
@@ -54,6 +50,82 @@
   /* Header */
   .header-link {
     @apply text-white no-underline font-medium hover:text-white hover:underline visited:text-white;
+  }
+
+  /* Masthead nav: permission-filtered dropdown per category (native <details>,
+     same popover machinery as the user menu) */
+  .main-nav {
+    @apply flex items-center gap-6 px-4;
+  }
+  .nav-menu {
+    @apply relative inline-block;
+  }
+  .nav-menu summary {
+    @apply text-white text-base font-medium cursor-pointer select-none whitespace-nowrap;
+    list-style: none;
+  }
+  .nav-menu summary::-webkit-details-marker {
+    display: none;
+  }
+  .nav-menu summary::after {
+    content: "▾";
+    @apply pl-1 font-normal;
+  }
+  .nav-menu[open] summary::after {
+    content: "▴";
+  }
+  .nav-menu-panel {
+    @apply absolute left-0 mt-3 w-72 bg-white rounded-lg border border-neutral-200 shadow-lg py-1 z-50;
+    max-width: calc(100vw - 1rem);
+  }
+  /* The rightmost dropdown opens leftward so it can't run off small screens */
+  .main-nav .nav-menu:last-child .nav-menu-panel {
+    left: auto;
+    right: 0;
+  }
+  .nav-menu-item {
+    @apply flex items-center gap-2 px-4 py-2 text-sm text-dark no-underline hover:bg-neutral-100 hover:text-dark visited:text-dark whitespace-nowrap;
+  }
+  .nav-menu-icon {
+    @apply inline-flex items-center justify-center flex-none text-secondary;
+  }
+  .nav-menu-icon .icon {
+    width: 18px;
+    height: 18px;
+  }
+  .mobile-menu-item .nav-menu-icon {
+    @apply text-white;
+  }
+
+  /* Mobile nav: hamburger button + full-width slide-down menu (under md the
+     desktop menubar and user popover are hidden; everything lives here) */
+  .menu-toggle {
+    @apply md:hidden inline-flex items-center justify-center w-11 h-11 mx-2 flex-none rounded-lg text-white bg-transparent border-0 cursor-pointer;
+  }
+  .menu-toggle:hover,
+  .menu-toggle:active {
+    background-color: rgb(255 255 255 / 0.12);
+  }
+  .mobile-menu {
+    @apply md:hidden w-full pb-3;
+    border-top: 1px solid rgb(255 255 255 / 0.2);
+    animation: mobileMenuIn 0.16s ease-out;
+  }
+  @keyframes mobileMenuIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .mobile-menu-section {
+    @apply px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide;
+    color: rgb(255 255 255 / 0.75);
+  }
+  .mobile-menu-item {
+    @apply flex w-full items-center gap-3 px-5 py-3 text-base text-white no-underline bg-transparent border-0 cursor-pointer text-left hover:text-white visited:text-white;
+    font-family: inherit;
+  }
+  .mobile-menu-item:hover,
+  .mobile-menu-item:active {
+    background-color: rgb(255 255 255 / 0.12);
   }
 
   /* User popover menu (native <details>; outside-click close is in base.html) */
@@ -84,6 +156,21 @@
     @apply block w-full text-left px-4 py-2 text-sm text-dark no-underline bg-transparent border-0 cursor-pointer hover:bg-neutral-100 hover:text-dark visited:text-dark;
     font-family: inherit;
     font-size: 0.875rem;
+  }
+
+  /* Breadcrumb trail — the site's single navigation convention. Every tool
+     page declares its place in the hierarchy; ad-hoc "back" links are out. */
+  .breadcrumbs {
+    @apply flex flex-wrap items-center gap-x-2 text-sm text-secondary pb-4;
+  }
+  .breadcrumbs a {
+    @apply text-secondary no-underline hover:text-dark hover:underline visited:text-secondary;
+  }
+  .breadcrumbs .crumb-sep {
+    color: var(--color-gray-med);
+  }
+  .breadcrumbs [aria-current="page"] {
+    @apply text-dark font-medium;
   }
 
   /* Page structure */
@@ -403,7 +490,12 @@
     @apply flex items-start gap-3 bg-white rounded-xl border border-neutral-200 shadow-sm px-5 py-4 no-underline text-dark hover:border-primary hover:text-dark visited:text-dark transition-colors;
   }
   .menu-tile-icon {
-    @apply text-2xl leading-none pt-0.5;
+    @apply flex-none pt-0.5 text-primary;
+  }
+  .menu-tile-icon .icon {
+    width: 26px;
+    height: 26px;
+    stroke-width: 1.75;
   }
   .menu-tile-body {
     @apply flex-auto;
