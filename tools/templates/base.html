@@ -23,18 +23,11 @@
           <h1><a class="header-link font-semibold" href="/">Austin DSA Tools</a></h1>
         </div>
         {% if user.is_authenticated %}
-          {% if navSections %}
-          {% comment %} Desktop: dropdown menubar. Mobile gets the hamburger menu below. {% endcomment %}
+          {% if navDomains %}
+          {% comment %} Desktop: plain links to the domain landing pages. Mobile gets the hamburger menu below. {% endcomment %}
           <nav class="main-nav hidden md:flex" aria-label="Primary">
-            {% for section in navSections %}
-            <details class="nav-menu">
-              <summary>{{ section.title }}</summary>
-              <div class="nav-menu-panel">
-                {% for page in section.pages %}
-                <a class="nav-menu-item" href="{{ page.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>{{ page.title }}</a>
-                {% endfor %}
-              </div>
-            </details>
+            {% for domain in navDomains %}
+            <a class="main-nav-link{% if domain.active %} is-active{% endif %}"{% if domain.active %} aria-current="page"{% endif %} href="{{ domain.href }}">{{ domain.title }}</a>
             {% endfor %}
           </nav>
           {% endif %}
@@ -63,11 +56,8 @@
       </div>
       {% if user.is_authenticated %}
       <nav id="mobile-menu" class="mobile-menu" aria-label="Mobile" hidden>
-        {% for section in navSections %}
-        <div class="mobile-menu-section">{{ section.title }}</div>
-        {% for page in section.pages %}
-        <a class="mobile-menu-item" href="{{ page.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>{{ page.title }}</a>
-        {% endfor %}
+        {% for domain in navDomains %}
+        <a class="mobile-menu-item{% if domain.active %} is-active{% endif %}"{% if domain.active %} aria-current="page"{% endif %} href="{{ domain.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=domain.icon %}</span>{{ domain.title }}</a>
         {% endfor %}
         <div class="mobile-menu-section">{{ user.username }}</div>
         <a class="mobile-menu-item" href="{% url 'password_change' %}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name="lock" %}</span>Change password</a>
@@ -79,9 +69,10 @@
       {% endif %}
     </header>
     <script>
-      // Close header popovers (user menu + nav dropdowns) when clicking
-      // outside them or pressing Escape; opening one closes the others.
-      const headerMenus = "details.user-menu, details.nav-menu";
+      // Close the user-menu popover when clicking outside it or pressing
+      // Escape. (Kept as a selector loop: any future header <details> popover
+      // can join the list and inherit the behavior.)
+      const headerMenus = "details.user-menu";
       document.addEventListener("click", (event) => {
         for (const menu of document.querySelectorAll(headerMenus)) {
           if (menu.hasAttribute("open") && !menu.contains(event.target)) {

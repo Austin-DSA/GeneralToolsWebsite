@@ -52,39 +52,28 @@
     @apply text-white no-underline font-medium hover:text-white hover:underline visited:text-white;
   }
 
-  /* Masthead nav: permission-filtered dropdown per category (native <details>,
-     same popover machinery as the user menu) */
+  /* Masthead nav: one permission-filtered link per domain landing page
+     (/events, /link-trees, /access); the active domain stays marked */
   .main-nav {
-    @apply flex items-center gap-6 px-4;
+    @apply flex items-center gap-1 px-4;
   }
-  .nav-menu {
-    @apply relative inline-block;
+  .main-nav-link {
+    @apply relative px-3 py-2 rounded-md text-base font-medium no-underline whitespace-nowrap;
+    color: rgb(255 255 255 / 0.9);
   }
-  .nav-menu summary {
-    @apply text-white text-base font-medium cursor-pointer select-none whitespace-nowrap;
-    list-style: none;
+  .main-nav-link:hover,
+  .main-nav-link:visited {
+    @apply text-white;
   }
-  .nav-menu summary::-webkit-details-marker {
-    display: none;
+  .main-nav-link:hover {
+    background-color: rgb(255 255 255 / 0.12);
   }
-  .nav-menu summary::after {
-    content: "▾";
-    @apply pl-1 font-normal;
+  .main-nav-link.is-active {
+    @apply text-white font-semibold;
   }
-  .nav-menu[open] summary::after {
-    content: "▴";
-  }
-  .nav-menu-panel {
-    @apply absolute left-0 mt-3 w-72 bg-white rounded-lg border border-neutral-200 shadow-lg py-1 z-50;
-    max-width: calc(100vw - 1rem);
-  }
-  /* The rightmost dropdown opens leftward so it can't run off small screens */
-  .main-nav .nav-menu:last-child .nav-menu-panel {
-    left: auto;
-    right: 0;
-  }
-  .nav-menu-item {
-    @apply flex items-center gap-2 px-4 py-2 text-sm text-dark no-underline hover:bg-neutral-100 hover:text-dark visited:text-dark whitespace-nowrap;
+  .main-nav-link.is-active::after {
+    content: "";
+    @apply absolute left-3 right-3 bottom-0.5 h-0.5 rounded-full bg-white;
   }
   .nav-menu-icon {
     @apply inline-flex items-center justify-center flex-none text-secondary;
@@ -125,6 +114,10 @@
   }
   .mobile-menu-item:hover,
   .mobile-menu-item:active {
+    background-color: rgb(255 255 255 / 0.12);
+  }
+  .mobile-menu-item.is-active {
+    @apply font-semibold;
     background-color: rgb(255 255 255 / 0.12);
   }
 
@@ -478,10 +471,41 @@
     background-color: var(--color-primary);
   }
 
-  /* Home menu: category sections of icon + title + description tiles */
+  /* Home: one card per domain (Events / Link Trees / Access) linking to its
+     landing page, where the menu-grid of tool tiles lives */
+  .domain-grid {
+    @apply grid gap-4 mt-2 grid-cols-1 md:grid-cols-3;
+  }
+  .domain-card {
+    @apply flex flex-col bg-white rounded-xl border border-neutral-200 shadow-sm px-6 py-5 no-underline text-dark hover:border-primary hover:text-dark visited:text-dark transition-colors;
+  }
+  .domain-card-icon {
+    @apply text-primary pb-3;
+  }
+  .domain-card-icon .icon {
+    width: 32px;
+    height: 32px;
+    stroke-width: 1.5;
+  }
+  .domain-card-title {
+    @apply text-lg font-semibold;
+  }
+  .domain-card-desc {
+    @apply flex-auto text-sm text-secondary pt-1 pb-5;
+  }
+  .domain-card-count {
+    @apply text-sm font-medium text-primary;
+  }
+  .domain-card-arrow {
+    @apply pl-1;
+  }
+
+  /* Section heading style shared by the access-management category lists */
   .menu-section-title {
     @apply text-xs font-semibold uppercase tracking-wide text-secondary pt-6 pb-2;
   }
+
+  /* Domain landing pages: icon + title + description tiles, one per tool */
   .menu-grid {
     @apply grid gap-4;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

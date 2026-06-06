@@ -26,7 +26,7 @@ urlpatterns = [
     path("delegated-event/<pk>/", eventViews.DelegatedEventDetailView.as_view(), name="delegated-event-detail"),
     path("delegated-events", eventViews.DelegatedEventListView.as_view(), name="delegated-event-list"),
     path("event/<pk>/", eventViews.PostedEventDetailView.as_view(), name="event-detail"),
-    path("events", eventViews.PostedEventListView.as_view(), name="event-list"),
+    path("published-events", eventViews.PostedEventListView.as_view(), name="event-list"),
 
     # --- Link Tree (public: tree page + tracked click/scan redirects) ---
     path("t/<slug:slug>/", linkTreeViews.public_tree, name="link-tree"),
@@ -37,4 +37,10 @@ urlpatterns = [
     path("link-metrics", linkTreeViews.link_metrics, name="link-metrics"),
     path("link-metrics/<slug:slug>", linkTreeViews.link_metrics, name="link-metrics-tree"),
     path("link-metrics/<slug:slug>.csv", linkTreeViews.link_metrics_csv, name="link-metrics-csv"),
+
+    # --- Domain landing pages (/events, /link-trees, /access) ---
+    # Deliberately last: any single-segment path not claimed above is tried as
+    # a domain slug; views.domain 404s the unknown ones. Adding a Domain to
+    # views.DOMAINS is all it takes to route a new landing page.
+    path("<slug:domainSlug>", views.domain, name="domain"),
 ]

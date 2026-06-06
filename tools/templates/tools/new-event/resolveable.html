@@ -2,6 +2,7 @@
 {% block breadcrumbs %}
 <nav class="breadcrumbs" aria-label="Breadcrumb">
   <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'domain' 'events' %}">Events</a><span class="crumb-sep">›</span>
   <a href="{% url 'new-event' %}">Create an Event</a><span class="crumb-sep">›</span>
   <span aria-current="page">Calendar conflict</span>
 </nav>

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block page_content %}
 <h1 class="page-title">Welcome{% if user.first_name %}, {{ user.first_name }}{% endif %}</h1>
-<p class="page-subtitle">Austin DSA's tools for events, link trees, and access — pick one to get started.</p>
+<p class="page-subtitle">Austin DSA's organizing tools — pick an area to get started.</p>
 
 {% if pendingReviewCount %}
 <div class="alert alert-warning">
@@ -10,18 +10,14 @@
 </div>
 {% endif %}
 
-{% for section in sections %}
-<h2 class="menu-section-title">{{ section.title }}</h2>
-<div class="menu-grid">
-  {% for page in section.pages %}
-  <a class="menu-tile" href="{{page.href}}">
-    <span class="menu-tile-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>
-    <span class="menu-tile-body">
-      <span class="menu-tile-title">{{page.title}}<span class="menu-tile-arrow">→</span></span>
-      <span class="menu-tile-desc">{{page.description}}</span>
-    </span>
+<div class="domain-grid">
+  {% for domain in domains %}
+  <a class="domain-card" href="{{ domain.href }}">
+    <span class="domain-card-icon">{% include "tools/common/icon.html" with name=domain.icon %}</span>
+    <span class="domain-card-title">{{ domain.title }}</span>
+    <span class="domain-card-desc">{{ domain.description }}</span>
+    <span class="domain-card-count">{{ domain.pages|length }} tool{{ domain.pages|length|pluralize }} <span class="domain-card-arrow">→</span></span>
   </a>
   {% endfor %}
 </div>
-{% endfor %}
 {% endblock page_content %}
