@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block breadcrumbs %}
+<nav class="breadcrumbs" aria-label="Breadcrumb">
+  <a href="{% url 'index' %}">Home</a><span class="crumb-sep">›</span>
+  <a href="{% url 'domain' 'events' %}">Events</a><span class="crumb-sep">›</span>
+  <span aria-current="page">Manage Event Owners</span>
+</nav>
+{% endblock breadcrumbs %}
+{% block page_content %}
+<h1 class="page-title">Manage Event Owners</h1>
+<p class="page-subtitle">Owners that delegated requests are filed against, and the authorizers who can approve them.</p>
+
+{% if stuckRequestRows %}
+<div class="alert alert-warning">{{ stuckRequestRows|length }} event request{{ stuckRequestRows|length|pluralize }} can't proceed: the owner is expired or has no authorizers to approve them.</div>
+<div class="page-card">
+  <h2 class="section-title pt-0">Stuck event requests</h2>
+  <p class="form-help pb-3">These requests can never be approved as things stand. Fix the owner below (extend its expiration or add an authorizer), or cancel the request - the requester is emailed either way they're resolved.</p>
+  <table class="data-table">
+    <tr>
+      <th>Event</th>
+      <th>Owner</th>
+      <th>Why stuck</th>
+      <th>Requester</th>
+      <th>Requested</th>
+      <th>Cancel</th>
+    </tr>
+    {% for row in stuckRequestRows %}
+    <tr class="row-attention">
+      <td class="md:whitespace-nowrap"><b>{{ row.event.title }}</b></td>
+      <td data-label="Owner"><a href="{% url 'manage-event-owner' row.owner.id %}">{{ row.owner.name }}</a></td>
+      <td data-label="Why stuck">{{ row.whyStuck }}</td>
+      <td data-label="Requester">{{ row.event.creator.getDisplayName }}</td>
+      <td data-label="Requested" class="md:whitespace-nowrap">{{ row.event.dateCreated|date:"M j, Y" }}</td>
+      <td>
+        <form action="{% url 'cancel-stuck-delegated-event' row.owner.id row.event.id %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-small">Cancel request</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<div class="page-card">
+  <div class="flex items-center justify-between gap-3 flex-wrap pb-4">
+    <input type="search" id="owner-filter" class="form-field max-w-sm" placeholder="Filter by owner or authorizer…" autocomplete="off" />
+    <a href="{% url 'create-event-owner' %}" class="btn btn-primary">New owner</a>
+  </div>
+  <table class="data-table">
+    <tr>
+      <th>Owner</th>
+      <th>Authorizers</th>
+      <th>Expires</th>
+      <th>Status</th>
+      <th>Manage</th>
+    </tr>
+    {% for row in ownerRows %}
+    <tr {% if not row.ownerIsHealthy %}class="row-attention" {% endif %}data-filter-text="{{ row.owner.name|lower }}{% for authorizer in row.owner.authorizers.all %} {{ authorizer.username|lower }} {{ authorizer.first_name|lower }} {{ authorizer.last_name|lower }}{% endfor %}{% if not row.ownerIsActive %} expired{% endif %}{% if not row.ownerAuthorizerCount %} no authorizers{% endif %}">
+      <td class="md:whitespace-nowrap"><b>{{ row.owner.name }}</b></td>
+      <td data-label="Authorizers">
+        {% if row.ownerAuthorizerCount %}
+        {{ row.ownerAuthorizerCount }} {{ row.ownerAuthorizerCount|pluralize:"person,people" }}
+        {% else %}
+        <span class="text-danger font-semibold">No authorizers</span>
+        {% endif %}
+      </td>
+      <td data-label="Expires" class="md:whitespace-nowrap">{% if row.owner.isPermanent %}<span class="text-secondary">Permanent</span>{% else %}{{ row.ownerExpirationStr }}{% endif %}</td>
+      <td data-label="Status">{% if row.ownerIsActive %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-expired">Expired</span>{% endif %}</td>
+      <td>{% if row.ownerStuckRequestCount %}<a href="{% url 'manage-event-owner' row.owner.id %}">Manage ({{ row.ownerStuckRequestCount }} stuck)</a>{% else %}<a href="{% url 'manage-event-owner' row.owner.id %}">Manage</a>{% endif %}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5" class="text-secondary">No event owners yet - create the first one.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<script>
+  document.getElementById("owner-filter").addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    document.querySelectorAll("tr[data-filter-text]").forEach((row) => {
+      row.hidden = query && !row.dataset.filterText.includes(query);
+    });
+  });
+</script>
+{% endblock page_content %}

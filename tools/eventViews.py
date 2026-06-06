@@ -68,9 +68,12 @@ def new_event(request):
             logger.exception("PublishEvent: Could not get event owner")
             raise err
         
-        if not owner.isActive:
+        # isActive is a method - the call parens matter. Reading the bare
+        # attribute (the old bug) tests the bound method, which is always
+        # truthy, silently disabling the expiration check.
+        if not owner.isActive():
             logger.error("PublishEvent: Owner %s is no longer active and cannot create events", owner.name)
-            return render(request, "tools/new-event/unknown.html", {"errorStr": f"Owner {owner.name} is no longer active and cannot create"})
+            return render(request, "tools/new-event/unknown.html", {"errorStr": f"Owner {owner.name} is no longer active and cannot create events"})
         if request.user not in owner.authorizers.all():
             logger.error("PublishEvent: You are not an authorizer for owner %s", owner.name)
             return render(request, "tools/new-event/unknown.html", {"errorStr": f"You are not an authorizer for owner {owner.name}"})
@@ -234,7 +237,11 @@ def new_delegated_event(request):
         form = NewEventForm(request.POST)
         if not form.is_valid():
             logger.error("PublishDelegatedEvent: Submitted Form is not valid")
-            return render(request, "tools/new-delegated-event/unknown.html", {"errorStr": "The form could not be validated, please go back and try again."})
+            # error.html, not unknown.html - unknown.html doesn't exist in
+            # this template directory, and this branch is reachable now that
+            # the owner dropdown excludes unhealthy owners (a stale tab can
+            # submit an owner that has since expired or lost its authorizers).
+            return render(request, "tools/new-delegated-event/error.html", {"errorStr": "The form could not be validated, please go back and try again."})
 
         eventInfo = form.convertToEventInfo()
         logger.info("PublishDelegatedEvent: Recieved event data %s", str(eventInfo))
@@ -246,6 +253,18 @@ def new_delegated_event(request):
         except Exception as err:
             logger.exception("PublishDelegatedEvent: Could not get event owner")
             raise err
+
+        # Inactive owners can't receive new requests. Sits before the
+        # publishEvent dry-run below so we never touch Zoom/AN/gCal for a
+        # request that can't proceed. (The error.html context here is
+        # deliberately {"errorStr": ...} - the template reads only errorStr;
+        # the unexpected-error branch below passes dataclasses.asdict(result),
+        # which has no errorStr key and renders a blank message. Don't "align"
+        # this to that pre-existing bug.)
+        if not owner.isActive():
+            logger.error("PublishDelegatedEvent: Rejected delegated event request for inactive owner %s", owner.name)
+            return render(request, "tools/new-delegated-event/error.html",
+                          {"errorStr": f"Owner {owner.name} is no longer active and cannot accept event requests"})
         logger.info("PublishDelegatedEvent: Got and validated event owner %s", owner.name)
         
         logger.info("PublishDelegatedEvent: Getting configuration")

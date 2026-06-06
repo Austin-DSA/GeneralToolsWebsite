@@ -14,6 +14,8 @@ _APPROVE_DELEGATED_EVENT = "approveDelegatedEvent"
 APPROVE_DELEGATED_EVENT = _publicPermissionName(_APPROVE_DELEGATED_EVENT)
 _VIEW_DELEGATED_EVENTS = "viewDelegatedEventList"
 VIEW_DELEGATED_EVENTS = _publicPermissionName(_VIEW_DELEGATED_EVENTS)
+_MANAGE_EVENT_OWNERS = "manageEventOwners"
+MANAGE_EVENT_OWNERS = _publicPermissionName(_MANAGE_EVENT_OWNERS)
 
 _MANAGE_LINK_TREE = "manageLinkTree"
 MANAGE_LINK_TREE = _publicPermissionName(_MANAGE_LINK_TREE)
@@ -29,7 +31,7 @@ APPROVE_ACCESS_REQUEST = _publicPermissionName(_APPROVE_ACCESS_REQUEST)
 # stay visible even before they're categorized here.
 PERMISSION_CATEGORIES = (
     ("Events", (_PUBLISH_EVENT, _VIEW_PUBLISHED_EVENTS, _REQUEST_DELEGATED_EVENT,
-                _APPROVE_DELEGATED_EVENT, _VIEW_DELEGATED_EVENTS)),
+                _APPROVE_DELEGATED_EVENT, _VIEW_DELEGATED_EVENTS, _MANAGE_EVENT_OWNERS)),
     ("Link Trees", (_MANAGE_LINK_TREE, _VIEW_LINK_METRICS)),
     ("Access", (_APPROVE_ACCESS_REQUEST,)),
 )
@@ -79,6 +81,7 @@ class PermissionRights(models.Model):
             (_APPROVE_DELEGATED_EVENT, 'Allowed to approve delegated events'),
             (_VIEW_DELEGATED_EVENTS, 'Allowed to view delegated events'),
             (_VIEW_PUBLISHED_EVENTS, 'Allowed to view published events'),
+            (_MANAGE_EVENT_OWNERS, 'Allowed to manage event owners'),
             (_MANAGE_LINK_TREE, 'Allowed to manage link trees, items, and QR codes'),
             (_VIEW_LINK_METRICS, 'Allowed to view link tree click/scan metrics'),
             (_APPROVE_ACCESS_REQUEST, 'Allowed to approve or deny any access request'),

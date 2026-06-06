@@ -59,7 +59,7 @@ class Domain:
 DOMAINS = [
     Domain(slug="events", title="Events", icon="calendar",
            description="Publish chapter events to Zoom, Action Network, and Google Calendar, directly or through delegated review.",
-           extraPathPrefixes=("/event/", "/delegated-event/", "/approve-delegated-event/")),
+           extraPathPrefixes=("/event/", "/delegated-event/", "/approve-delegated-event/", "/manage-event-owners/")),
     Domain(slug="link-trees", title="Link Trees", icon="link",
            description="The chapter's link pages, QR codes, and click analytics."),
     Domain(slug="access", title="Access", icon="key",
@@ -79,6 +79,9 @@ PAGES = [
     PageOption(href="delegated-events", title="View Delegated Events", permission=permissions.VIEW_DELEGATED_EVENTS,
                icon="inbox", category="Events",
                description="Track event requests and where they are in review."),
+    PageOption(href="manage-event-owners", title="Manage Event Owners", permission=permissions.MANAGE_EVENT_OWNERS,
+               icon="users", category="Events",
+               description="Owners that delegated requests are filed against, and who can approve them."),
     PageOption(href="/admin/tools/linktree/", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE,
                icon="link", category="Link Trees",
                description="Edit the chapter's link pages, items, and QR codes."),

@@ -4,6 +4,7 @@ from . import views
 from . import accessViews
 from . import eventViews
 from . import linkTreeViews
+from . import ownerViews
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -27,6 +28,13 @@ urlpatterns = [
     path("delegated-events", eventViews.DelegatedEventListView.as_view(), name="delegated-event-list"),
     path("event/<pk>/", eventViews.PostedEventDetailView.as_view(), name="event-detail"),
     path("published-events", eventViews.PostedEventListView.as_view(), name="event-list"),
+
+    # --- Event owners (the entities delegated events hang off) ---
+    path("manage-event-owners", ownerViews.manage_event_owners, name="manage-event-owners"),
+    path("manage-event-owners/new", ownerViews.create_event_owner, name="create-event-owner"),
+    path("manage-event-owners/<int:ownerId>", ownerViews.manage_event_owner, name="manage-event-owner"),
+    path("manage-event-owners/<int:ownerId>/authorizer-search", ownerViews.manage_event_owner_authorizer_search, name="manage-event-owner-authorizer-search"),
+    path("manage-event-owners/<int:ownerId>/cancel-stuck-event/<int:eventId>", ownerViews.cancel_stuck_delegated_event, name="cancel-stuck-delegated-event"),
 
     # --- Link Tree (public: tree page + tracked click/scan redirects) ---
     path("t/<slug:slug>/", linkTreeViews.public_tree, name="link-tree"),

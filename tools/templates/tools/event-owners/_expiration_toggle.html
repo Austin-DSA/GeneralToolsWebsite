@@ -1,0 +1,19 @@
+{% comment %}
+Shared by create.html and detail.html: while "Permanent" is checked the
+expiration input is disabled and dimmed (a disabled input doesn't submit;
+EventOwnerForm.clean() is the server-side authority - permanent wins and the
+stored expiration is preserved or a sentinel is written).
+{% endcomment %}
+<script>
+  window.addEventListener("load", () => {
+    const permanentCheckbox = document.querySelector('[name="ownerIsPermanent"]');
+    const expirationInput = document.querySelector('[name="ownerExpiration"]');
+    if (!permanentCheckbox || !expirationInput) return;
+    const syncExpirationToPermanent = () => {
+      expirationInput.disabled = permanentCheckbox.checked;
+      expirationInput.classList.toggle("opacity-50", permanentCheckbox.checked);
+    };
+    permanentCheckbox.addEventListener("change", syncExpirationToPermanent);
+    syncExpirationToPermanent();
+  });
+</script>

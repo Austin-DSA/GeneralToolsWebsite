@@ -342,6 +342,21 @@
     @apply text-white;
     background-color: var(--color-danger);
   }
+  /* Owner lifecycle badges (Manage Event Owners) */
+  .badge-active {
+    @apply text-white;
+    background-color: var(--color-success);
+  }
+  .badge-expired {
+    @apply text-white;
+    background-color: var(--color-danger);
+  }
+
+  /* Rows needing attention (expired owner, no authorizers, stuck request).
+     Targets td so the tint survives the under-md stacked-card collapse. */
+  .data-table tr.row-attention td {
+    background-color: color-mix(in srgb, var(--color-warning) 18%, white);
+  }
 
   /* Alerts / callouts - combine: class="alert alert-error" */
   .alert {
