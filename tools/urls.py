@@ -37,6 +37,15 @@ urlpatterns = [
     path("link-metrics", linkTreeViews.link_metrics, name="link-metrics"),
     path("link-metrics/<slug:slug>", linkTreeViews.link_metrics, name="link-metrics-tree"),
     path("link-metrics/<slug:slug>.csv", linkTreeViews.link_metrics_csv, name="link-metrics-csv"),
+    # --- Link Tree (gated: in-app management UI) ---
+    path("manage-link-trees", linkTreeViews.manage_link_tree_list, name="manage-link-tree-list"),
+    path("manage-link-trees/<int:treeId>", linkTreeViews.manage_link_tree_edit, name="manage-link-tree-edit"),
+    path("manage-link-trees/<int:treeId>/reorder", linkTreeViews.manage_link_tree_item_reorder, name="manage-link-tree-item-reorder"),
+    path("manage-link-trees/<int:treeId>/items/new", linkTreeViews.manage_link_tree_item_edit, name="manage-link-tree-item-new"),
+    path("manage-link-trees/<int:treeId>/items/<int:itemId>", linkTreeViews.manage_link_tree_item_edit, name="manage-link-tree-item-edit"),
+    path("manage-qr-codes", linkTreeViews.manage_qr_code_list, name="manage-qr-code-list"),
+    path("manage-qr-codes/new", linkTreeViews.manage_qr_code_edit, name="manage-qr-code-new"),
+    path("manage-qr-codes/<slug:code>", linkTreeViews.manage_qr_code_edit, name="manage-qr-code-edit"),
 
     # --- Domain landing pages (/events, /link-trees, /access) ---
     # Deliberately last: any single-segment path not claimed above is tried as

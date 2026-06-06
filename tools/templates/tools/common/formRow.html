@@ -1,0 +1,22 @@
+{% comment %}
+One form field row, the canonical pattern extracted from new-event/new.html:36-50.
+Usage (inside a {% for field in form %} loop):
+    {% include "tools/common/formRow.html" with field=field %}
+This renders ONLY the per-field row (checkbox vs. standard branch, label, help,
+errors). It deliberately does NOT render form.non_field_errors - each template
+that uses this partial must render the {% if form.non_field_errors %} block
+itself, ABOVE the field loop.
+{% endcomment %}{% if field.field.widget.input_type == "checkbox" %}
+<div class="form-row form-row-checkbox" data-field="{{ field.name }}">
+  <label for="{{ field.id_for_label }}">{{ field }}<span>{{ field.label }}</span></label>
+  {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+  {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+</div>
+{% else %}
+<div class="form-row" data-field="{{ field.name }}">
+  {{ field.label_tag }}
+  {{ field }}
+  {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+  {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+</div>
+{% endif %}

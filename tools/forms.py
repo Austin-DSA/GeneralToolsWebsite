@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from .EventAutomation import EventAutomationDriver, ActionNetworkAutomation
 
 from . import permissions
-from .models import User, EventOwners, AccessRequests
+from .models import User, EventOwners, AccessRequests, LinkTree, LinkTreeItem, QRCode
 
 STATES = [
     "AL",
@@ -472,4 +472,308 @@ class GroupForm(forms.Form):
         removes = set(cleaned.get(self.Keys.REMOVE_MEMBERS) or [])
         if adds & removes:
             raise ValidationError("A member can't be both added and removed in the same save.")
+        return cleaned
+
+
+# --- Link Tree management forms (maintainers only) -------------------------
+#
+# All three are plain forms.Form subclasses (the established convention in this
+# module) with the widget class declared on each field. Form-level validation is
+# the sole, authoritative guard: the views assign cleaned values to the model
+# instance field-by-field and call .save() - they never call the model's
+# full_clean()/clean(), so the uniqueness and one-target checks below are the
+# only enforcement points (mirroring GroupForm.clean_name).
+
+
+class LinkTreeSettingsForm(forms.Form):
+    """Create/edit a link tree's settings. owner is deliberately not exposed
+    (reserved for future per-owner scoping); the view leaves it untouched."""
+
+    class Keys:
+        SLUG = "slug"
+        TITLE = "title"
+        DESCRIPTION = "description"
+        VISIBILITY = "visibility"
+        IS_ACTIVE = "isActive"
+
+    slug = forms.SlugField(
+        label="Slug",
+        help_text="Used in the public URL, e.g. 'links' -> /t/links/. Lowercase, no spaces.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    title = forms.CharField(
+        label="Title",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    description = forms.CharField(
+        label="Description",
+        required=False,
+        help_text="Optional blurb shown under the title on the public page.",
+        widget=forms.Textarea(attrs={"rows": "4", "class": "form-field w-full"}),
+    )
+    visibility = forms.TypedChoiceField(
+        label="Visibility",
+        choices=LinkTree.VISIBILITY_CHOICES,
+        coerce=int,
+        empty_value=LinkTree.Visibility.PUBLIC,
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    isActive = forms.BooleanField(
+        label="Active",
+        required=False,
+        help_text="Uncheck to take the whole tree offline (returns 404).",
+        widget=forms.CheckboxInput(),
+    )
+
+    def __init__(self, *args, tree=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._tree = tree
+
+    def clean_slug(self):
+        slug = self.cleaned_data[self.Keys.SLUG].strip()
+        existing = LinkTree.objects.filter(slug=slug)
+        if self._tree is not None:
+            existing = existing.exclude(pk=self._tree.pk)
+        if existing.exists():
+            raise ValidationError("A link tree with that slug already exists.")
+        return slug
+
+
+class LinkTreeItemForm(forms.Form):
+    """Add/edit a single link tree item. The view never writes the resolve cache
+    (resolvedUrl/resolvedLabel/resolvedAt) - wiki resolution is out-of-band, so
+    those fields are not exposed here. visibleFrom/visibleUntil round-trip as
+    UTC: the naive datetime-local value is read back as UTC, and stored UTC
+    values are rendered without localization."""
+
+    class Keys:
+        KIND = "kind"
+        ORDER = "order"
+        ICON = "icon"
+        LABEL = "label"
+        SUBTITLE = "subtitle"
+        URL = "url"
+        IS_ACTIVE = "isActive"
+        VISIBLE_FROM = "visibleFrom"
+        VISIBLE_UNTIL = "visibleUntil"
+        WIKI_MODE = "wikiMode"
+        WIKI_QUERY = "wikiQuery"
+        WIKI_COLLECTION_ID = "wikiCollectionId"
+        PINNED_WIKI_DOC_ID = "pinnedWikiDocId"
+
+    kind = forms.TypedChoiceField(
+        label="Kind",
+        choices=LinkTreeItem.KIND_CHOICES,
+        coerce=int,
+        empty_value=LinkTreeItem.Kind.MANUAL,
+        help_text="Manual link (you type the URL), wiki link (auto-pulled from Outline), "
+        "or a section header (a non-clickable heading that groups the items below it).",
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    order = forms.IntegerField(
+        label="Order",
+        min_value=0,
+        help_text="Lower numbers appear first.",
+        widget=forms.NumberInput(attrs={"class": "form-field w-full"}),
+    )
+    icon = forms.CharField(
+        label="Icon",
+        required=False,
+        help_text="Optional emoji shown before the label, e.g. a calendar or ballot box.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    label = forms.CharField(
+        label="Label",
+        required=False,
+        help_text="Button text - or the heading text for a section header. For wiki "
+        "links, leave blank to use the document's own title.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    subtitle = forms.CharField(
+        label="Subtitle",
+        required=False,
+        help_text="Optional smaller line shown under the label.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    url = forms.URLField(
+        label="URL",
+        required=False,
+        help_text="Destination URL. Used for manual links (ignored for wiki links and headers).",
+        widget=forms.URLInput(attrs={"class": "form-field w-full"}),
+    )
+    isActive = forms.BooleanField(
+        label="Active",
+        required=False,
+        help_text="Uncheck to hide this item from the page without deleting it.",
+        widget=forms.CheckboxInput(),
+    )
+    # type="datetime-local" gives the native browser picker; its value format is
+    # fixed as YYYY-MM-DDTHH:MM. The value is treated as UTC (see clean_* below).
+    visibleFrom = forms.DateTimeField(
+        label="Visible from (UTC)",
+        required=False,
+        help_text="Optional: don't show the item before this time (UTC).",
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local", "class": "form-field w-full"},
+            format="%Y-%m-%dT%H:%M",
+        ),
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"],
+    )
+    visibleUntil = forms.DateTimeField(
+        label="Visible until (UTC)",
+        required=False,
+        help_text="Optional: stop showing the item after this time (UTC).",
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local", "class": "form-field w-full"},
+            format="%Y-%m-%dT%H:%M",
+        ),
+        input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"],
+    )
+    wikiMode = forms.TypedChoiceField(
+        label="Wiki mode",
+        choices=LinkTreeItem.WIKI_MODE_CHOICES,
+        coerce=int,
+        empty_value=LinkTreeItem.WikiMode.LATEST_MATCH,
+        required=False,
+        help_text="For wiki links: surface the newest document matching the query, "
+        "or always link one specific pinned document.",
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    wikiQuery = forms.CharField(
+        label="Wiki query",
+        required=False,
+        help_text="For 'latest matching': title text to search, e.g. 'GBM Agenda'.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    wikiCollectionId = forms.CharField(
+        label="Wiki collection id",
+        required=False,
+        help_text="Optional Outline collection id to scope the search.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    pinnedWikiDocId = forms.CharField(
+        label="Pinned wiki document id",
+        required=False,
+        help_text="For 'pinned': the Outline document id.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+
+    def clean_visibleFrom(self):
+        return self._asUtc(self.cleaned_data.get(self.Keys.VISIBLE_FROM))
+
+    def clean_visibleUntil(self):
+        return self._asUtc(self.cleaned_data.get(self.Keys.VISIBLE_UNTIL))
+
+    @staticmethod
+    def _asUtc(value):
+        """Treat the naive datetime-local value as UTC so the stored value is an
+        aware UTC datetime (the model documents these fields as UTC-in-DB)."""
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=datetime.timezone.utc)
+        return value.astimezone(datetime.timezone.utc)
+
+    def clean(self):
+        cleaned = super().clean()
+        kind = cleaned.get(self.Keys.KIND)
+        isManualKind = kind == LinkTreeItem.Kind.MANUAL
+        isWikiKind = kind == LinkTreeItem.Kind.WIKI
+        isSectionHeaderKind = kind == LinkTreeItem.Kind.SECTION_HEADER
+
+        # Clear cross-kind fields that don't apply, so a kind switch never leaves
+        # stale data behind (hidden rows still POST their values).
+        if isWikiKind or isSectionHeaderKind:
+            cleaned[self.Keys.URL] = ""
+        if isManualKind or isSectionHeaderKind:
+            cleaned[self.Keys.WIKI_QUERY] = ""
+            cleaned[self.Keys.WIKI_COLLECTION_ID] = ""
+            cleaned[self.Keys.PINNED_WIKI_DOC_ID] = ""
+
+        # Per-kind required fields.
+        if isManualKind and not cleaned.get(self.Keys.URL):
+            raise ValidationError("A manual link needs a destination URL.")
+        if isWikiKind:
+            wikiMode = cleaned.get(self.Keys.WIKI_MODE)
+            if wikiMode == LinkTreeItem.WikiMode.PINNED:
+                if not cleaned.get(self.Keys.PINNED_WIKI_DOC_ID):
+                    raise ValidationError("A pinned wiki link needs a pinned document id.")
+            elif not cleaned.get(self.Keys.WIKI_QUERY):
+                raise ValidationError("A latest-matching wiki link needs a wiki query.")
+        if isSectionHeaderKind and not cleaned.get(self.Keys.LABEL):
+            raise ValidationError("A section header needs a label.")
+
+        return cleaned
+
+
+class QRCodeForm(forms.Form):
+    """Create/edit a QR code. Field names mirror the model columns directly, so
+    no Keys class is needed. Exactly-one-target is re-implemented here on the
+    cleaned data (the model's clean() never runs via the UI save path)."""
+
+    code = forms.SlugField(
+        label="Code",
+        help_text="Short token in the QR URL, e.g. 'spring-tabling' -> /qr/spring-tabling/.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    label = forms.CharField(
+        label="Label",
+        help_text="Human label, e.g. 'Spring 2026 tabling flyer'.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    campaign = forms.CharField(
+        label="Campaign",
+        required=False,
+        help_text="Optional medium/source tag to break down scans, e.g. 'flyer' or 'table-tent'.",
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+    tree = forms.ModelChoiceField(
+        label="Target: link tree",
+        required=False,
+        queryset=LinkTree.objects.order_by("title"),
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    item = forms.ModelChoiceField(
+        label="Target: link tree item",
+        required=False,
+        queryset=LinkTreeItem.objects.select_related("tree").order_by("tree__title", "order"),
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    rawUrl = forms.URLField(
+        label="Target: raw URL",
+        required=False,
+        help_text="Target an arbitrary URL instead of a tree/item.",
+        widget=forms.URLInput(attrs={"class": "form-field w-full"}),
+    )
+    isActive = forms.BooleanField(
+        label="Active",
+        required=False,
+        widget=forms.CheckboxInput(),
+    )
+
+    def __init__(self, *args, qr=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._qr = qr
+
+    def clean_code(self):
+        code = self.cleaned_data["code"].strip()
+        existing = QRCode.objects.filter(code=code)
+        if self._qr is not None:
+            existing = existing.exclude(pk=self._qr.pk)
+        if existing.exists():
+            raise ValidationError("A QR code with that code already exists.")
+        return code
+
+    def clean(self):
+        cleaned = super().clean()
+        targets = [
+            bool(cleaned.get("tree")),
+            bool(cleaned.get("item")),
+            bool(cleaned.get("rawUrl")),
+        ]
+        chosen = sum(1 for target in targets if target)
+        if chosen != 1:
+            raise ValidationError(
+                "A QR code must point at exactly one target: a link tree, a link tree item, or a raw URL."
+            )
         return cleaned

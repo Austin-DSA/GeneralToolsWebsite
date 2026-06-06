@@ -79,7 +79,7 @@ PAGES = [
     PageOption(href="delegated-events", title="View Delegated Events", permission=permissions.VIEW_DELEGATED_EVENTS,
                icon="inbox", category="Events",
                description="Track event requests and where they are in review."),
-    PageOption(href="/admin/tools/linktree/", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE,
+    PageOption(href="manage-link-trees", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE,
                icon="link", category="Link Trees",
                description="Edit the chapter's link pages, items, and QR codes."),
     PageOption(href="link-metrics", title="Link Tree Metrics", permission=permissions.VIEW_LINK_METRICS,
