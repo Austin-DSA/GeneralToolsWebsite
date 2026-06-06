@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1 class="text-xl py-8">Access Requests</h1>
+<style>
+table, th, td {
+  border: 1px solid black;
+}
+th, td {
+    padding: 5px;
+}
+</style>
+
+{% if actionable %}
+<h2 class="text-lg py-4">Waiting on your review</h2>
+<table>
+    <tr>
+        <th>Requester</th>
+        <th>Requested</th>
+        <th>Why</th>
+        <th>Date</th>
+        <th></th>
+    </tr>
+    {% for accessRequest in actionable %}
+        <tr>
+            <td>{{accessRequest.getRequesterName}}</td>
+            <td>{{accessRequest.getTargetDescription}}</td>
+            <td>{{accessRequest.justification}}</td>
+            <td>{{accessRequest.getDateCreatedStr}}</td>
+            <td><a href="{{accessRequest.getUrl}}">Review</a></td>
+        </tr>
+    {% endfor %}
+</table>
+{% endif %}
+
+<h2 class="text-lg py-4">Your requests</h2>
+{% if myRequests %}
+<table>
+    <tr>
+        <th>Requested</th>
+        <th>Status</th>
+        <th>Date</th>
+        <th>Reviewed by</th>
+        <th>Reason</th>
+    </tr>
+    {% for accessRequest in myRequests %}
+        <tr>
+            <td>{{accessRequest.getTargetDescription}}</td>
+            <td>{{accessRequest.getStatusAsString}}</td>
+            <td>{{accessRequest.getDateCreatedStr}}</td>
+            <td>{{accessRequest.getReviewerName}}</td>
+            <td>{{accessRequest.reason}}</td>
+        </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>You haven't requested any access yet. <a href="{% url 'request-access' %}">Request access here.</a></p>
+{% endif %}
+{% endblock page_content %}

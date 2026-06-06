@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 class PageOption:
     href : str
     title : str
-    permission : str
+    permission : str | None  # None = visible to every logged-in user
 
     def getOptionDict(self):
         return {"href" : self.href, "title": self.title}
-    
+
 PAGES = [
     PageOption(href="new-event", title="Create an Event", permission=permissions.PUBLISH_EVENT),
     PageOption(href="new-delegated-event", title="Create Delegated Event Request", permission=permissions.REQUEST_DELEGATED_EVENT),
@@ -25,10 +25,16 @@ PAGES = [
     PageOption(href="delegated-events", title="View Delegated Events", permission=permissions.VIEW_DELEGATED_EVENTS),
     PageOption(href="/admin/tools/linktree/", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE),
     PageOption(href="link-metrics", title="Link Tree Metrics", permission=permissions.VIEW_LINK_METRICS),
+    PageOption(href="request-access", title="Request Access (Groups & Permissions)", permission=None),
+    PageOption(href="access-requests", title="View Access Requests", permission=None),
 ]
 
 def getPagesForUser(user) -> list[dict[str,str]]:
-    pagesForUser = [x.getOptionDict() for x in PAGES if user.has_perm(x.permission)]
+    pagesForUser = [
+        x.getOptionDict()
+        for x in PAGES
+        if x.permission is None or user.has_perm(x.permission)
+    ]
     return pagesForUser
 
 

@@ -28,6 +28,19 @@
         <div class="app-title text-2xl flex-auto">
           <h1><a href="/" style="text-decoration-line: none; color: black;">Austin DSA Tools</a></h1>
         </div>
+        {# px-4/text-sm aren't in the compiled output.css — use px-8 + inline size #}
+        <div class="flex-none px-8" style="font-size: 0.875rem;">
+          {% if user.is_authenticated %}
+            <span>{{ user.username }}</span>
+            · <a href="{% url 'password_change' %}">Change password</a>
+            <form action="{% url 'logout' %}" method="post" style="display: inline;">
+              {% csrf_token %}
+              · <button type="submit" style="background: none; border: none; cursor: pointer; text-decoration: underline; font-size: inherit; font-family: inherit; padding: 0;">Log out</button>
+            </form>
+          {% else %}
+            <a href="{% url 'login' %}">Log in</a>
+          {% endif %}
+        </div>
       </div>
     </header>
     <div class="flex justify-center">

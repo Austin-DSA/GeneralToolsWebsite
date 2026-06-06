@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1 class="text-xl py-8">Logged out</h1>
+<p>You have been logged out of Austin DSA Tools.</p>
+<p class="py-2"><a href="{% url 'login' %}">Log back in</a></p>
+{% endblock page_content %}

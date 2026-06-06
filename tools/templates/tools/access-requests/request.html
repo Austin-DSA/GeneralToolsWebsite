@@ -1,11 +1,8 @@
 {% extends "base.html" %}
-
-{% block title %}Register - Austin DSA Tools{% endblock title %}
-
 {% block page_content %}
-<h1 class="text-xl py-8">Create an account</h1>
-<p>New accounts start without any access. Once you're signed in you can request the groups or permissions you need from the home page.</p>
-<form action="{% url 'register' %}" method="post">
+<h1 class="text-xl py-8">Request Access</h1>
+<p>Ask to join a group or to be granted a permission. The people who can approve it will get an email with a link to review your request.</p>
+<form action="" method="post">
   {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
   <div>
     <div class="py-2">
@@ -18,12 +15,8 @@
 
   <input
     type="submit"
-    value="Sign Up"
+    value="Submit Request"
     class="bg-primary text-white p-2 my-3"
   />
-
-  <p>
-    Already have an account? <a href="{% url 'login' %}">Login here.</a>
-  </p>
 </form>
 {% endblock page_content %}

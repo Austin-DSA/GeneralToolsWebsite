@@ -50,6 +50,10 @@ CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 AUTH_USER_MODEL = "tools.user"
 
+# Without this a direct login (no ?next=) bounces to Django's default
+# /accounts/profile/, which doesn't exist here.
+LOGIN_REDIRECT_URL = "/"
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -169,6 +173,10 @@ EMAIL_HOST = env("EMAIL_HOST")
 EMAIL_PORT = env("EMAIL_PORT")
 EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserName()
 EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
+# Used by django.core.mail senders (e.g. the built-in password-reset emails)
+# when no explicit from address is given; without it Django falls back to
+# webmaster@localhost.
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 EMAIL_USE_TLS = True
 # EMAIL_USE_SSL = True
 EMAIL_FAIL_SILENTLY = False 

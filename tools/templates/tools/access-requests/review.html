@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1 class="text-xl py-8">Access Request</h1>
+<p><b>Requester:</b> {{ accessRequest.getRequesterName }}</p>
+<p><b>Requested:</b> {{ accessRequest.getTargetDescription }}</p>
+<p><b>Why:</b> {{ accessRequest.justification }}</p>
+<p><b>Submitted:</b> {{ accessRequest.getDateCreatedStr }}</p>
+<p><b>Status:</b> {{ accessRequest.getStatusAsString }}</p>
+{% if accessRequest.reviewer %}
+<p><b>Reviewed by:</b> {{ accessRequest.getReviewerName }}</p>
+<p><b>Reason:</b> {{ accessRequest.reason }}</p>
+{% endif %}
+
+{% if canAct %}
+<h2 class="text-lg py-4">Approve this request?</h2>
+<form action="" method="post">
+  {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
+  <div>
+    <div class="py-2">
+      <div>{{ field.label_tag }}</div>
+      <div>{{ field }}</div>
+    </div>
+    <div class="text-danger">{{ field.errors }}</div>
+  </div>
+  {% endfor %}
+
+  <input
+    type="submit"
+    value="Submit"
+    class="bg-primary text-white p-2 my-3"
+  />
+</form>
+{% endif %}
+<p class="py-2"><a href="{% url 'access-request-list' %}">Back to access requests</a></p>
+{% endblock page_content %}

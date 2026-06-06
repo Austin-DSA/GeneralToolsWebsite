@@ -1,9 +1,10 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, Group, Permission
 from .EventAutomation.EventAutomationDriver import EventInfo, ActionNetworkAutomation
 import datetime
 import pytz
 from django.urls import reverse
+from . import permissions
 from . import utils
 
 class User(AbstractUser):
@@ -224,6 +225,115 @@ class DelegatedEvents(models.Model):
                          country=self.country,
                          eventType=self.eventType,
                          zoomRequired=self.zoomRequired)
+
+
+# A member's request to be added to a group or granted one of the custom
+# tools.* permissions. Mirrors the DelegatedEvents request/approve pattern:
+# the row is the request/audit record, approvers are reached by an emailed
+# review link, and the actual grant happens on approval.
+class AccessRequests(models.Model):
+    class Status:
+        REQUESTED = 0
+        DENIED = 1
+        APPROVED = 2
+
+    requester = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequestsCreated",
+    )
+
+    # Exactly one of these is set — see clean().
+    group = models.ForeignKey(
+        Group, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequests",
+    )
+    permission = models.ForeignKey(
+        Permission, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequests",
+    )
+
+    justification = models.TextField(
+        help_text="Why the requester needs this access, e.g. 'I run events for the Anti-ICE campaign.'",
+    )
+
+    status = models.IntegerField(default=Status.REQUESTED)
+    reviewer = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequestsReviewed",
+    )
+    reason = models.TextField(blank=True)
+
+    dateCreated = models.DateTimeField(auto_now_add=True)
+    dateReviewed = models.DateTimeField(null=True, blank=True, default=None)
+
+    class Meta:
+        verbose_name = "Access Request"
+
+    def __str__(self) -> str:
+        return f"{self.getRequesterName()} -> {self.getTargetDescription()} ({self.getStatusAsString()})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        targets = [self.group_id is not None, self.permission_id is not None]
+        if sum(1 for t in targets if t) != 1:
+            raise ValidationError(
+                "An access request must target exactly one thing: a group or a permission."
+            )
+
+    def getStatusAsString(self) -> str:
+        if self.status == AccessRequests.Status.REQUESTED:
+            return "Requested"
+        elif self.status == AccessRequests.Status.DENIED:
+            return "Denied"
+        elif self.status == AccessRequests.Status.APPROVED:
+            return "Approved"
+        else:
+            return f"Unkown {self.status}"
+
+    def getRequesterName(self) -> str:
+        if self.requester is None:
+            return ""
+        return self.requester.getUserNameString()
+
+    def getReviewerName(self) -> str:
+        if self.reviewer is None:
+            return ""
+        return self.reviewer.getUserNameString()
+
+    def getTargetDescription(self) -> str:
+        if self.group is not None:
+            return f"Group: {self.group.name}"
+        if self.permission is not None:
+            return f"Permission: {self.permission.name}"
+        return "Unknown target"
+
+    def getUrl(self) -> str:
+        return reverse("review-access-request", kwargs={"id": self.id})
+
+    def getDateCreatedStr(self) -> str:
+        return self.dateCreated.strftime(utils.DATE_TIME_FORMAT) if self.dateCreated else ""
+
+    def canBeReviewedBy(self, user) -> bool:
+        """Approver rules: admins (superuser or approveAccessRequest holders)
+        can review anything; existing members of the requested group can review
+        requests for their group; nobody reviews their own request."""
+        if not user.is_authenticated or not user.is_active:
+            return False
+        if self.requester is not None and user.id == self.requester_id:
+            return False
+        if user.is_superuser or user.has_perm(permissions.APPROVE_ACCESS_REQUEST):
+            return True
+        if self.group_id is not None:
+            return user.groups.filter(id=self.group_id).exists()
+        return False
+
+    def grantTo(self, requester) -> None:
+        """Apply the requested access to the requester."""
+        if self.group is not None:
+            requester.groups.add(self.group)
+        elif self.permission is not None:
+            requester.user_permissions.add(self.permission)
 
 
 # ---------------------------------------------------------------------------

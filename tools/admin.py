@@ -1,13 +1,88 @@
-from django.contrib.auth.admin import UserAdmin
+from django import forms
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin, GroupAdmin as DjangoGroupAdmin
+from django.contrib.auth.models import Group
 from django.contrib import admin
+from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.urls import reverse
 from django.utils.html import format_html
 from .models import *
-# Register your models here.
-admin.site.register(User, UserAdmin)
+
+# --- Users & Groups ---------------------------------------------------------
+#
+# Stock UserAdmin only offers groups on the *change* form, and stock GroupAdmin
+# offers no member management at all — so "adding people to groups" required
+# creating the user, then knowing to re-open them. Fixed from both sides:
+# groups are assignable while creating a user, and members are editable on the
+# group page itself.
+
+
+@admin.register(User)
+class UserAdmin(DjangoUserAdmin):
+    add_fieldsets = DjangoUserAdmin.add_fieldsets + (
+        ("Profile", {"fields": ("first_name", "last_name", "email")}),
+        ("Groups", {"fields": ("groups",)}),
+    )
+    list_display = ("username", "email", "first_name", "last_name", "is_staff", "groupNames")
+
+    @admin.display(description="Groups")
+    def groupNames(self, obj):
+        return ", ".join(group.name for group in obj.groups.all()) or "—"
+
+
+class GroupAdminForm(forms.ModelForm):
+    users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.order_by("username"),
+        required=False,
+        widget=FilteredSelectMultiple("users", is_stacked=False),
+        label="Users in this group",
+        help_text="Move users into the right-hand box and save to update membership.",
+    )
+
+    class Meta:
+        model = Group
+        fields = "__all__"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            self.fields["users"].initial = self.instance.user_set.all()
+
+    def _save_m2m(self):
+        super()._save_m2m()
+        self.instance.user_set.set(self.cleaned_data["users"])
+
+
+class GroupAdmin(DjangoGroupAdmin):
+    form = GroupAdminForm
+    list_display = ("name", "memberCount")
+
+    @admin.display(description="Members")
+    def memberCount(self, obj):
+        return obj.user_set.count()
+
+
+admin.site.unregister(Group)
+admin.site.register(Group, GroupAdmin)
+
 admin.site.register(EventOwners)
 admin.site.register(PostedEvents)
 admin.site.register(DelegatedEvents)
+
+
+@admin.register(AccessRequests)
+class AccessRequestsAdmin(admin.ModelAdmin):
+    """Read-only oversight of the self-service request queue; decisions happen
+    through the review links, not here. Delete is left enabled for spam."""
+
+    list_display = ("getRequesterName", "getTargetDescription", "getStatusAsString", "dateCreated", "getReviewerName")
+    list_filter = ("status", "dateCreated")
+    readonly_fields = (
+        "requester", "group", "permission", "justification",
+        "status", "reviewer", "reason", "dateCreated", "dateReviewed",
+    )
+
+    def has_add_permission(self, request):
+        return False
 
 
 # --- Link Tree -------------------------------------------------------------

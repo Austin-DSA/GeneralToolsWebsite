@@ -5,12 +5,15 @@ import datetime
 import copy
 
 from django import forms
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 
 from .EventAutomation import EventAutomationDriver, ActionNetworkAutomation
 
-from .models import User, EventOwners
+from . import permissions
+from .models import User, EventOwners, AccessRequests
 
 STATES = [
     "AL",
@@ -232,6 +235,115 @@ class ApproveDelegatedEventForm(forms.Form):
     class Keys:
         APPROVE = "approve"
         REASON = "reason"
+    approve = forms.ChoiceField(
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+        choices={x: x for x in ["YES", "NO"]},
+        initial="YES",
+    )
+    reason = forms.CharField(
+        widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
+        min_length=1
+    )
+
+
+class RegisterForm(UserCreationForm):
+    """Self-service account creation. New accounts are active immediately but
+    carry no permissions — everything useful is granted later via groups or an
+    access request."""
+
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("username", "first_name", "last_name", "email")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Approval emails and getUserNameString() depend on these.
+        for name in ("first_name", "last_name", "email"):
+            self.fields[name].required = True
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-field w-full")
+
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        if User.objects.filter(email__iexact=email).exists():
+            raise ValidationError("An account with this email address already exists.")
+        return email
+
+
+class AccessRequestForm(forms.Form):
+    class Keys:
+        TARGET = "target"
+        JUSTIFICATION = "justification"
+
+    GROUP_PREFIX = "g"
+    PERMISSION_PREFIX = "p"
+
+    target = forms.ChoiceField(
+        label="What access do you need?",
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    justification = forms.CharField(
+        label="Why do you need it?",
+        widget=forms.Textarea(attrs={"rows": "5", "class": "form-field w-full"}),
+        min_length=1,
+    )
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        groupChoices = [
+            (f"{self.GROUP_PREFIX}:{group.id}", group.name)
+            for group in Group.objects.order_by("name")
+        ]
+        permissionChoices = [
+            (f"{self.PERMISSION_PREFIX}:{permission.id}", permission.name)
+            for permission in permissions.getRequestablePermissions()
+        ]
+        self.fields[self.Keys.TARGET].choices = [
+            ("Groups", groupChoices),
+            ("Permissions", permissionChoices),
+        ]
+
+    def clean(self):
+        cleanedData = super().clean()
+        targetValue = cleanedData.get(self.Keys.TARGET)
+        if not targetValue:
+            return cleanedData
+        kind, _, targetId = targetValue.partition(":")
+        group = None
+        permission = None
+        # The ChoiceField already validated the value against the rendered
+        # choices, but the target may have been deleted since the form loaded
+        if kind == self.GROUP_PREFIX:
+            group = Group.objects.filter(id=targetId).first()
+            if group is None:
+                raise ValidationError("The selected option is no longer available.")
+            if self.user.groups.filter(id=group.id).exists():
+                raise ValidationError(f"You are already a member of {group.name}.")
+            alreadyPending = AccessRequests.objects.filter(
+                requester=self.user, group=group, status=AccessRequests.Status.REQUESTED
+            ).exists()
+        else:
+            permission = Permission.objects.filter(id=targetId).first()
+            if permission is None:
+                raise ValidationError("The selected option is no longer available.")
+            if self.user.has_perm("tools." + permission.codename):
+                raise ValidationError(f"You already have the permission {permission.name}.")
+            alreadyPending = AccessRequests.objects.filter(
+                requester=self.user, permission=permission, status=AccessRequests.Status.REQUESTED
+            ).exists()
+        if alreadyPending:
+            raise ValidationError("You already have a pending request for this access.")
+        cleanedData["group"] = group
+        cleanedData["permission"] = permission
+        return cleanedData
+
+
+class ReviewAccessRequestForm(forms.Form):
+    class Keys:
+        APPROVE = "approve"
+        REASON = "reason"
+
     approve = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
         choices={x: x for x in ["YES", "NO"]},

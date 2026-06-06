@@ -1,12 +1,18 @@
 from django.urls import path, include
 from django.contrib import admin
 from . import views
+from . import accessViews
 from . import eventViews
 from . import linkTreeViews
 
-# TODO: Add in UI views for all the auth urls
 urlpatterns = [
     path("", views.index, name="index"),
+
+    # --- Access requests (self-service group/permission grants) ---
+    path("request-access", accessViews.request_access, name="request-access"),
+    path("access-requests", accessViews.access_request_list, name="access-request-list"),
+    path("access-requests/<int:id>/review", accessViews.review_access_request, name="review-access-request"),
+
     path("new-event", eventViews.new_event, name="new-event"),
     path("new-delegated-event", eventViews.new_delegated_event, name="new-delegated-event"),
     path("approve-delegated-event/<int:id>", eventViews.approve_delegated_event, name="approve-delegated-event"),

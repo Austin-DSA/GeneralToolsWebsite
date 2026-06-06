@@ -1,12 +1,17 @@
 import datetime
+import re
+from unittest import mock
 
+from django.contrib.auth.models import Group, Permission
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 from django.urls import reverse
 
+from tools import permissions
 from tools.LinkTree import metrics, tracking
 from tools.LinkTree import WikiLinkResolver
-from tools.models import LinkEvent, LinkTree, LinkTreeItem, QRCode
+from tools.models import AccessRequests, LinkEvent, LinkTree, LinkTreeItem, QRCode, User
 from tools.WikiAutomation.OutlineAPI import OutlineAPI, OutlineAPIError, OutlineConfig
 
 
@@ -340,3 +345,467 @@ class MetricsTests(TestCase):
         rows = {r["tree"].slug: r for r in metrics.overviewRows()}
         self.assertEqual(rows["m"]["web"], 3)
         self.assertEqual(rows["m"]["qr"], 2)
+
+
+# --- auth & access requests --------------------------------------------------
+#
+# The Django test runner swaps the email backend to locmem (assert via
+# django.core.mail.outbox) and allows the 'testserver' host automatically.
+
+
+def _permission(codename: str) -> Permission:
+    return Permission.objects.get(codename=codename, content_type__app_label="tools")
+
+
+def _makeUser(username: str, email: str = None, password: str = "s3cure-pw-123", **kwargs) -> User:
+    return User.objects.create_user(
+        username=username,
+        email=email or f"{username}@example.com",
+        password=password,
+        **kwargs,
+    )
+
+
+class RegistrationTests(TestCase):
+    def _validData(self, **overrides):
+        data = {
+            "username": "newcomer",
+            "first_name": "New",
+            "last_name": "Comer",
+            "email": "newcomer@example.com",
+            "password1": "s3cure-pw-123",
+            "password2": "s3cure-pw-123",
+        }
+        data.update(overrides)
+        return data
+
+    def test_register_page_renders_for_anonymous(self):
+        resp = self.client.get(reverse("register"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "form")
+
+    def test_register_creates_active_user_with_no_permissions_and_logs_in(self):
+        resp = self.client.post(reverse("register"), self._validData())
+        self.assertRedirects(resp, "/")
+        user = User.objects.get(username="newcomer")
+        self.assertTrue(user.is_active)
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+        self.assertEqual(user.groups.count(), 0)
+        self.assertEqual(user.user_permissions.count(), 0)
+        # Auto-login happened
+        self.assertEqual(int(self.client.session["_auth_user_id"]), user.id)
+
+    def test_register_rejects_duplicate_username(self):
+        _makeUser("newcomer")
+        resp = self.client.post(reverse("register"), self._validData())
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(User.objects.filter(username="newcomer").count(), 1)
+
+    def test_register_rejects_duplicate_email_case_insensitive(self):
+        _makeUser("existing", email="newcomer@example.com")
+        resp = self.client.post(
+            reverse("register"), self._validData(email="NEWCOMER@example.com")
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(username="newcomer").exists())
+
+    def test_register_enforces_password_validators(self):
+        resp = self.client.post(
+            reverse("register"), self._validData(password1="12345678", password2="12345678")
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(User.objects.filter(username="newcomer").exists())
+
+    def test_register_redirects_authenticated_users_away(self):
+        self.client.force_login(_makeUser("alreadyhere"))
+        resp = self.client.get(reverse("register"))
+        self.assertRedirects(resp, "/")
+
+
+class AuthViewTests(TestCase):
+    def test_login_page_renders(self):
+        resp = self.client.get("/accounts/login/")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_login_without_next_redirects_home(self):
+        _makeUser("loginuser")
+        resp = self.client.post(
+            "/accounts/login/", {"username": "loginuser", "password": "s3cure-pw-123"}
+        )
+        self.assertRedirects(resp, "/")
+
+    def test_password_reset_flow(self):
+        _makeUser("forgetful", email="forgetful@example.com")
+        resp = self.client.get("/accounts/password_reset/")
+        self.assertEqual(resp.status_code, 200)
+
+        resp = self.client.post(
+            "/accounts/password_reset/", {"email": "forgetful@example.com"}
+        )
+        self.assertRedirects(resp, "/accounts/password_reset/done/")
+        self.assertEqual(len(mail.outbox), 1)
+
+        # Follow the emailed confirm link through to the set-password form.
+        match = re.search(r"https?://testserver(/accounts/reset/[^\s]+)", mail.outbox[0].body)
+        self.assertIsNotNone(match, "reset link missing from email body")
+        resp = self.client.get(match.group(1), follow=True)
+        self.assertEqual(resp.status_code, 200)
+        setPasswordUrl = resp.redirect_chain[-1][0]
+        resp = self.client.post(
+            setPasswordUrl,
+            {"new_password1": "an0ther-pw-456", "new_password2": "an0ther-pw-456"},
+        )
+        self.assertRedirects(resp, "/accounts/reset/done/")
+
+    def test_password_change_requires_login_and_works(self):
+        resp = self.client.get("/accounts/password_change/")
+        self.assertEqual(resp.status_code, 302)  # bounced to login
+
+        self.client.force_login(_makeUser("changer"))
+        resp = self.client.get("/accounts/password_change/")
+        self.assertEqual(resp.status_code, 200)
+        resp = self.client.post(
+            "/accounts/password_change/",
+            {
+                "old_password": "s3cure-pw-123",
+                "new_password1": "an0ther-pw-456",
+                "new_password2": "an0ther-pw-456",
+            },
+        )
+        self.assertRedirects(resp, "/accounts/password_change/done/")
+
+    def test_logout_is_post_only_and_renders(self):
+        self.client.force_login(_makeUser("leaver"))
+        resp = self.client.get("/accounts/logout/")
+        self.assertEqual(resp.status_code, 405)  # Django 5: GET logout removed
+        resp = self.client.post("/accounts/logout/")
+        self.assertEqual(resp.status_code, 200)
+
+
+class AccessRequestCreateTests(TestCase):
+    def setUp(self):
+        self.group = Group.objects.create(name="Anti-ICE Campaign")
+        self.requester = _makeUser("requester")
+        self.member = _makeUser("member")
+        self.member.groups.add(self.group)
+        self.admin = _makeUser("admin", is_superuser=True)
+        self.approver = _makeUser("approver")
+        self.approver.user_permissions.add(_permission("approveAccessRequest"))
+
+    def _post(self, target, justification="I work on this campaign."):
+        return self.client.post(
+            reverse("request-access"),
+            {"target": target, "justification": justification},
+        )
+
+    def test_anonymous_is_redirected_to_login(self):
+        resp = self.client.get(reverse("request-access"))
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn("/accounts/login/", resp.url)
+
+    def test_group_request_creates_row(self):
+        self.client.force_login(self.requester)
+        resp = self._post(f"g:{self.group.id}")
+        self.assertEqual(resp.status_code, 200)
+        request = AccessRequests.objects.get()
+        self.assertEqual(request.status, AccessRequests.Status.REQUESTED)
+        self.assertEqual(request.requester, self.requester)
+        self.assertEqual(request.group, self.group)
+        self.assertIsNone(request.permission)
+        self.assertEqual(request.justification, "I work on this campaign.")
+        self.assertIsNotNone(request.dateCreated)
+        self.assertIsNone(request.dateReviewed)
+
+    def test_group_request_emails_admins_approvers_and_members_once_each(self):
+        # admin is also a group member — must still get exactly one email
+        self.admin.groups.add(self.group)
+        self.client.force_login(self.requester)
+        self._post(f"g:{self.group.id}")
+
+        recipients = [address for m in mail.outbox for address in m.to]
+        self.assertEqual(recipients.count(self.admin.email), 1)
+        self.assertEqual(recipients.count(self.member.email), 1)
+        self.assertEqual(recipients.count(self.approver.email), 1)
+        # requester gets a confirmation
+        self.assertEqual(recipients.count(self.requester.email), 1)
+
+        request = AccessRequests.objects.get()
+        reviewPath = reverse("review-access-request", kwargs={"id": request.id})
+        approverMails = [m for m in mail.outbox if self.member.email in m.to]
+        self.assertIn(reviewPath, approverMails[0].body)
+
+    def test_permission_request_does_not_email_plain_group_members(self):
+        self.client.force_login(self.requester)
+        permission = _permission("manageLinkTree")
+        self._post(f"p:{permission.id}")
+
+        recipients = [address for m in mail.outbox for address in m.to]
+        self.assertNotIn(self.member.email, recipients)
+        self.assertIn(self.admin.email, recipients)
+        self.assertIn(self.approver.email, recipients)
+
+        request = AccessRequests.objects.get()
+        self.assertEqual(request.permission, permission)
+        self.assertIsNone(request.group)
+
+    def test_existing_member_cannot_request_their_group(self):
+        self.client.force_login(self.member)
+        resp = self._post(f"g:{self.group.id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(AccessRequests.objects.count(), 0)
+
+    def test_duplicate_pending_request_is_rejected(self):
+        self.client.force_login(self.requester)
+        self._post(f"g:{self.group.id}")
+        resp = self._post(f"g:{self.group.id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(AccessRequests.objects.count(), 1)
+
+    def test_email_failure_does_not_fail_request_creation(self):
+        self.client.force_login(self.requester)
+        with mock.patch("tools.accessViews.send_mail", side_effect=Exception("smtp down")):
+            resp = self._post(f"g:{self.group.id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(AccessRequests.objects.count(), 1)
+
+
+class AccessRequestReviewTests(TestCase):
+    def setUp(self):
+        self.group = Group.objects.create(name="Anti-ICE Campaign")
+        self.otherGroup = Group.objects.create(name="Other Campaign")
+        self.requester = _makeUser("requester")
+        self.member = _makeUser("member")
+        self.member.groups.add(self.group)
+        self.otherMember = _makeUser("othermember")
+        self.otherMember.groups.add(self.otherGroup)
+        self.admin = _makeUser("admin", is_superuser=True)
+        self.approver = _makeUser("approver")
+        self.approver.user_permissions.add(_permission("approveAccessRequest"))
+        self.groupRequest = AccessRequests.objects.create(
+            requester=self.requester,
+            group=self.group,
+            justification="please",
+            status=AccessRequests.Status.REQUESTED,
+        )
+
+    def _reviewUrl(self, request=None):
+        return reverse(
+            "review-access-request", kwargs={"id": (request or self.groupRequest).id}
+        )
+
+    def _approve(self, reason="welcome aboard"):
+        return self.client.post(self._reviewUrl(), {"approve": "YES", "reason": reason})
+
+    def _deny(self, reason="not yet"):
+        return self.client.post(self._reviewUrl(), {"approve": "NO", "reason": reason})
+
+    def test_random_user_cannot_review(self):
+        self.client.force_login(_makeUser("random"))
+        self._approve()
+        self.groupRequest.refresh_from_db()
+        self.assertEqual(self.groupRequest.status, AccessRequests.Status.REQUESTED)
+        self.assertNotIn(self.group, self.requester.groups.all())
+
+    def test_nonexistent_request_is_indistinguishable_from_unauthorized(self):
+        # Probing ids must not reveal which requests exist (no enumeration
+        # oracle) and must never leak exception text.
+        self.client.force_login(_makeUser("prober"))
+        missing = self.client.get(reverse("review-access-request", kwargs={"id": 9999}))
+        forbidden = self.client.get(self._reviewUrl())
+        self.assertEqual(missing.status_code, 200)
+        self.assertNotContains(missing, "DoesNotExist")
+        self.assertEqual(
+            missing.templates[0].name if missing.templates else None,
+            forbidden.templates[0].name if forbidden.templates else None,
+        )
+
+    def test_member_of_other_group_cannot_review(self):
+        self.client.force_login(self.otherMember)
+        self._approve()
+        self.groupRequest.refresh_from_db()
+        self.assertEqual(self.groupRequest.status, AccessRequests.Status.REQUESTED)
+
+    def test_requester_cannot_review_own_request_even_with_permission(self):
+        self.requester.user_permissions.add(_permission("approveAccessRequest"))
+        self.client.force_login(self.requester)
+        self._approve()
+        self.groupRequest.refresh_from_db()
+        self.assertEqual(self.groupRequest.status, AccessRequests.Status.REQUESTED)
+
+    def test_group_member_can_approve_group_request(self):
+        self.client.force_login(self.member)
+        self._approve()
+        self.groupRequest.refresh_from_db()
+        self.assertEqual(self.groupRequest.status, AccessRequests.Status.APPROVED)
+        self.assertEqual(self.groupRequest.reviewer, self.member)
+        self.assertEqual(self.groupRequest.reason, "welcome aboard")
+        self.assertIsNotNone(self.groupRequest.dateReviewed)
+        self.assertIn(self.group, self.requester.groups.all())
+        # requester is notified
+        recipients = [address for m in mail.outbox for address in m.to]
+        self.assertIn(self.requester.email, recipients)
+
+    def test_permission_holder_can_approve_permission_request(self):
+        permission = _permission("manageLinkTree")
+        permRequest = AccessRequests.objects.create(
+            requester=self.requester,
+            permission=permission,
+            justification="link duty",
+            status=AccessRequests.Status.REQUESTED,
+        )
+        self.client.force_login(self.approver)
+        self.client.post(self._reviewUrl(permRequest), {"approve": "YES", "reason": "ok"})
+        permRequest.refresh_from_db()
+        self.assertEqual(permRequest.status, AccessRequests.Status.APPROVED)
+        self.assertIn(permission, self.requester.user_permissions.all())
+        # Fresh instance so the permission cache is clean
+        freshRequester = User.objects.get(id=self.requester.id)
+        self.assertTrue(freshRequester.has_perm(permissions.MANAGE_LINK_TREE))
+
+    def test_group_member_cannot_approve_permission_request(self):
+        permRequest = AccessRequests.objects.create(
+            requester=self.requester,
+            permission=_permission("manageLinkTree"),
+            justification="link duty",
+            status=AccessRequests.Status.REQUESTED,
+        )
+        self.client.force_login(self.member)
+        self.client.post(self._reviewUrl(permRequest), {"approve": "YES", "reason": "ok"})
+        permRequest.refresh_from_db()
+        self.assertEqual(permRequest.status, AccessRequests.Status.REQUESTED)
+
+    def test_superuser_can_approve(self):
+        self.client.force_login(self.admin)
+        self._approve()
+        self.groupRequest.refresh_from_db()
+        self.assertEqual(self.groupRequest.status, AccessRequests.Status.APPROVED)
+
+    def test_deny_grants_nothing_and_stamps_reason(self):
+        self.client.force_login(self.member)
+        self._deny()
+        self.groupRequest.refresh_from_db()
+        self.assertEqual(self.groupRequest.status, AccessRequests.Status.DENIED)
+        self.assertEqual(self.groupRequest.reason, "not yet")
+        self.assertNotIn(self.group, self.requester.groups.all())
+        recipients = [address for m in mail.outbox for address in m.to]
+        self.assertIn(self.requester.email, recipients)
+
+    def test_already_reviewed_request_cannot_be_rereviewed(self):
+        self.client.force_login(self.member)
+        self._approve()
+        self.groupRequest.refresh_from_db()
+        firstReviewDate = self.groupRequest.dateReviewed
+
+        self.client.force_login(self.admin)
+        self._deny(reason="changed my mind")
+        self.groupRequest.refresh_from_db()
+        self.assertEqual(self.groupRequest.status, AccessRequests.Status.APPROVED)
+        self.assertEqual(self.groupRequest.reviewer, self.member)
+        self.assertEqual(self.groupRequest.dateReviewed, firstReviewDate)
+        self.assertIn(self.group, self.requester.groups.all())
+
+
+class AccessRequestListTests(TestCase):
+    def setUp(self):
+        self.group = Group.objects.create(name="Anti-ICE Campaign")
+        self.requester = _makeUser("requester")
+        self.member = _makeUser("member")
+        self.member.groups.add(self.group)
+        self.request = AccessRequests.objects.create(
+            requester=self.requester,
+            group=self.group,
+            justification="please",
+            status=AccessRequests.Status.REQUESTED,
+        )
+
+    def test_requester_sees_own_request(self):
+        self.client.force_login(self.requester)
+        resp = self.client.get(reverse("access-request-list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Anti-ICE Campaign")
+
+    def test_approver_sees_actionable_request(self):
+        self.client.force_login(self.member)
+        resp = self.client.get(reverse("access-request-list"))
+        self.assertContains(resp, "Anti-ICE Campaign")
+        self.assertContains(
+            resp, reverse("review-access-request", kwargs={"id": self.request.id})
+        )
+
+    def test_uninvolved_user_sees_empty_state(self):
+        self.client.force_login(_makeUser("bystander"))
+        resp = self.client.get(reverse("access-request-list"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "Anti-ICE Campaign")
+
+
+class AdminGroupAssignmentTests(TestCase):
+    def setUp(self):
+        self.admin = _makeUser("staffadmin", is_staff=True, is_superuser=True)
+        self.group = Group.objects.create(name="Anti-ICE Campaign")
+        self.client.force_login(self.admin)
+
+    def test_user_add_form_offers_groups_and_assigns_at_creation(self):
+        resp = self.client.get("/admin/tools/user/add/")
+        self.assertContains(resp, 'name="groups"')
+
+        self.client.post(
+            "/admin/tools/user/add/",
+            {
+                "username": "fresh",
+                "password1": "s3cure-pw-123",
+                "password2": "s3cure-pw-123",
+                "usable_password": "true",
+                "email": "fresh@example.com",
+                "first_name": "Fresh",
+                "last_name": "User",
+                "groups": [self.group.id],
+                "_save": "Save",
+            },
+        )
+        user = User.objects.get(username="fresh")
+        self.assertIn(self.group, user.groups.all())
+
+    def test_group_form_offers_users_and_syncs_membership(self):
+        target = _makeUser("target")
+        resp = self.client.get(f"/admin/auth/group/{self.group.id}/change/")
+        self.assertContains(resp, 'name="users"')
+
+        # Add a member from the group side
+        self.client.post(
+            f"/admin/auth/group/{self.group.id}/change/",
+            {"name": self.group.name, "permissions": [], "users": [target.id], "_save": "Save"},
+        )
+        self.assertIn(self.group, target.groups.all())
+
+        # Remove them again
+        self.client.post(
+            f"/admin/auth/group/{self.group.id}/change/",
+            {"name": self.group.name, "permissions": [], "users": [], "_save": "Save"},
+        )
+        target.refresh_from_db()
+        self.assertNotIn(self.group, target.groups.all())
+
+    def test_access_request_admin_add_disabled(self):
+        resp = self.client.get("/admin/tools/accessrequests/add/")
+        self.assertEqual(resp.status_code, 403)
+        resp = self.client.get("/admin/tools/accessrequests/")
+        self.assertEqual(resp.status_code, 200)
+
+
+class HomeMenuTests(TestCase):
+    def test_permissionless_user_sees_request_access_links_only(self):
+        self.client.force_login(_makeUser("nobody"))
+        resp = self.client.get("/")
+        self.assertContains(resp, "Request Access")
+        self.assertContains(resp, "View Access Requests")
+        self.assertNotContains(resp, "Create an Event")
+
+    def test_gated_entries_still_work(self):
+        user = _makeUser("publisher")
+        user.user_permissions.add(_permission("publishEvent"))
+        self.client.force_login(user)
+        resp = self.client.get("/")
+        self.assertContains(resp, "Create an Event")
+        self.assertContains(resp, "Request Access")
