@@ -31,10 +31,9 @@
   min-height: 60px; /* grows when the nav wraps to its own row on mobile */
 }
 
-.bat-logo {
-  height: 60px;
-  width: 60px;
-}
+/* The masthead is deliberately markless: the AUSTIN DSA / Party Line lockup
+   carries the brand (the detailed circle seal is unreadable at header size;
+   it still appears full-size on the public link-tree pages and the favicon). */
 
 /* In @layer base so component classes (.header-link, .btn, .menu-tile) can
    override it — unlayered rules would always win over layered ones. */
@@ -50,6 +49,20 @@
   /* Header */
   .header-link {
     @apply text-white no-underline font-medium hover:text-white hover:underline visited:text-white;
+  }
+
+  /* Masthead lockup: small chapter eyebrow over the Party Line wordmark
+     (the bat logo to the left stays the chapter's mark) */
+  .wordmark {
+    @apply block hover:no-underline;
+  }
+  .wordmark-eyebrow {
+    @apply block text-[0.62rem] md:text-xs font-semibold uppercase leading-none;
+    letter-spacing: 0.16em;
+    color: rgb(255 255 255 / 0.8);
+  }
+  .wordmark-name {
+    @apply block text-lg md:text-2xl font-semibold leading-tight;
   }
 
   /* Masthead nav: one permission-filtered link per domain landing page

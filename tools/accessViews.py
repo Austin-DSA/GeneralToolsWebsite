@@ -52,7 +52,7 @@ def _getApproversFor(accessRequest: AccessRequests):
 def _sendNewRequestEmails(request, accessRequest: AccessRequests):
     try:
         reviewLink = request.build_absolute_uri(accessRequest.getUrl())
-        messageText = f"""{accessRequest.getRequesterName()} has requested the following access to Austin DSA Tools:
+        messageText = f"""{accessRequest.getRequesterName()} has requested the following access on Party Line (Austin DSA):
         {accessRequest.getTargetDescription()}
 
         Their reason: {accessRequest.justification}

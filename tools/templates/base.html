@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}Austin DSA Tools{% endblock title %}</title>
+    <title>{% block title %}Party Line — Austin DSA{% endblock title %}</title>
     {% load static %}
     <link rel="icon" href="{% static 'images/ATXDSA Circle Logo with Chapter Black.png' %}" />
     <link rel="stylesheet" href="{% static 'css/output.css' %}" />
@@ -15,12 +15,14 @@
   </head>
   <body class="font-display text-dark bg-paper min-h-screen flex flex-col">
     <header class="bg-primary w-full tools-header shadow-md">
-      <div class="flex items-center">
-        <div class="bat-logo flex-none">
-          <img src="{% static 'images/ATXDSA Circle Logo with Chapter Black.png' %}" alt="Austin DSA" />
-        </div>
-        <div class="pl-3 md:pl-5 text-lg md:text-2xl flex-auto whitespace-nowrap">
-          <h1><a class="header-link font-semibold" href="/">Austin DSA Tools</a></h1>
+      <div class="flex items-center min-h-[60px]">
+        <div class="pl-4 md:pl-6 flex-auto whitespace-nowrap">
+          <h1>
+            <a class="header-link wordmark" href="/">
+              <span class="wordmark-eyebrow">Austin DSA</span>
+              <span class="wordmark-name">Party Line</span>
+            </a>
+          </h1>
         </div>
         {% if user.is_authenticated %}
           {% if navDomains %}
