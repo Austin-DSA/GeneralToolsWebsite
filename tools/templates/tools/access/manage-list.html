@@ -18,7 +18,7 @@
       <th>Email</th>
       <th>Groups</th>
       <th>Direct permissions</th>
-      <th></th>
+      <th>Manage</th>
     </tr>
     {% for row in rows %}
     <tr data-filter-text="{{ row.user.username|lower }} {{ row.user.first_name|lower }} {{ row.user.last_name|lower }} {{ row.user.email|lower }}{% for group in row.groups %} {{ group.name|lower }}{% endfor %}">

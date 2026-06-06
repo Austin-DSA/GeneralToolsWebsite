@@ -31,7 +31,7 @@
       <th>Group</th>
       <th>Members</th>
       <th>Grants</th>
-      <th></th>
+      <th>Manage</th>
     </tr>
     {% for row in rows %}
     <tr data-filter-text="{{ row.group.name|lower }}{% for name in row.permissionNames %} {{ name|lower }}{% endfor %}">
