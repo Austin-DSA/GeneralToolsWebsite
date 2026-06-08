@@ -16,6 +16,7 @@ class Keys:
     GOOGLE_DELEGATE_ACCOUNT = "GoogleDelegateAccount"
     WEBSITE_EMAIL_ACCOUNT_USERNAME = "WebsiteEmailAccountUsername"
     WEBSITE_EMAIL_ACCOUNT_PASSWORD = "WebsiteEmailAccountPassword"
+    AN_API_KEY = "AnApiKey"
 
 def _readSecretsFromFile():
     logger.info("Loading Secrets from File")
@@ -73,3 +74,5 @@ def WebsiteEmailAccountUsername():
 def WebsiteEmailAccountPassword():
     return secretObject[Keys.WEBSITE_EMAIL_ACCOUNT_PASSWORD]
 
+def ANAPIKey():
+    return secretObject[Keys.AN_API_KEY]

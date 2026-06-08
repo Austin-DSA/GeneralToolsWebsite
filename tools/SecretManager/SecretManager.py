@@ -37,3 +37,6 @@ def getWebsiteEmailAccountUserName() -> str:
 
 def getWebsiteEmailAccountPassword() -> str:
     return WebsiteEmailAccountPassword()
+
+def getANAPIKey() -> str:
+    return ANAPIKey()

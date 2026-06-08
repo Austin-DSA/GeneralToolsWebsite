@@ -1,0 +1,26 @@
+{% extends "base.html" %} {% block page_content %}
+
+<h1 class="text-xl py-8">Guest Login</h1>
+<form
+  action=""
+  method="post"
+  id="guestLoginForm"
+>
+  {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
+  <div>
+    <div class="py-2">
+      <div>{{ field.label_tag }}</div>
+      <div>{{ field }}</div>
+    </div>
+    <div class="text-danger">{{ field.errors }}</div>
+  </div>
+  {% endfor %}
+
+  <input
+    type="submit"
+    name="submit-guest-login"
+    value="Submit"
+    class="bg-primary text-white p-2 my-3"
+  />
+</form>
+{% endblock page_content %}

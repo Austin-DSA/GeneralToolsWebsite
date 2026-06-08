@@ -1,9 +1,17 @@
 {% extends "base.html" %} {% block page_content %}
 
+<style>
+  #loader {
+      display: none;
+      margin-top: 15px;
+  }
+</style>
+
 <h1 class="text-xl py-8">Create an Event</h1>
 <form
   action=""
   method="post"
+  id="newEventForm"
 >
   {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
   <div>
@@ -22,4 +30,18 @@
     class="bg-primary text-white p-2 my-3"
   />
 </form>
+
+<div id="loader">
+  <img src="{% static 'images/largeLoad.gif' %}" alt="Submitting...">
+</div>
+<script>
+  const form = document.getElementById('newEventForm');
+  const loader = document.getElementById('loader');
+
+  // Listen for the form submission
+  form.addEventListener('submit', function() {
+      // Show the GIF container
+      loader.style.display = 'block'; 
+  });
+</script>
 {% endblock page_content %}

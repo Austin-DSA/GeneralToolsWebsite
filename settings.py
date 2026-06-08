@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 from pathlib import Path
+from huey import SqliteHuey
 import environ
 
 # To add future settings you will want to update the dev-env.env file for debug builds and then update deployment script to include new ENV variables for production
@@ -49,6 +50,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    'huey.contrib.djhuey',
     "tools"
 ]
 
@@ -149,3 +151,5 @@ LOGGING = {
         'level': 'INFO',
     },
 }
+
+HUEY = SqliteHuey()

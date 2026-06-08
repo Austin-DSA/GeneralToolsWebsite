@@ -20,8 +20,9 @@ def deduplicateVotes(votes, skipUnverifiedVotes: bool) -> dict[str,ResolutionVot
             deduplicatedVotes[vote.email] = vote
     return deduplicatedVotes
 
+# Needs to return a dummy value so we can track status
 @db_task
-def validateVotes(resId):
+def validateVotes(resId) -> int:
     resolution : Resolution = Resolution.objects.get(resId)
     votes = ResolutionVote.objects.filter(resolution=resolution)
     deduplicateVotes = deduplicateVotes(votes)
@@ -77,6 +78,7 @@ def validateVotes(resId):
     resolution.lastValidatedCountNo = noCount
     resolution.lastValidatedCountYes = yesCount
     resolution.save()
+    return 0
 
 
 

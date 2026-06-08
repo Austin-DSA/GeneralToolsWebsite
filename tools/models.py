@@ -10,6 +10,7 @@ from django.utils.translation import gettext_lazy
 from . import utils
 from .EventAutomation.EventAutomationDriver import EventInfo
 
+from .voting.models import Resolution, ResolutionVote
 
 class User(AbstractUser):
     def getUserNameString(self) -> str:

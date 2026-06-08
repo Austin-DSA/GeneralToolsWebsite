@@ -1,5 +1,13 @@
 {% extends "base.html" %}
 
+<style>
+  #loader {
+      display: none;
+      margin-top: 15px;
+  }
+</style>
+
+
 <!--List out all available resolutions to be voted on
 The backend will send down all the open resolutions at the current time.
 The backend will handle sending down only the correct info based on if we are a guest or not.
@@ -42,13 +50,11 @@ function getVote(resolutionId)
 
 function getURLForResolution(resolutionId)
 {
-  // TODO: Figure out backend URL
-  return "";
+  return "voting/submit/"+resolutionId;
 }
 
 function getRequestBodyForVote(vote)
 {
-  // TODO: Implement
   // Don't need to send up user info as it is required to be in the session
   return JSON.stringify({
     "vote" : vote
@@ -73,9 +79,10 @@ async function sendVoteToBackend(resolutionId)
         method: "POST",
         headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': '{% csrf_token %}'
+                'X-CSRFToken': csrftoken
             },
-        body: voteBody
+        body: voteBody,
+        credentials: 'include'
     });
     if(!response.ok())
     {
@@ -84,12 +91,6 @@ async function sendVoteToBackend(resolutionId)
     // All we really need to know is that the vote was submitted successfully
     resultStatus += "Submitted";
     console.log(`Submitted vote ${vote} for resolution ${resolutionId}`);
-    // const contentType = response.headers.get("content-type");
-    // if (!contentType || !contentType.includes("application/json"))
-    // {
-    //   throw new TypeError("Oops, we haven't got JSON!");
-    // }
-    // const resultJSON =
   }
   catch (exception)
   {
@@ -111,11 +112,14 @@ function updateResolutionVoteStatus(vote,resolutionId)
 
 </script>
 {% block page_content %}
+
+<div id="loader">
+  <img src="{% static 'images/largeLoad.gif' %}" alt="Submitting...">
+</div>
+
 <!--Header Info-->
 <h2>Currently Open Votes</h2> <br>
-{% if isGuest %}
 {% include tools/common/guestDetails.html %}
-{% endif %}
 
 {% for res in resolutions %}
 <div id="resDiv-{{res.id}}">
@@ -134,4 +138,7 @@ Current Vote: <div id="resVoteStatus-{{ res.id }}">{{ res.voteStatus }}</div> <b
 </div> <br>
 {% endfor %}
 
+<br>
+<br>
+<a href={% url 'guest-login' %}>Login As Different Guest</a></br>
 {% endblock page_content %}

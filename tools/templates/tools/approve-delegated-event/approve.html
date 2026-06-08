@@ -6,6 +6,7 @@
 <form
   action=""
   method="post"
+  id="approveEventForm"
 >
   {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
   <div>
@@ -23,4 +24,18 @@
     class="bg-primary text-white p-2 my-3"
   />
 </form>
+
+<div id="loader">
+  <img src="{% static 'images/largeLoad.gif' %}" alt="Submitting...">
+</div>
+<script>
+  const form = document.getElementById('approveEventForm');
+  const loader = document.getElementById('loader');
+
+  // Listen for the form submission
+  form.addEventListener('submit', function() {
+      // Show the GIF container
+      loader.style.display = 'block'; 
+  });
+</script>
 {% endblock page_content %}

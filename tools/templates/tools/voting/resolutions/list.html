@@ -27,7 +27,7 @@ table.center {
     </tr>
     {% for res in object_list %}
         <tr>
-            <td><a href={{res.getUrl}}>{{res.name}}</a></td>
+            <td><a href="{% url 'resolution-detail' object.id %}">{{res.name}}</a></td>
             <td>{{res.isOpenStr}}</td>
             <td>{{res.author}}</td>
             <td>{{res.lastValidatedCountYes}}</td>

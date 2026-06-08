@@ -2,7 +2,7 @@ import dataclasses
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, reverse
 
 from tools.utils import sessionDataRequired
 
@@ -43,6 +43,16 @@ PAGES = [
         title="View Delegated Events",
         permission=permissions.VIEW_DELEGATED_EVENTS,
     ),
+    PageOption(
+        href=reverse("resolution-list"),
+        title="View Resolutions",
+        permission=permissions.VIEW_RESOLUTIONS
+    ),
+    PageOption(
+        href= reverse("resolution-new"),
+        title="New Resolution",
+        permission=permissions.CREATE_RESOLUTION
+    )
 ]
 
 
@@ -58,9 +68,9 @@ def index(request):
 
 # Common Guest Views
 
+# /guestLogin
 def guestLogin(request):
     if request.method == "POST":
-        # TODO: Handle login
         form = GuestLoginForm(request.POST)
         email = form.getEmail()
         name = form.getName()
@@ -76,6 +86,7 @@ def guestLogin(request):
     else:
         return render(request, "tools/common/guest-login.html", {"form": GuestLoginForm()})
 
+# /guestDash
 @sessionDataRequired(sessionKeys=["email", "name"], redirectURL="guest-login")
 def guestDashBoard(request):
     return render(request, "tools/common/guest-dash.html")

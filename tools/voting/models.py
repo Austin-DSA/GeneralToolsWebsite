@@ -14,6 +14,7 @@ class Resolution(models.Model):
     author = models.CharField(max_length=100)
     votingOpen = models.DateTimeField()
     votingClose = models.DateTimeField()
+    timezone = models.CharField(max_length=50)
 
     whenLastValidated = models.DateTimeField(blank=True)
     lastValidatedCountYes = models.IntegerField(default=0)
@@ -35,11 +36,17 @@ class Resolution(models.Model):
     def isOpenStr(self) -> str:
         return "YES" if self.isOpen() else "NO"
 
-    def votingOpenStr(self) -> str:
-        return self.votingOpen.strftime(utils.DATE_TIME_FORMAT)
+    def getVoteOpenLocalized(self) -> datetime.datetime:
+        return utils.localizeDate(self.votingOpen,self.timezone)
+    
+    def getVoteCloseLocalized(self) -> datetime.datetime:
+        return utils.localizeDate(self.votingClose,self.timezone)
 
-    def votingCloseStr(self) -> str:
-        return self.votingClose.strftime(utils.DATE_TIME_FORMAT)
+    def votingOpenLocalizedStr(self) -> str:
+        return self.getVoteOpenLocalized().strftime(utils.DATE_TIME_FORMAT)
+
+    def votingCloseLocalizedStr(self) -> str:
+        return self.getVoteCloseLocalized().strftime(utils.DATE_TIME_FORMAT)
 
     def whenLastValidatedStr(self) -> str:
         if self.whenLastValidated is None:
@@ -62,11 +69,19 @@ class Resolution(models.Model):
             return "Passed"
         return "Failed"
 
-    def getUrl(self) -> str:
-        return reverse("resolution-detail", kwargs={"pk": self.id})
-
 
 class ResolutionVote(models.Model):
+
+    class VerificationError(models.IntegerChoices):
+        NO_ERROR = 0, gettext_lazy("None")
+        NOT_FOUND = 1, gettext_lazy("Not Found in List")
+        INVALID_API_RESPONSE = 2, gettext_lazy("Invalid Response from Action Network")
+        MISSING_REQUIRED_CUSTOM_FIELDS = 3, gettext_lazy("Missing required custom fields in list")
+        MULTIPLE_RECORDS_RETURNED = 4, gettext_lazy("Multiple conflicting records were found")
+        EXPIRED = 5, gettext_lazy("Membership has lapsed")
+        INCORRECT_CHAPTER = 6, gettext_lazy("Incorrect Chapter")
+        UNKOWN = 7, gettext_lazy("Unexepected Error Occured")
+
     class VoteChoices(models.IntegerChoices):
         ABSTAIN = 0, gettext_lazy("Abstain")
         NO = 1, gettext_lazy("No")
@@ -92,6 +107,6 @@ class ResolutionVote(models.Model):
     name = models.CharField(max_length=500)
 
     casted = models.DateTimeField(auto_now_add=True)
-    verified = models.BooleanField(default=False)
+    checkedForVerification = models.BooleanField(default=False)
     whenVerified = models.DateTimeField(blank=True)
-    verificationError = models.IntegerField(default=0)
+    verificationError = models.IntegerField(choices=VerificationError, default=0)

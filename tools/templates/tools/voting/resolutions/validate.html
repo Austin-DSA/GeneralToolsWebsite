@@ -1,0 +1,149 @@
+{% extends "base.html" %} {% block page_content %}
+<script src="{% static 'js/commonUI.js' %}"></script>
+<script>
+
+function runValidation()
+{
+    commonUI_displayLoadingScreen();
+    try 
+    {
+        // Start validation request
+        const response = sendInternalRequest("{% url 'resolution-validate' res.id %}", "POST", {})
+        if(!response.ok())
+        {
+            throw new Error(`Response Status: ${response.status}`)
+        }
+    }
+    catch (exception)
+    {
+        commonUI_hideLoadingScreen();
+        console.log(exception);
+        alert("FAILED To start validation request.");
+        return;
+    }
+    try 
+    {
+        var finished = false;
+        while(!finished)
+        {
+            // Sleep for 2 seconds to let it process
+            await sleep(2000);
+            // Check status
+            const response = sendInternalRequest("{% url 'resolution-validate' res.id %}", "POST", {})
+            if(!response.ok())
+            {
+                throw new Error(`Response Status: ${response.status}`)
+            }
+            let status = response.status;
+            if(status == 200)
+            {
+                finished = true;
+            }
+        }
+    }
+    catch (exception)
+    {
+        commonUI_hideLoadingScreen();
+        console.log(exception);
+        alert("FAILED to get status of validation in progress. Validation may still be in progress. Please reload the page.")
+        return;
+    }
+    commonUI_hideLoadingScreen();
+    alert("Validation has completed successfully! The page will reload once you close this alert. If you don't see the results try manually reloading the page.")
+    window.location.reload();
+}
+
+function emailAllResults()
+{
+    commonUI_displayLoadingScreen();
+    try 
+    {
+        // Start validation request
+        const response = sendInternalRequest("{% url 'resolution-email-results' res.id %}", "POST", {})
+        if(!response.ok())
+        {
+            throw new Error(`Response Status: ${response.status}`)
+        }
+    }
+    catch (exception)
+    {
+        commonUI_hideLoadingScreen();
+        console.log(exception);
+        alert("FAILED To start email all results request.");
+        return;
+    }
+    commonUI_hideLoadingScreen();
+    alert("Email request for all results has been sent.")
+}
+
+function emailFailedResults()
+{
+    commonUI_displayLoadingScreen();
+    try 
+    {
+        // Start validation request
+        const response = sendInternalRequest("{% url 'resolution-email-invalid' res.id %}", "POST", {})
+        if(!response.ok())
+        {
+            throw new Error(`Response Status: ${response.status}`)
+        }
+    }
+    catch (exception)
+    {
+        commonUI_hideLoadingScreen();
+        console.log(exception);
+        alert("FAILED To start email failed results request.");
+        return;
+    }
+    commonUI_hideLoadingScreen();
+    alert("Email request for invalid results has been sent.")
+}
+</script>
+<style>
+table, th, td {
+  border: 1px solid black;
+}
+th, td {
+    padding: 5px;
+}
+table.center {
+  margin-left: auto;
+  margin-right: auto;
+}
+#loader {
+      display: none;
+      margin-top: 15px;
+  }
+</style>
+<div id="loader">
+  <img src="{% static 'images/largeLoad.gif' %}" alt="Submitting...">
+</div>
+<h3>Resolution: {{ res.name }}</h3><br>
+<p>
+    Validated Aye: {{ res.lastValidatedCountYes }} <br>
+    Validated Nay: {{ res.lastValidatedCountNo }} <br>
+    Validated Abstain: {{ res.lastValidatedCountAbstain }} <br>
+    Last Validated: {{ res.whenLastValidatedStr }}<br>
+    Status: {{ res.status }}<br>
+</p>
+
+<h5>Validation Errors</h5><br>
+<table border="1px solid black">
+    <tr>
+        <th>Email</th>
+        <th>Name</th>
+        <th>Error</th>
+    </tr>
+    {% for vote in errorVotes %}
+        <tr>
+            <td>{{vote.email}}</td>
+            <td>{{vote.name}}</td>
+            <td>{{vote.get_verificationError_display}}</td>
+        </tr>
+    {% endfor %}
+</table>
+<br>
+<button type="button" onclick="runValidation()">Run Validation</button> <br>
+<button type="button" onclick="emailAllResults()">Email Results To Voters</button> <br>
+<button type="button" onclick="emailFailedResults()">Email failed voters only</button>
+{% endblock %}

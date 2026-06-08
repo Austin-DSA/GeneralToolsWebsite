@@ -1,0 +1,9 @@
+{% extends "base.html" %} 
+{% block page_content %}
+{% include tools/common/guestDetails.html %}
+
+<a href={% url 'guest-ballot' %}>Ballot</a></br>
+<br>
+<br>
+<a href={% url 'guest-login' %}>Login As Different Guest</a></br>
+{% endblock %}
