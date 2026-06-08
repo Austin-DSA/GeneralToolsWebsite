@@ -2,6 +2,8 @@ import selenium
 import selenium.webdriver
 import selenium.webdriver.common
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions
 import dataclasses
 import datetime
 import typing
@@ -9,12 +11,35 @@ import abc
 import logging
 import tzlocal
 import pytz
-
+import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
 
 logger = logging.getLogger(__name__)
 
+class ANTypes:
+    IN_PERSON = 0
+    VIRTUAL = 1
+    HYBRID = 2
+
+# I tried doing a more reasonable approach but everything is just not compatible in a nice way so here is something that works
+# We restrict which timezones we accept to the big ones in continental US
+# Then we look for AN timezones that have the correct keywords and hour offset
+@dataclasses.dataclass
+class TimeZone:
+    TZ_TO_AN_TZ = {
+        'US/Central': "Central",
+        'US/Eastern': "Eastern",
+        'US/Mountain': "Mountain",
+        'US/Pacific' : "Pacific"
+    }
+    timezone : str
+    hourOffsetStr : str
+    qualifier : str = "(US & Canada)"
+
+    def matches(self, anTzValue):
+        anTz = TimeZone.TZ_TO_AN_TZ[self.timezone]
+        return anTz in anTzValue and self.hourOffsetStr in anTzValue and self.qualifier in anTzValue
 
 @dataclasses.dataclass
 class EventInfo:
@@ -27,9 +52,12 @@ class EventInfo:
     zip: str
     description: str
     insturctions: str
+    anEventType: int
     state: str = "TX"
     country: str = "US"
     endTime: datetime.datetime | None = None
+    zoomLink: str | None = None
+    timeZone: TimeZone | None = None # Don't need to set if the start time has a timezone
 
 
 @dataclasses.dataclass
@@ -110,8 +138,73 @@ class LoginScreen(Screen):
 
         submitButton.click()
 
+# For organizer accounts
+class ParticipateDashBoardScreen(Screen):
+    class Constants:
+        AUSTIN_DSA_DASHBOARD = "https://admin.actionnetwork.org/groups/austin-dsa/participate"
 
-class DashboardScreen(Screen):
+    class IDs:
+        CREATE_ACTION_MENU_ID = "group_create_action"
+        TABS = "tabs"
+
+    class Classes:
+        MANAGING_TITLE = "managing_title"
+
+    class Texts:
+        CURRENTLY_PARTICIPATING = "Currently Participating In Group:"
+
+    class ActionsInCreateActionMenu:
+        EVENT = "Event"
+
+    def __init__(self, driver, groupText="Austin DSA"):
+        super().__init__(driver)
+        self.groupText = groupText
+
+    def _createActionMenu(self):
+        return self.driver.find_element(
+            By.ID, ParticipateDashBoardScreen.IDs.CREATE_ACTION_MENU_ID
+        )
+
+    def exists(self) -> bool:
+        try:
+            containgDiv = self.driver.find_element(
+                By.CLASS_NAME, ParticipateDashBoardScreen.Classes.MANAGING_TITLE
+            )
+            h6s = containgDiv.find_elements(By.TAG_NAME, "h6")
+            found = False
+            for h6 in h6s:
+                if h6.text.lower() == ParticipateDashBoardScreen.Texts.CURRENTLY_PARTICIPATING.lower():
+                    found = True
+                    break
+            if not found:
+                logger.error("ParticipateDashBoardScreen: Couldn't find currently managing text")
+                return False
+
+            h2s = containgDiv.find_elements(By.TAG_NAME, "h2")
+            found = False
+            for h2 in h2s:
+                if h2.text.lower() == self.groupText.lower():
+                    found = True
+                    break
+            if not found:
+                logger.error(
+                    "ParticipateDashBoardScreen: Couldn't find group text %s", self.groupText
+                )
+                return False
+
+            logger.info("ParticipateDashBoardScreen: Exists")
+            return True
+        except Exception as e:
+            logger.info("ParticipateDashBoardScreen: Does not exist %s", str(e))
+            return False
+
+    def selectFromCreateActionMenu(self, action):
+        createActionMenu = self._createActionMenu()
+        selectedAction = createActionMenu.find_element(By.LINK_TEXT, action)
+        selectedAction.click()
+
+# For manager accounts
+class ManageDashboardScreen(Screen):
     class Constants:
         AUSTIN_DSA_DASHBOARD = "https://actionnetwork.org/groups/austin-dsa/manage"
 
@@ -134,22 +227,22 @@ class DashboardScreen(Screen):
 
     def _createActionMenu(self):
         return self.driver.find_element(
-            By.ID, DashboardScreen.IDs.CREATE_ACTION_MENU_ID
+            By.ID, ManageDashboardScreen.IDs.CREATE_ACTION_MENU_ID
         )
 
     def exists(self) -> bool:
         try:
             containgDiv = self.driver.find_element(
-                By.CLASS_NAME, DashboardScreen.Classes.MANAGING_TITLE
+                By.CLASS_NAME, ManageDashboardScreen.Classes.MANAGING_TITLE
             )
             h6s = containgDiv.find_elements(By.TAG_NAME, "h6")
             found = False
             for h6 in h6s:
-                if h6.text.lower() == DashboardScreen.Texts.CURRENTLY_MANAGING.lower():
+                if h6.text.lower() == ManageDashboardScreen.Texts.CURRENTLY_MANAGING.lower():
                     found = True
                     break
             if not found:
-                logger.error("DashboardScreen: Couldn't find currently managing text")
+                logger.error("ManageDashboardScreen: Couldn't find currently managing text")
                 return False
 
             h2s = containgDiv.find_elements(By.TAG_NAME, "h2")
@@ -160,14 +253,14 @@ class DashboardScreen(Screen):
                     break
             if not found:
                 logger.error(
-                    "DashboardScreen: Couldn't find group text %s", self.groupText
+                    "ManageDashboardScreen: Couldn't find group text %s", self.groupText
                 )
                 return False
 
-            logger.info("DashboardScreen: Exists")
+            logger.info("ManageDashboardScreen: Exists")
             return True
         except Exception as e:
-            logger.info("DashboardScreen: Does not exist %s", str(e))
+            logger.info("ManageDashboardScreen: Does not exist %s", str(e))
             return False
 
     def selectFromCreateActionMenu(self, action):
@@ -177,10 +270,13 @@ class DashboardScreen(Screen):
 
 
 class EditEventScreen(Screen):
+    class Constants:
+        SPONSOR = "Austin DSA"
     class IDs:
         TITLE_INPUT = "event-title"
 
-        IS_VIRTUAL_INPUT = "event_physical_locatioin_toggle"
+        EVENT_TYPE_INPUT = "event_attendance_type"
+
         HAS_END_TIME_INPUT = "event_endtime_toggle"
 
         START_DATE_INPUT = "event-start-date"
@@ -198,6 +294,15 @@ class EditEventScreen(Screen):
 
         NEXT_STEP_BUTTON = "event-publish_link_button"
 
+        SPONSER_SELECT = "petition-group-select"
+
+        VIRTUAL_EVENT_LINK_INPUT = "virtual-event-link-value"
+
+    class NAMEs:
+        TIMEZONE_SELECT_NAME = "event[timezone]"
+        
+            
+
     class Classes:
         DATETIME_PICKER = "datetimepicker-days"
         DATETIME_PICKER_SWITCH = "switch"
@@ -209,9 +314,14 @@ class EditEventScreen(Screen):
     def _titleInputBox(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.TITLE_INPUT)
 
-    # See exists
-    # def _isVirtualICheckBox(self):
-    #     return self.driver.find_element(By.ID, EditEventScreen.IDs.IS_VIRTUAL_INPUT)
+    def _eventTypeDropdown(self):
+        return self.driver.find_element(By.ID, EditEventScreen.IDs.EVENT_TYPE_INPUT)
+    
+    def _virtualEventLinkInputBox(self):
+        return self.driver.find_element(By.ID, EditEventScreen.IDs.VIRTUAL_EVENT_LINK_INPUT)
+
+    def _timezoneDropdown(self):
+        return self.driver.find_element(By.NAME, EditEventScreen.NAMEs.TIMEZONE_SELECT_NAME)
 
     def _hasEndTimeICheckBox(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.HAS_END_TIME_INPUT)
@@ -268,19 +378,22 @@ class EditEventScreen(Screen):
     def _nextStepButton(self):
         return self.driver.find_element(By.ID, EditEventScreen.IDs.NEXT_STEP_BUTTON)
 
+    def _sponsorSelect(self):
+        return self.driver.find_element(By.ID, EditEventScreen.IDs.SPONSER_SELECT)
+
     def exists(self) -> bool:
         try:
             _ = self._titleInputBox()
-            # TODO: Handle new input box or dont cause it defaults to in person which is fine
-            # _ = self._isVirtualICheckBox()
+            _ = self._eventTypeDropdown()
             _ = self._hasEndTimeICheckBox()
             _ = self._startDateInputBox()
             _ = self._locationInputBox()
-            _ = self._addressInputBox()
-            _ = self._cityInputBox()
-            _ = self._stateInputDropdown()
-            _ = self._zipInputBox()
-            _ = self._countryInputDropdown()
+            # These should appear by default but may not if the AN decides to change default event type
+            # _ = self._addressInputBox()
+            # _ = self._cityInputBox()
+            # _ = self._stateInputDropdown()
+            # _ = self._zipInputBox()
+            # _ = self._countryInputDropdown()
             _ = self._descriptionInputBox()
             _ = self._nextStepButton()
             return True
@@ -328,16 +441,22 @@ class EditEventScreen(Screen):
 
         logger.info("EditEventScren: Picking day %d from year month", time.day)
         tdElements = dateTimePicker.find_elements(By.TAG_NAME, "td")
-        foundDay = False
         dayString = str(time.day)
+        potentialDays = []
         for tdElem in tdElements:
             if tdElem.text == dayString:
-                foundDay = True
-                tdElem.click()
-                break
-        if not foundDay:
+                potentialDays.append(tdElem)
+        if len(potentialDays) == 0:
             logger.error("EditEventScreen: Could not find day %s", dayString)
             raise Exception("Couldn't set date %s", str(time))
+        # There can be a wrap around where for say "30" for the previous month is shown so if we choose the first day it will choose the wrong month
+        # The wrap will be at most 7 days on each side
+        # So the fix is if the day > 15 choose the last one, if day < 15 choose the first
+        # In the case where there is only one possible element [0] == [-1]
+        if time.day <= 15:
+            potentialDays[0].click()
+        else:
+            potentialDays[-1].click()
 
         logger.info("EditEventScreen: Setting hour to %s", str(time.hour))
         isAM = time.hour < 12
@@ -394,32 +513,64 @@ class EditEventScreen(Screen):
         logger.info("EditEventScreen: Setting title to %s", eventInfo.title)
         Utils.typeTextIntoElement(self._titleInputBox(), eventInfo.title)
 
-        logger.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
-        Utils.typeTextIntoElement(self._locationInputBox(), eventInfo.locationName)
+        logger.info("EditEventScreen: Setting type to %d", eventInfo.anEventType)
+        eventTypeSelect = selenium.webdriver.support.select.Select(self._eventTypeDropdown())
+        eventTypeSelect.select_by_value(str(eventInfo.anEventType))
 
-        logger.info("EditEventScreen: Setting Address to %s", eventInfo.address)
-        Utils.typeTextIntoElement(self._addressInputBox(), eventInfo.address)
+        # Only set location for in person or hybrid
+        if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.IN_PERSON:
+            logger.info("EditEventScreen: Setting Location to %s", eventInfo.locationName)
+            Utils.typeTextIntoElement(self._locationInputBox(), eventInfo.locationName)
 
-        logger.info("EditEventScreen: Setting City to %s", eventInfo.city)
-        Utils.typeTextIntoElement(self._cityInputBox(), eventInfo.city)
+            logger.info("EditEventScreen: Setting Address to %s", eventInfo.address)
+            Utils.typeTextIntoElement(self._addressInputBox(), eventInfo.address)
 
-        logger.info("EditEventScreen: Setting Zip to %s", eventInfo.zip)
-        Utils.typeTextIntoElement(self._zipInputBox(), eventInfo.zip)
+            logger.info("EditEventScreen: Setting City to %s", eventInfo.city)
+            Utils.typeTextIntoElement(self._cityInputBox(), eventInfo.city)
+
+            logger.info("EditEventScreen: Setting Zip to %s", eventInfo.zip)
+            Utils.typeTextIntoElement(self._zipInputBox(), eventInfo.zip)
+
+            logger.info("EditEventScreen: Setting State to %s", eventInfo.state)
+            stateSelectDropdown = selenium.webdriver.support.select.Select(
+                self._stateInputDropdown()
+            )
+            stateSelectDropdown.select_by_value(eventInfo.state)
+
+            logger.info("EditEventScreen: Setting Country to %s", eventInfo.country)
+            countrySelectDropdown = selenium.webdriver.support.select.Select(
+                self._countryInputDropdown()
+            )
+            countrySelectDropdown.select_by_value(eventInfo.country)
+
+        # Only set time zone and virtual link if hybrid or 
+        if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.VIRTUAL:
+            if eventInfo.timeZone is None:
+                logger.error("EditEventScreen: No timezone info for virtual or hybrid event")
+                raise Exception("EditEventScreen: No timezone info for virtual or hybrid event")
+            
+            # The timezones are full readable names so just choose the first one that has the correct timezone offset
+            timezoneSelectDropdown = selenium.webdriver.support.select.Select(self._timezoneDropdown())
+            found = False
+            for potentialTz in timezoneSelectDropdown.options:
+                tzValue = potentialTz.get_attribute("value")
+                if eventInfo.timeZone.matches(tzValue):
+                    logger.info("EditEventTimeZone: Setting timezone to %s", tzValue)
+                    found = True
+                    timezoneSelectDropdown.select_by_value(tzValue)
+                    break
+
+            if not found:
+                logger.error("EditEventScreen: Could not find timezone option for %s", eventInfo.timeZone)
+                raise Exception(f"EditEventScreen: Could not find timezone option for {eventInfo.timeZone}")
+            
+            if eventInfo.zoomLink is not None:
+                logger.info("EditEventScreen: Setting virtual link to %s", eventInfo.zoomLink)
+                Utils.typeTextIntoElement(self._virtualEventLinkInputBox(), eventInfo.zoomLink)
+            
 
         logger.info("EditEventScreen: Setting Description to %s", eventInfo.description)
         Utils.typeTextIntoElement(self._descriptionInputBox(), eventInfo.description)
-
-        logger.info("EditEventScreen: Setting State to %s", eventInfo.state)
-        stateSelectDropdown = selenium.webdriver.support.select.Select(
-            self._stateInputDropdown()
-        )
-        stateSelectDropdown.select_by_value(eventInfo.state)
-
-        logger.info("EditEventScreen: Setting Country to %s", eventInfo.country)
-        countrySelectDropdown = selenium.webdriver.support.select.Select(
-            self._countryInputDropdown()
-        )
-        countrySelectDropdown.select_by_value(eventInfo.country)
 
         logger.info(
             "EditEventScreen: Setting start date to %s", str(eventInfo.startTime)
@@ -434,6 +585,13 @@ class EditEventScreen(Screen):
             self._hasEndTimeICheckBox().click()
             self._endDateInputBox().click()
             self._fillOutDatePicker(eventInfo.endTime, self._endDateTimePicker())
+        try:
+            sponsorSelect = selenium.webdriver.support.select.Select(self._sponsorSelect())
+            logger.info("EditEventScreen: Setting sponsor as %s", EditEventScreen.Constants.SPONSOR)
+            sponsorSelect.select_by_visible_text(EditEventScreen.Constants.SPONSOR)
+        except Exception as e:
+            logger.info("EditEventScreen: Problem finding sponsor %s", str(e))
+            logger.info("EditEventScreen: Couldn't find sponsor select. Moving on.")
 
     def goToNextStep(self):
         self._nextStepButton().click()
@@ -442,15 +600,30 @@ class EditEventScreen(Screen):
 class EditEventThankYouScreen(Screen):
     class TEXTS:
         INSTRUCTIONS = "Instructions For Your Attendees"
+        NEXT_STEP = "Save and go to Next Step"
 
     class IDs:
         # The actual text area isn't editable as it is hidden. I don't like using this id since it looks auto-generated and therefore could become useless but works for now
         INSTRUCTIONS_INPUT = "redactor-uuid-0"  # "event-description"
         PUBLISH_BUTTON = "event-publish_link_button"
+        PUBLISH_BUTTON_2 = "event-link_button_for_modal"
+        PUBLISH_FINAL = "publish_link_modal"
 
     def _publishButton(self):
+        try:
+            return self.driver.find_element(
+                By.ID, EditEventThankYouScreen.IDs.PUBLISH_BUTTON
+            )
+        except:
+            pass
+        logger.info("EditEventThankYouScreen: Publish Event button id wasn't found trying backup")
         return self.driver.find_element(
-            By.ID, EditEventThankYouScreen.IDs.PUBLISH_BUTTON
+                By.ID, EditEventThankYouScreen.IDs.PUBLISH_BUTTON_2
+            )  
+    
+    def _secondPublish(self):
+        return self.driver.find_element(
+            By.ID, EditEventThankYouScreen.IDs.PUBLISH_FINAL
         )
 
     def _instructionsInputBox(self):
@@ -477,10 +650,17 @@ class EditEventThankYouScreen(Screen):
             return False
 
     def addInstructions(self, text: str):
+        logger.info("EditEventThankYouScreen: Adding instructions %s", text)
         Utils.typeTextIntoElement(self._instructionsInputBox(), text)
 
     def publishEvent(self):
         self._publishButton().click()
+        # There is now an email wrapper pop up
+        # Wait for the pop up, it sometimes doesn't load quickly
+        elem = WebDriverWait(self.driver, 3).until(
+            expected_conditions.element_to_be_clickable((By.ID, EditEventThankYouScreen.IDs.PUBLISH_FINAL))
+        )
+        elem.click()
 
 
 class EventConfirmationScreen(Screen):
@@ -496,20 +676,22 @@ class EventConfirmationScreen(Screen):
         )
 
     def exists(self) -> bool:
-        h6s = self.driver.find_elements(By.TAG_NAME, "h6")
-        found = False
-        for h6 in h6s:
-            if (
-                h6.text.lower()
-                == EventConfirmationScreen.TEXTS.CURRENTLY_MANAGING.lower()
-            ):
-                found = True
-                break
-        if not found:
-            logger.error(
-                "EventConfirmationScreen: Couldn't find currently managing text text"
-            )
-            return False
+        # This was working but stopped. Likely a transient failure but JIC removing for now since it doesn't do much
+        # The direct link box should be enough
+        # h6s = self.driver.find_elements(By.TAG_NAME, "h6")
+        # found = False
+        # for h6 in h6s:
+        #     if (
+        #         h6.text.lower()
+        #         == EventConfirmationScreen.TEXTS.CURRENTLY_MANAGING.lower()
+        #     ):
+        #         found = True
+        #         break
+        # if not found:
+        #     logger.error(
+        #         "EventConfirmationScreen: Couldn't find currently managing text"
+        #     )
+        #     return False
         try:
             _ = self._directLinkBox()
             return True
@@ -525,79 +707,117 @@ class EventConfirmationScreen(Screen):
 
 
 class ANAutomator:
+    @staticmethod
+    def getDriver():
+        options = selenium.webdriver.ChromeOptions()
+        options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        if settings.DEBUG:
+            driver = selenium.webdriver.Chrome(options)
+            driver.implicitly_wait(2)
+            return driver
+        else:
+            driver = selenium.webdriver.Remote(
+                command_executor="http://chrome:4444/wd/hub",
+                options=options
+                )
+            driver.implicitly_wait(2)
+            return driver
+
     @classmethod
     def createEvent(
         self, eventInfo: EventInfo, config: ANAutomatorConfig
     ) -> EventConfirmationInfo:
-        # AN uses local time for the page
-        # We need to convert the incoming time into the local timezone of this machine, and then make it timezone naiive
-        localTimezone = pytz.timezone(tzlocal.get_localzone_name())
-        localizedStart = eventInfo.startTime.astimezone(localTimezone)
-        localizedEnd = eventInfo.endTime.astimezone(localTimezone)
+        # Action network uses the physical location for in person events 
+        # For virtual/hybrid events it uses a timezone field
+        # Save the given datetime timezone
+        # This gives use +-HHMM and we want (GMT+-HH:SS)
+        utcOffsetStr = eventInfo.startTime.strftime('%z')
+        eventInfo.timeZone = TimeZone(timezone=eventInfo.startTime.tzinfo.zone, hourOffsetStr=utcOffsetStr[1:3])
+        logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
         # make naiive since we will be generating many datetimes for comparison later and we can't compare tz aware vs non-aware objects
-        noTzStart = localizedStart.replace(tzinfo=None)
-        noTzEnd = localizedEnd.replace(tzinfo=None)
+        noTzStart = eventInfo.startTime.replace(tzinfo=None)
+        noTzEnd = eventInfo.endTime.replace(tzinfo=None)
         eventInfo.startTime = noTzStart
         eventInfo.endTime = noTzEnd
 
         logger.info("ANAutomator: Starting Driver")
-        options = selenium.webdriver.ChromeOptions()
-        options.add_argument("--headless")
-        driver = selenium.webdriver.Chrome(options)
-        driver.implicitly_wait(2)
-        driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+        # options = selenium.webdriver.ChromeOptions()
+        # options.add_argument("--headless")
+        # options.add_argument("--no-sandbox")
+        # options.add_argument("--disable-dev-shm-usage")
+        # options.add_argument("--disable-gpu")
+        # driver = selenium.webdriver.Chrome(options)
+        # driver.implicitly_wait(2)
+        
+        driver = ANAutomator.getDriver()
+        # Go here cause will redirect
+        driver.get(ManageDashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+        try:
 
-        logger.info("ANAutomator: Checking if we need to login")
-        loginScreen = LoginScreen.tryToCreate(driver)
-        if loginScreen is not None:
-            logger.info("ANAutomator: LoginScreen detected, logging in")
-            loginScreen.login(email=config.email, password=config.password)
-            # Logging in may bring the user to not the dashboard if they have multiple groups
-            # Instead of creating a new screen for that instead we can leverage we have the auth token
-            # So just regetting the url should be enough
-            driver.get(DashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+            logger.info("ANAutomator: Checking if we need to login")
+            loginScreen = LoginScreen.tryToCreate(driver)
+            if loginScreen is not None:
+                logger.info("ANAutomator: LoginScreen detected, logging in")
+                loginScreen.login(email=config.email, password=config.password)
+                # Logging in may bring the user to not the dashboard if they have multiple groups
+                # Instead of creating a new screen for that instead we can leverage we have the auth token
+                # So just regetting the url should be enough
+                driver.get(ManageDashboardScreen.Constants.AUSTIN_DSA_DASHBOARD)
 
-        dashboardScreen = DashboardScreen.tryToCreate(driver)
-        if dashboardScreen is None:
-            logger.error("ANAutomator: Can't find dashboard screen")
-            raise Exception("Not in Dashboard")
+            # See if we are already on the managing dash board
+            # This will happen if the account used is a admin
+            # If it fails try to navigate to participating dashboard
+            dashboardScreen = ManageDashboardScreen.tryToCreate(driver)
+            if dashboardScreen is None:
+                # Try the participating dash board
+                logger.info("ANAutomator: Couldn't find manage dashboard looking for participant dashboard")
+                driver.get(ParticipateDashBoardScreen.Constants.AUSTIN_DSA_DASHBOARD)
+                dashboardScreen = ParticipateDashBoardScreen.tryToCreate(driver)
+                if dashboardScreen is None:
+                    logger.error("ANAutomator: Can't find dashboard screen")
+                    raise Exception("Not in Dashboard")
 
-        logger.info("ANAutomator: Selecting Create Event Item")
-        dashboardScreen.selectFromCreateActionMenu(
-            DashboardScreen.ActionsInCreateActionMenu.EVENT
-        )
+            logger.info("ANAutomator: Selecting Create Event Item")
+            dashboardScreen.selectFromCreateActionMenu(
+                ManageDashboardScreen.ActionsInCreateActionMenu.EVENT
+            )
 
-        editEventScreen = EditEventScreen.tryToCreate(driver)
-        if editEventScreen is None:
-            logger.error("ANAutomator: Can't find edit event screen")
-            raise Exception("Not in edit event screen")
-        logger.info("ANAutomator: Filling out event info")
-        editEventScreen.fillOutEventInfo(eventInfo)
+            editEventScreen = EditEventScreen.tryToCreate(driver)
+            if editEventScreen is None:
+                logger.error("ANAutomator: Can't find edit event screen")
+                raise Exception("Not in edit event screen")
+            logger.info("ANAutomator: Filling out event info")
+            editEventScreen.fillOutEventInfo(eventInfo)
 
-        logger.info("ANAutomator: Moving to action thank you screen")
-        editEventScreen.goToNextStep()
+            logger.info("ANAutomator: Moving to action thank you screen")
+            editEventScreen.goToNextStep()
 
-        editEventThankYouScreen = EditEventThankYouScreen.tryToCreate(driver)
-        if editEventThankYouScreen is None:
-            logger.error("ANAutomator: Can't find edit event thank you screen")
-            raise Exception("Not in edit event thank you screen")
-        logger.info("ANAutomator: Filling out edit event thank you screen")
-        editEventThankYouScreen.addInstructions(eventInfo.insturctions)
+            editEventThankYouScreen = EditEventThankYouScreen.tryToCreate(driver)
+            if editEventThankYouScreen is None:
+                logger.error("ANAutomator: Can't find edit event thank you screen")
+                raise Exception("Not in edit event thank you screen")
+            logger.info("ANAutomator: Filling out edit event thank you screen")
+            editEventThankYouScreen.addInstructions(eventInfo.insturctions)
 
-        logger.info("ANAutomator: Publishing Event")
-        editEventThankYouScreen.publishEvent()
+            logger.info("ANAutomator: Publishing Event")
+            editEventThankYouScreen.publishEvent()
 
-        eventConfirmationScreen = EventConfirmationScreen.tryToCreate(driver)
-        if eventConfirmationScreen is None:
-            logger.error("ANAutomator: Can't find event confirmation screen")
-            raise Exception("Not in event confrimation screen")
-        logger.info("ANAutomator: Getting Event info")
-        eventConfirmInfo = EventConfirmationInfo(
-            eventConfirmationScreen.getManagerLink(),
-            eventConfirmationScreen.getDirectLink(),
-        )
+            eventConfirmationScreen = EventConfirmationScreen.tryToCreate(driver)
+            if eventConfirmationScreen is None:
+                logger.error("ANAutomator: Can't find event confirmation screen")
+                raise Exception("Not in event confrimation screen")
+            logger.info("ANAutomator: Getting Event info")
+            eventConfirmInfo = EventConfirmationInfo(
+                eventConfirmationScreen.getManagerLink(),
+                eventConfirmationScreen.getDirectLink(),
+            )
 
-        logger.info(
-            "ANAutomator: Done creating event, returning info %s", str(eventConfirmInfo)
-        )
-        return eventConfirmInfo
+            logger.info(
+                "ANAutomator: Done creating event, returning info %s", str(eventConfirmInfo)
+            )
+            return eventConfirmInfo
+        finally:
+            driver.quit()

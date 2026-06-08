@@ -1,17 +1,34 @@
 {% extends "base.html" %} {% block page_content %}
-
-<style>
-  #loader {
-      display: none;
-      margin-top: 15px;
-  }
-</style>
-
+<script>
+window.addEventListener("load", () => {
+    document.querySelector('[name="eventType"]').onchange = function(val)
+    {
+      var newVal = document.querySelector('[name="eventType"]').value
+      if(newVal == "1" || newVal == 1)
+      {
+        document.querySelector('[name="locationName"]').style.display = "none";
+        document.querySelector('[name="address"]').style.display = "none";
+        document.querySelector('[name="city"]').style.display = "none";
+        document.querySelector('[name="state"]').style.display = "none";
+        document.querySelector('[name="country"]').style.display = "none";
+        document.querySelector('[name="zipcode"]').style.display = "none";
+      }
+      else
+      {
+        document.querySelector('[name="locationName"]').style.display = "block";
+        document.querySelector('[name="address"]').style.display = "block";
+        document.querySelector('[name="city"]').style.display = "block";
+        document.querySelector('[name="state"]').style.display = "block";
+        document.querySelector('[name="country"]').style.display = "block";
+        document.querySelector('[name="zipcode"]').style.display = "block";
+      }
+    };
+  });
+</script>
 <h1 class="text-xl py-8">Create an Event</h1>
 <form
   action=""
   method="post"
-  id="newEventForm"
 >
   {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
   <div>
@@ -30,18 +47,4 @@
     class="bg-primary text-white p-2 my-3"
   />
 </form>
-
-<div id="loader">
-  <img src="{% static 'images/largeLoad.gif' %}" alt="Submitting...">
-</div>
-<script>
-  const form = document.getElementById('newEventForm');
-  const loader = document.getElementById('loader');
-
-  // Listen for the form submission
-  form.addEventListener('submit', function() {
-      // Show the GIF container
-      loader.style.display = 'block'; 
-  });
-</script>
 {% endblock page_content %}

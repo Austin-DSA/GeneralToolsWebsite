@@ -1,0 +1,80 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ tree.title }}</title>
+    <link rel="stylesheet" href="{% static 'css/output.css' %}" />
+    <style>
+      /* Self-contained so the public page renders correctly even if the
+         standalone Tailwind watcher hasn't recompiled output.css. Brand colors
+         mirror tools/static/css/custom.css (@theme). */
+      :root { --dsa-red: #ec1f27; --dsa-dark: #231f20; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--dsa-dark);
+        color: #fff;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        font-family: "StyreneB", "ManifoldDSA", system-ui, sans-serif;
+      }
+      .lt-wrap { width: 100%; max-width: 560px; padding: 32px 18px 56px; text-align: center; }
+      .lt-logo { width: 96px; height: 96px; border-radius: 50%; margin: 8px auto 16px; display: block; }
+      .lt-title { font-size: 1.6rem; margin: 0 0 6px; }
+      .lt-desc { color: #d8d4d4; margin: 0 auto 28px; max-width: 42ch; line-height: 1.4; }
+      .lt-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
+      .lt-link {
+        display: block;
+        background: #fff;
+        color: var(--dsa-dark);
+        text-decoration: none;
+        padding: 16px 18px;
+        border-radius: 12px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        border: 2px solid transparent;
+        transition: transform .06s ease, border-color .12s ease;
+      }
+      .lt-link:hover { border-color: var(--dsa-red); transform: translateY(-1px); }
+      .lt-link .lt-sub { display: block; font-weight: 400; font-size: .85rem; color: #605c5c; margin-top: 3px; }
+      .lt-icon { margin-right: 8px; }
+      .lt-header { text-align: left; font-size: .82rem; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; color: #d8d4d4; margin: 18px 4px 2px; padding-top: 6px;
+        border-bottom: 1px solid #4a4646; }
+      .lt-empty { color: #d8d4d4; margin-top: 40px; }
+      .lt-footer { margin-top: 40px; font-size: .8rem; color: #8c8989; }
+      .lt-footer a { color: #d8d4d4; }
+    </style>
+  </head>
+  <body>
+    <div class="lt-wrap">
+      <img class="lt-logo" src="{% static 'images/ATXDSA Circle Logo with Chapter Black.png' %}" alt="Austin DSA" />
+      <h1 class="lt-title">{{ tree.title }}</h1>
+      {% if tree.description %}<p class="lt-desc">{{ tree.description }}</p>{% endif %}
+
+      {% if items %}
+        <ul class="lt-links">
+          {% for item in items %}
+            {% if item.isHeader %}
+              <li class="lt-header">{% if item.icon %}{{ item.icon }} {% endif %}{{ item.displayLabel }}</li>
+            {% else %}
+              <li>
+                <a class="lt-link" href="{{ item.trackedUrl }}" rel="noopener">
+                  {% if item.icon %}<span class="lt-icon">{{ item.icon }}</span>{% endif %}{{ item.displayLabel }}
+                  {% if item.subtitle %}<span class="lt-sub">{{ item.subtitle }}</span>{% endif %}
+                </a>
+              </li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="lt-empty">No links here yet — check back soon.</p>
+      {% endif %}
+
+      <p class="lt-footer">Austin DSA</p>
+    </div>
+  </body>
+</html>

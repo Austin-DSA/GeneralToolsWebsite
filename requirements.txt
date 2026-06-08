@@ -13,3 +13,4 @@ googleapis-common-protos==1.61.0
 psycopg[binary]
 huey==3.0.1
 gevent==26.5.0
+segno==1.6.6

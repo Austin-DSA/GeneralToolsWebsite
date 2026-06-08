@@ -27,11 +27,20 @@ environ.Env.read_env(BASE_DIR / "dev-env.env")
 env = environ.Env(
     DEBUG=(bool,False),
     ALLOWED_HOSTS=(list,[]),
-    CSRF_TRUSTED_ORIGINS=(list,[])
+    CSRF_TRUSTED_ORIGINS=(list,[]),
+    # Only used for dev/prod, would need to do more work generally to support non-gmail accounts since we are already tied to gCal
+    EMAIL_BACKEND=(str,"django.core.mail.backends.smtp.EmailBackend"),
+    EMAIL_HOST=(str,"smtp.gmail.com"),
+    EMAIL_PORT=(int,587)
 )
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
+
+# Salt for the Link Tree's privacy-first visitor hash (see tools/LinkTree/tracking.py).
+# Defaults to SECRET_KEY; set independently so rotating SECRET_KEY doesn't reset
+# same-day visitor-uniqueness continuity.
+LINK_TRACKING_SALT = env("LINK_TRACKING_SALT", default=SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
@@ -153,3 +162,16 @@ LOGGING = {
 }
 
 HUEY = SqliteHuey()
+
+# Email
+# Technically not great to do this cause of circular import but should be fine
+# Doing this instead of duplicating secrets in the ENV and the Secrets.json
+import tools.SecretManager.SecretManager
+EMAIL_BACKEND = env("EMAIL_BACKEND")
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env("EMAIL_PORT")
+EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserName()
+EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
+EMAIL_USE_TLS = True
+# EMAIL_USE_SSL = True
+EMAIL_FAIL_SILENTLY = False 

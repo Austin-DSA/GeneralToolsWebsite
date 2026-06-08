@@ -17,12 +17,16 @@ VIEW_DELEGATED_EVENTS = _publicPermissionName(_VIEW_DELEGATED_EVENTS)
 
 _CREATE_RESOLUTION = "createResolution"
 CREATE_RESOLUTION = _publicPermissionName(_CREATE_RESOLUTION)
-
 _VIEW_RESOLUTIONS = "viewResolutions"
 VIEW_RESOLUTIONS = _publicPermissionName(_VIEW_RESOLUTIONS)
-
 _VALIDATE_VOTES = "validateVotes"
 VALIDATE_VOTES = _publicPermissionName(_VALIDATE_VOTES)
+
+_MANAGE_LINK_TREE = "manageLinkTree"
+MANAGE_LINK_TREE = _publicPermissionName(_MANAGE_LINK_TREE)
+_VIEW_LINK_METRICS = "viewLinkMetrics"
+VIEW_LINK_METRICS = _publicPermissionName(_VIEW_LINK_METRICS)
+
 class PermissionRights(models.Model):
     class Meta:
         managed = False
@@ -37,5 +41,7 @@ class PermissionRights(models.Model):
             (_VIEW_PUBLISHED_EVENTS, 'Allowed to view published events'),
             (_CREATE_RESOLUTION, 'Allowed to create new resolutions'),
             (_VIEW_RESOLUTIONS, 'Allowed to view the resolutions'),
-            (_VALIDATE_VOTES, 'Allowed to run vote validation')
+            (_VALIDATE_VOTES, 'Allowed to run vote validation'),
+            (_MANAGE_LINK_TREE, 'Allowed to manage link trees, items, and QR codes'),
+            (_VIEW_LINK_METRICS, 'Allowed to view link tree click/scan metrics'),
         )
