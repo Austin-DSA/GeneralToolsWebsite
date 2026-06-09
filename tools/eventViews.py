@@ -13,6 +13,8 @@ from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 
+import settings
+
 from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
 from .forms import NewEventForm, ApproveDelegatedEventForm
@@ -100,17 +102,33 @@ def new_event(request):
         ]
 
         logger.info("PublishEvent: Attempting to publish event")
-        result = EventAutomationDriver.publishEvent(
-            eventInfo=eventInfo,
-            config=EventAutomationDriver.Config(
-                zoomConfig=zoomConfig,
-                anConfig=anConfig,
-                gCalConfig=gCalConfig,
-                ignoreResolveableConflicts=ignoreResolveableConflicts
+        if settings.DEMO_MODE:
+            # The demo box has stubbed Zoom / Action Network / Google credentials
+            # and no Selenium container, so a real publish can only fail. Skip it
+            # and return a placeholder PUBLISHED result so the demo walks the full
+            # happy path (loading -> success page with links) without contacting
+            # any external service or creating a real meeting. The short sleep
+            # makes the loading state visible; the real pipeline takes 15-30s.
+            logger.info("PublishEvent: DEMO_MODE is on, returning a stubbed result without publishing")
+            time.sleep(2)
+            result = EventAutomationDriver.Result(
+                type=EventAutomationDriver.Result.ResultType.PUBLISHED,
+                zoomAccount="events@austindsa.org (demo)" if eventInfo.zoomRequired else "",
+                zoomLink="https://us02web.zoom.us/j/0000000000" if eventInfo.zoomRequired else "",
+                anManageLink="https://actionnetwork.org/events/demo-event/manage",
+                anShareLink="https://actionnetwork.org/events/demo-event",
+                gCalLink="https://calendar.google.com/calendar/u/0/r/eventedit",
             )
-        )
-        # Left around for debugging, useful if you want to test thigns out without having to actuall publish a bunch of stuff
-        # result = EventAutomationDriver.Result(EventAutomationDriver.Result.ResultType.PUBLISHED, anManageLink="manageLink", anShareLink="shareLink", gCalLink="gCalLink", zoomAccount="Account", zoomLink="zoomLink")
+        else:
+            result = EventAutomationDriver.publishEvent(
+                eventInfo=eventInfo,
+                config=EventAutomationDriver.Config(
+                    zoomConfig=zoomConfig,
+                    anConfig=anConfig,
+                    gCalConfig=gCalConfig,
+                    ignoreResolveableConflicts=ignoreResolveableConflicts
+                )
+            )
         if result.type == EventAutomationDriver.Result.ResultType.PUBLISHED:
             # Return success and links back to user
             logger.info(

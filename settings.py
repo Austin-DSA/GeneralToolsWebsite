@@ -26,6 +26,12 @@ BASE_DIR = Path(__file__).resolve().parent
 environ.Env.read_env(BASE_DIR / "dev-env.env")
 env = environ.Env(
     DEBUG=(bool,False),
+    # Demo/dev switch: when on, event publishing returns a placeholder success
+    # instead of contacting Zoom / Action Network / Google Calendar. The Railway
+    # demo box has stubbed credentials and no Selenium container, so a real
+    # publish can only fail there; set DEMO_MODE=1 on that box to show the full
+    # happy path. Leave off (default) in production.
+    DEMO_MODE=(bool,False),
     ALLOWED_HOSTS=(list,[]),
     CSRF_TRUSTED_ORIGINS=(list,[]),
     # Only used for dev/prod, would need to do more work generally to support non-gmail accounts since we are already tied to gCal
@@ -44,6 +50,10 @@ LINK_TRACKING_SALT = env("LINK_TRACKING_SALT", default=SECRET_KEY)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
+
+# When on, event publishing is stubbed (no external services contacted) - see
+# the env() default above and tools/eventViews.py new_event.
+DEMO_MODE = env("DEMO_MODE")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")

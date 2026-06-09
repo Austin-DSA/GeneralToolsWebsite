@@ -13,6 +13,17 @@ window.addEventListener("load", () => {
         if (row) { row.style.display = display; }
       }
     };
+
+    // Publishing runs Zoom, Action Network, and Google Calendar in series on a
+    // plain synchronous POST and can take up to a minute - surface that as a
+    // loading state and guard against a double-submit.
+    const form = document.querySelector("form");
+    const submitButton = form.querySelector('[type="submit"]');
+    form.addEventListener("submit", () => {
+      submitButton.value = "Publishing to Zoom, Action Network, and Google Calendar...";
+      // Disable on the next tick so the button's value still posts with the form.
+      setTimeout(() => { submitButton.disabled = true; }, 0);
+    });
   });
 </script>
 <div class="page-card max-w-2xl">
