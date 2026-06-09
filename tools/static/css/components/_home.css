@@ -1,0 +1,64 @@
+/* Home: the switchboard. A broadsheet-style directory of every tool the
+   user can reach - numbered index rows under thick-ruled domain headers,
+   replacing the old domain-card grid. Also used (single column) on the
+   domain landing pages in place of the old menu-grid tiles. */
+.tool-directory {
+  @apply grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-8 mt-4;
+}
+.tool-directory-section {
+  animation: directoryIn 0.4s ease-out backwards;
+}
+.tool-directory-section:nth-child(2) {
+  animation-delay: 0.07s;
+}
+.tool-directory-section:nth-child(3) {
+  animation-delay: 0.14s;
+}
+@keyframes directoryIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tool-directory-header {
+  @apply flex items-baseline justify-between pt-3;
+  border-top: 3px solid var(--color-dark);
+}
+.tool-directory-domain {
+  @apply text-sm font-semibold uppercase no-underline text-dark hover:text-primary visited:text-dark;
+  letter-spacing: 0.14em;
+}
+.tool-directory-count {
+  @apply text-xs text-secondary;
+}
+.tool-directory-desc {
+  @apply text-sm text-secondary pt-1.5;
+}
+.tool-list {
+  @apply mt-3 list-none p-0;
+}
+.tool-row {
+  @apply flex items-baseline gap-3 py-3 no-underline text-dark hover:text-dark visited:text-dark border-b border-neutral-200;
+}
+.tool-row-index {
+  @apply flex-none w-6 text-sm font-semibold text-primary;
+  font-variant-numeric: tabular-nums;
+}
+.tool-row-body {
+  @apply flex-auto;
+}
+.tool-row-title {
+  @apply block font-semibold transition-colors duration-100;
+}
+.tool-row:hover .tool-row-title {
+  color: var(--color-primary);
+}
+.tool-row-desc {
+  @apply block text-sm text-secondary pt-0.5;
+}
+.tool-row-arrow {
+  @apply flex-none text-primary opacity-0 transition-all duration-150;
+  transform: translateX(-4px);
+}
+.tool-row:hover .tool-row-arrow {
+  @apply opacity-100;
+  transform: translateX(0);
+}

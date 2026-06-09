@@ -1,0 +1,57 @@
+/* PARKED BRANDING: .wordmark-logo, .wordmark-text, and the flex change to
+   .wordmark are in ~/.claude-work/drafts/branding-masthead.patch.
+   When the branding PR is ready, apply those changes BY HAND into this file
+   + base.html (do NOT git stash pop — the context has moved). */
+
+/* Header */
+.header-link {
+  @apply text-white no-underline font-medium hover:text-white hover:underline visited:text-white;
+}
+
+/* Masthead lockup: small chapter eyebrow over the Party Line wordmark
+   (the bat logo to the left stays the chapter's mark) */
+.wordmark {
+  @apply block hover:no-underline;
+}
+.wordmark-eyebrow {
+  @apply block text-[0.62rem] md:text-xs font-semibold uppercase leading-none;
+  letter-spacing: 0.16em;
+  color: rgb(255 255 255 / 0.8);
+}
+.wordmark-name {
+  @apply block text-lg md:text-2xl font-semibold leading-tight;
+}
+
+/* Masthead nav: one permission-filtered link per domain landing page
+   (/events, /link-trees, /access); the active domain stays marked */
+.main-nav {
+  @apply flex items-center gap-1 px-4;
+}
+.main-nav-link {
+  @apply relative px-3 py-2 rounded-md text-base font-medium no-underline whitespace-nowrap;
+  color: rgb(255 255 255 / 0.9);
+}
+.main-nav-link:hover,
+.main-nav-link:visited {
+  @apply text-white;
+}
+.main-nav-link:hover {
+  background-color: rgb(255 255 255 / 0.12);
+}
+.main-nav-link.is-active {
+  @apply text-white font-semibold;
+}
+.main-nav-link.is-active::after {
+  content: "";
+  @apply absolute left-3 right-3 bottom-0.5 h-0.5 rounded-full bg-white;
+}
+.nav-menu-icon {
+  @apply inline-flex items-center justify-center flex-none text-secondary;
+}
+.nav-menu-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+.mobile-menu-item .nav-menu-icon {
+  @apply text-white;
+}

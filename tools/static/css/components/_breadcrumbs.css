@@ -1,0 +1,14 @@
+/* Breadcrumb trail - the site's single navigation convention. Every tool
+   page declares its place in the hierarchy; ad-hoc "back" links are out. */
+.breadcrumbs {
+  @apply flex flex-wrap items-center gap-x-2 text-sm text-secondary pb-4;
+}
+.breadcrumbs a {
+  @apply text-secondary no-underline hover:text-dark hover:underline visited:text-secondary;
+}
+.breadcrumbs .crumb-sep {
+  color: var(--color-gray-med);
+}
+.breadcrumbs [aria-current="page"] {
+  @apply text-dark font-medium;
+}

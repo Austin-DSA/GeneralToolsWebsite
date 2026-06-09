@@ -1,0 +1,65 @@
+/* Masthead domain dropdowns (native <details>, same outside-click close as
+   the user menu): every tool is one click away from any page. The summary
+   reuses .main-nav-link so the active underline keeps working. */
+.nav-menu {
+  @apply relative inline-block;
+}
+.nav-menu summary {
+  @apply cursor-pointer select-none;
+  list-style: none;
+}
+.nav-menu summary::-webkit-details-marker {
+  display: none;
+}
+.nav-menu-caret {
+  /* margin, not padding: the [open] rotation pivots on the border box, and
+     padding inside it would shove the rotated glyph off-center */
+  @apply inline-block ml-1.5 text-xs font-normal transition-transform duration-150;
+}
+.nav-menu[open] .nav-menu-caret {
+  transform: rotate(180deg);
+}
+.nav-menu-panel {
+  @apply absolute left-0 mt-1 w-64 bg-white rounded-lg border border-neutral-200 shadow-lg py-1 z-50;
+  animation: mobileMenuIn 0.16s ease-out;
+}
+.nav-menu-overview {
+  @apply block px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary no-underline border-b border-neutral-100 hover:text-primary visited:text-secondary;
+}
+.nav-menu-link {
+  @apply flex items-center gap-2.5 px-4 py-2 text-sm text-dark no-underline hover:bg-neutral-100 hover:text-dark visited:text-dark;
+  transition: box-shadow 0.1s ease-out;
+}
+.nav-menu-link:hover {
+  box-shadow: inset 2px 0 0 var(--color-primary);
+}
+
+/* User popover menu (native <details>; outside-click close is in base.html) */
+.user-menu {
+  @apply relative inline-block;
+}
+.user-menu summary {
+  @apply text-white font-semibold cursor-pointer select-none;
+  list-style: none;
+}
+.user-menu summary::-webkit-details-marker {
+  display: none;
+}
+.user-menu summary::after {
+  content: "▾";
+  @apply pl-1.5 font-normal;
+}
+.user-menu[open] summary::after {
+  content: "▴";
+}
+.user-menu-panel {
+  @apply absolute right-0 mt-2 w-52 bg-white rounded-lg border border-neutral-200 shadow-lg py-1 z-50;
+}
+.user-menu-header {
+  @apply block px-4 py-2 text-xs text-secondary border-b border-neutral-100;
+}
+.user-menu-item {
+  @apply block w-full text-left px-4 py-2 text-sm text-dark no-underline bg-transparent border-0 cursor-pointer hover:bg-neutral-100 hover:text-dark visited:text-dark;
+  font-family: inherit;
+  font-size: 0.875rem;
+}

@@ -1,0 +1,12 @@
+/* Definition grid for detail pages */
+.detail-grid {
+  @apply grid gap-x-8 gap-y-2 py-2;
+  grid-template-columns: max-content 1fr;
+}
+.detail-grid dt {
+  @apply text-sm font-medium text-secondary pt-0.5;
+}
+.detail-grid dd {
+  @apply m-0 text-dark min-w-0;
+  overflow-wrap: anywhere; /* zoom/AN links and the like can't widen the card */
+}

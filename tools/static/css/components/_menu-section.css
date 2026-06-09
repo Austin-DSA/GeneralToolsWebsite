@@ -1,0 +1,4 @@
+/* Section heading style shared by the access-management category lists */
+.menu-section-title {
+  @apply text-xs font-semibold uppercase tracking-wide text-secondary pt-6 pb-2;
+}

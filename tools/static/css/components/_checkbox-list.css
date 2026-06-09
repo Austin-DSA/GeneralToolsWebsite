@@ -1,0 +1,14 @@
+/* Checkbox grids (Django CheckboxSelectMultiple) on the manage-access page */
+.checkbox-list ul {
+  @apply list-none p-0 m-0 grid gap-1;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.checkbox-list label {
+  @apply flex items-center gap-2 text-dark cursor-pointer py-1;
+}
+.checkbox-list input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--color-primary);
+  @apply cursor-pointer flex-none;
+}

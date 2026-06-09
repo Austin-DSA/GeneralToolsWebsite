@@ -1,0 +1,29 @@
+/* Stat tiles + horizontal bar chart (metrics dashboards) */
+.stat-grid {
+  @apply grid gap-4 py-4;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.stat-card {
+  @apply bg-white rounded-xl border border-neutral-200 shadow-sm px-5 py-4;
+}
+.stat-card-number {
+  @apply block text-3xl font-bold text-dark;
+}
+.stat-card-label {
+  @apply block text-xs font-semibold uppercase tracking-wide text-secondary pt-1;
+}
+.bar-list {
+  @apply flex flex-col gap-1 py-2;
+}
+.bar-row {
+  @apply grid items-center gap-2 text-sm;
+  grid-template-columns: 6rem 1fr 8rem;
+}
+.bar-track {
+  @apply block bg-neutral-100 rounded overflow-hidden;
+  height: 16px;
+}
+.bar-fill {
+  @apply block h-full;
+  background-color: var(--color-primary);
+}
