@@ -20,7 +20,7 @@
               <td data-label="End" class="md:whitespace-nowrap">{{event.getEndLocalizedStr}}</td>
               <td data-label="Creator">{{event.creator.getDisplayName}}</td>
               <td data-label="Approver">{{event.approver.getDisplayName}}</td>
-              <td><a href="{{event.getUrl}}">Details</a></td>
+              <td><a href="{{event.viewerUrl}}">Details</a></td>
           </tr>
       {% empty %}
           <tr><td colspan="7">No delegated events yet.</td></tr>

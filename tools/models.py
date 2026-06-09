@@ -186,8 +186,19 @@ class DelegatedEvents(models.Model):
             return ""
         return self.owner.name
     
-    def getUrl(self) -> str:
-        if self.status == DelegatedEvents.Status.REQUESTED:
+    def canBeApprovedBy(self, user) -> bool:
+        # Mirrors the two gates on approve_delegated_event: the Django
+        # permission plus membership in the owner's authorizers.
+        if self.status != DelegatedEvents.Status.REQUESTED or self.owner is None:
+            return False
+        return (user.has_perm(permissions.APPROVE_DELEGATED_EVENT)
+                and self.owner.authorizers.filter(id=user.id).exists())
+
+    def getUrlFor(self, user) -> str:
+        # Send the viewer to the approve page only if they can actually act on
+        # the request; everyone else gets the read-only detail page (the
+        # approve view rejects them anyway).
+        if self.canBeApprovedBy(user):
             return reverse("approve-delegated-event", kwargs={ "id" :self.id})
         return reverse("delegated-event-detail", kwargs={"pk" : self.id})
 

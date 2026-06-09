@@ -35,6 +35,16 @@ class DelegatedEventListView(LoginRequiredMixin, PermissionRequiredMixin,ListVie
     model = DelegatedEvents
     template_name = "tools/delegated-events/list.html"
 
+    def get_context_data(self, **kwargs):
+        # The approve page layers two checks this list's permission doesn't
+        # imply (APPROVE_DELEGATED_EVENT + owner.authorizers), so pick each
+        # row's link per-viewer: approvers get the approve page, everyone
+        # else the read-only detail page.
+        context = super().get_context_data(**kwargs)
+        for event in context["object_list"]:
+            event.viewerUrl = event.getUrlFor(self.request.user)
+        return context
+
 class PostedEventDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     permission_required = VIEW_PUBLISHED_EVENTS
     model = PostedEvents
