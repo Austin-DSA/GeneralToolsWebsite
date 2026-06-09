@@ -8,6 +8,14 @@ from django.urls import reverse
 from . import permissions
 from . import utils
 
+# Role group that an approved event-owner join adds the member to. It carries
+# the page-level event permissions (the actual publishing capability); the
+# EventOwner's authorizer list scopes which owner they may act for. This
+# name/contents is a sensible default (matches the seed's "Event Publishers"
+# group) pending confirmation of the chapter's real role group.
+EVENT_PUBLISHER_ROLE_GROUP = "Event Publishers"
+
+
 class User(AbstractUser):
     def getUserNameString(self) -> str:
         return f"{self.first_name} {self.last_name} - {self.email}"
@@ -244,10 +252,11 @@ class DelegatedEvents(models.Model):
                          zoomRequired=self.zoomRequired)
 
 
-# A member's request to be added to a group or granted one of the custom
-# tools.* permissions. Mirrors the DelegatedEvents request/approve pattern:
-# the row is the request/audit record, approvers are reached by an emailed
-# review link, and the actual grant happens on approval.
+# A member's request to join an event owner (committee), be added to a group,
+# or be granted one of the custom tools.* permissions. Mirrors the
+# DelegatedEvents request/approve pattern: the row is the request/audit record,
+# approvers are reached by an emailed review link, and the actual grant happens
+# on approval.
 class AccessRequests(models.Model):
     class Status:
         REQUESTED = 0
@@ -259,13 +268,21 @@ class AccessRequests(models.Model):
         related_name="accessRequestsCreated",
     )
 
-    # Exactly one of these is set - see clean().
+    # Exactly one of group / permission / owner is set - see clean().
     group = models.ForeignKey(
         Group, on_delete=models.SET_NULL, blank=True, null=True,
         related_name="accessRequests",
     )
     permission = models.ForeignKey(
         Permission, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequests",
+    )
+    # Applying to join an event owner (committee): approval adds the requester
+    # to owner.authorizers, and the owner's current authorizers are the peer
+    # reviewers (see canBeReviewedBy). SET_NULL so an owner deleted in /admin/
+    # leaves reviewed history intact, exactly like the group/permission targets.
+    owner = models.ForeignKey(
+        EventOwners, on_delete=models.SET_NULL, blank=True, null=True,
         related_name="accessRequests",
     )
 
@@ -292,10 +309,14 @@ class AccessRequests(models.Model):
     def clean(self):
         from django.core.exceptions import ValidationError
 
-        targets = [self.group_id is not None, self.permission_id is not None]
+        targets = [
+            self.group_id is not None,
+            self.permission_id is not None,
+            self.owner_id is not None,
+        ]
         if sum(1 for t in targets if t) != 1:
             raise ValidationError(
-                "An access request must target exactly one thing: a group or a permission."
+                "An access request must target exactly one thing: a group, a permission, or an event owner."
             )
 
     def getStatusAsString(self) -> str:
@@ -323,6 +344,8 @@ class AccessRequests(models.Model):
             return f"Group: {self.group.name}"
         if self.permission is not None:
             return f"Permission: {self.permission.name}"
+        if self.owner is not None:
+            return f"Event Owner: {self.owner.name}"
         return "Unknown target"
 
     def getUrl(self) -> str:
@@ -337,8 +360,9 @@ class AccessRequests(models.Model):
 
     def canBeReviewedBy(self, user) -> bool:
         """Approver rules: admins (superuser or approveAccessRequest holders)
-        can review anything; existing members of the requested group can review
-        requests for their group; nobody reviews their own request."""
+        can review anything; existing members of the requested group - or
+        existing authorizers of the requested event owner - can review requests
+        for that group/owner; nobody reviews their own request."""
         if not user.is_authenticated or not user.is_active:
             return False
         if self.requester is not None and user.id == self.requester_id:
@@ -347,6 +371,8 @@ class AccessRequests(models.Model):
             return True
         if self.group_id is not None:
             return user.groups.filter(id=self.group_id).exists()
+        if self.owner_id is not None:
+            return self.owner.authorizers.filter(id=user.id).exists()
         return False
 
     def grantTo(self, requester) -> None:
@@ -355,6 +381,28 @@ class AccessRequests(models.Model):
             requester.groups.add(self.group)
         elif self.permission is not None:
             requester.user_permissions.add(self.permission)
+        elif self.owner is not None:
+            # Joining a committee scopes the member to this owner (authorizer)
+            # and confers the publishing capability through a managed role group
+            # rather than a stack of individual permission grants - easier to
+            # audit and adjust centrally (the chapter's preferred shape).
+            # Authorizer membership alone is inert; the group carries the
+            # page-level permissions that actually let them publish. (Approving
+            # delegated events additionally needs approveDelegatedEvent; left out
+            # of this bundle pending confirmation of the lead role.)
+            self.owner.authorizers.add(requester)
+            roleGroup, created = Group.objects.get_or_create(name=EVENT_PUBLISHER_ROLE_GROUP)
+            if created:
+                bundle = (
+                    permissions.PUBLISH_EVENT,
+                    permissions.VIEW_PUBLISHED_EVENTS,
+                    permissions.VIEW_DELEGATED_EVENTS,
+                )
+                roleGroup.permissions.add(*Permission.objects.filter(
+                    codename__in=[name.split(".")[1] for name in bundle],
+                    content_type__app_label="tools",
+                ))
+            requester.groups.add(roleGroup)
 
 
 # ---------------------------------------------------------------------------

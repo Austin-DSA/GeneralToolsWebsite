@@ -77,7 +77,7 @@ class AccessRequestsAdmin(admin.ModelAdmin):
     list_display = ("getRequesterName", "getTargetDescription", "getStatusAsString", "dateCreated", "getReviewerName")
     list_filter = ("status", "dateCreated")
     readonly_fields = (
-        "requester", "group", "permission", "justification",
+        "requester", "group", "permission", "owner", "justification",
         "status", "reviewer", "reason", "dateCreated", "dateReviewed",
     )
 

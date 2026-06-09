@@ -331,7 +331,7 @@ class AccessRequestForm(forms.Form):
         TARGET = "target"
         JUSTIFICATION = "justification"
 
-    GROUP_PREFIX = "g"
+    OWNER_PREFIX = "o"
     PERMISSION_PREFIX = "p"
 
     target = forms.ChoiceField(
@@ -347,16 +347,28 @@ class AccessRequestForm(forms.Form):
     def __init__(self, user, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
-        groupChoices = [
-            (f"{self.GROUP_PREFIX}:{group.id}", group.name)
-            for group in Group.objects.order_by("name")
+        # Members apply to join an event owner (committee) - approval adds them
+        # to owner.authorizers, and the owner's current authorizers become the
+        # peer reviewers (mirrors the old group-peer rule). Only owners that can
+        # still receive events are offered (permanent or unexpired); an expired
+        # owner can't approve anything. RBAC groups are assigned by an admin via
+        # Manage Access, not self-requested here.
+        now = datetime.datetime.now(datetime.UTC)
+        activeOwners = (
+            EventOwners.objects
+            .filter(Q(isPermanent=True) | Q(expiration__gt=now))
+            .order_by("name")
+        )
+        ownerChoices = [
+            (f"{self.OWNER_PREFIX}:{owner.id}", owner.name)
+            for owner in activeOwners
         ]
         permissionChoices = [
             (f"{self.PERMISSION_PREFIX}:{permission.id}", permission.name)
             for permission in permissions.getRequestablePermissions()
         ]
         self.fields[self.Keys.TARGET].choices = [
-            ("Groups", groupChoices),
+            ("Event Owners", ownerChoices),
             ("Permissions", permissionChoices),
         ]
 
@@ -366,18 +378,18 @@ class AccessRequestForm(forms.Form):
         if not targetValue:
             return cleanedData
         kind, _, targetId = targetValue.partition(":")
-        group = None
+        owner = None
         permission = None
         # The ChoiceField already validated the value against the rendered
         # choices, but the target may have been deleted since the form loaded
-        if kind == self.GROUP_PREFIX:
-            group = Group.objects.filter(id=targetId).first()
-            if group is None:
+        if kind == self.OWNER_PREFIX:
+            owner = EventOwners.objects.filter(id=targetId).first()
+            if owner is None:
                 raise ValidationError("The selected option is no longer available.")
-            if self.user.groups.filter(id=group.id).exists():
-                raise ValidationError(f"You are already a member of {group.name}.")
+            if owner.authorizers.filter(id=self.user.id).exists():
+                raise ValidationError(f"You can already publish events for {owner.name}.")
             alreadyPending = AccessRequests.objects.filter(
-                requester=self.user, group=group, status=AccessRequests.Status.REQUESTED
+                requester=self.user, owner=owner, status=AccessRequests.Status.REQUESTED
             ).exists()
         else:
             permission = Permission.objects.filter(id=targetId).first()
@@ -390,7 +402,10 @@ class AccessRequestForm(forms.Form):
             ).exists()
         if alreadyPending:
             raise ValidationError("You already have a pending request for this access.")
-        cleanedData["group"] = group
+        # group is no longer self-requestable here, but the view reads all three
+        # keys uniformly when creating the row - keep it present and null.
+        cleanedData["group"] = None
+        cleanedData["owner"] = owner
         cleanedData["permission"] = permission
         return cleanedData
 

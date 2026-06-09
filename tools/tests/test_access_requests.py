@@ -1,3 +1,4 @@
+import datetime
 from unittest import mock
 
 from django.contrib.auth.models import Group
@@ -6,12 +7,15 @@ from django.test import TestCase
 from django.urls import reverse
 
 from tools import permissions
-from tools.models import AccessRequests
+from tools.models import AccessRequests, EventOwners
 
 from tools.tests.support import (
     AccessFixtureMixin, LoginClientMixin, MailAssertionsMixin,
     UserFactory, fastHashing, permission, refetchForPerms,
 )
+
+# isActive() short-circuits on isPermanent, but expiration is a required column.
+FAR_FUTURE = datetime.datetime(2099, 12, 31, tzinfo=datetime.UTC)
 
 
 @fastHashing
@@ -25,6 +29,14 @@ class AccessRequestCreateTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.admin.is_superuser = True
         self.admin.save()
         self.approver = UserFactory.make("approver", perms=("approveAccessRequest",))
+        # Members self-request to JOIN an event owner (committee); approval adds
+        # them to its authorizers, and the owner's current authorizers are the
+        # peer reviewers (this replaced self-requesting Django groups).
+        self.owner = EventOwners.objects.create(
+            name="Political Education", isPermanent=True, expiration=FAR_FUTURE,
+        )
+        self.ownerMember = UserFactory.make("ownermember")
+        self.owner.authorizers.add(self.ownerMember)
 
     def _post(self, target, justification="I work on this campaign."):
         return self.client.post(
@@ -37,66 +49,76 @@ class AccessRequestCreateTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.assertEqual(resp.status_code, 302)
         self.assertIn("/accounts/login/", resp.url)
 
-    def test_group_request_creates_row(self):
+    def test_owner_request_creates_row(self):
         self.loginAs(self.requester)
-        resp = self._post(f"g:{self.group.id}")
+        resp = self._post(f"o:{self.owner.id}")
         self.assertEqual(resp.status_code, 200)
         request = AccessRequests.objects.get()
         self.assertEqual(request.status, AccessRequests.Status.REQUESTED)
         self.assertEqual(request.requester, self.requester)
-        self.assertEqual(request.group, self.group)
+        self.assertEqual(request.owner, self.owner)
+        self.assertIsNone(request.group)
         self.assertIsNone(request.permission)
         self.assertEqual(request.justification, "I work on this campaign.")
         self.assertIsNotNone(request.dateCreated)
         self.assertIsNone(request.dateReviewed)
 
-    def test_group_request_emails_admins_approvers_and_members_once_each(self):
-        # admin is also a group member - must still get exactly one email
-        self.admin.groups.add(self.group)
+    def test_owner_request_emails_admins_approvers_and_authorizers_once_each(self):
+        # admin is also an authorizer - must still get exactly one email
+        self.owner.authorizers.add(self.admin)
         self.loginAs(self.requester)
-        self._post(f"g:{self.group.id}")
+        self._post(f"o:{self.owner.id}")
 
         self.assertEmailedTo(self.admin.email, times=1)
-        self.assertEmailedTo(self.member.email, times=1)
+        self.assertEmailedTo(self.ownerMember.email, times=1)
         self.assertEmailedTo(self.approver.email, times=1)
         # requester gets a confirmation
         self.assertEmailedTo(self.requester.email, times=1)
 
         request = AccessRequests.objects.get()
         reviewPath = reverse("review-access-request", kwargs={"id": request.id})
-        approverMails = [m for m in mail.outbox if self.member.email in m.to]
+        approverMails = [m for m in mail.outbox if self.ownerMember.email in m.to]
         self.assertIn(reviewPath, approverMails[0].body)
 
-    def test_permission_request_does_not_email_plain_group_members(self):
+    def test_permission_request_does_not_email_owner_authorizers(self):
         self.loginAs(self.requester)
         perm = permission("manageLinkTree")
         self._post(f"p:{perm.id}")
 
-        self.assertNotEmailedTo(self.member.email)
+        self.assertNotEmailedTo(self.ownerMember.email)
         self.assertEmailedTo(self.admin.email)
         self.assertEmailedTo(self.approver.email)
 
         request = AccessRequests.objects.get()
         self.assertEqual(request.permission, perm)
+        self.assertIsNone(request.owner)
         self.assertIsNone(request.group)
 
-    def test_existing_member_cannot_request_their_group(self):
-        self.loginAs(self.member)
+    def test_existing_authorizer_cannot_request_their_owner(self):
+        self.loginAs(self.ownerMember)
+        resp = self._post(f"o:{self.owner.id}")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(AccessRequests.objects.count(), 0)
+
+    def test_groups_are_no_longer_self_requestable(self):
+        # EventOwners replaced Django groups on this form; a stale/crafted POST
+        # naming a group is rejected as an invalid choice, creating nothing.
+        self.loginAs(self.requester)
         resp = self._post(f"g:{self.group.id}")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(AccessRequests.objects.count(), 0)
 
     def test_duplicate_pending_request_is_rejected(self):
         self.loginAs(self.requester)
-        self._post(f"g:{self.group.id}")
-        resp = self._post(f"g:{self.group.id}")
+        self._post(f"o:{self.owner.id}")
+        resp = self._post(f"o:{self.owner.id}")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(AccessRequests.objects.count(), 1)
 
     def test_email_failure_does_not_fail_request_creation(self):
         self.loginAs(self.requester)
         with mock.patch("tools.accessViews.send_mail", side_effect=Exception("smtp down")):
-            resp = self._post(f"g:{self.group.id}")
+            resp = self._post(f"o:{self.owner.id}")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(AccessRequests.objects.count(), 1)
 
@@ -180,6 +202,45 @@ class AccessRequestReviewTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.assertIn(self.group, self.requester.groups.all())
         # requester is notified
         self.assertEmailedTo(self.requester.email)
+
+    def test_owner_authorizer_can_approve_owner_request(self):
+        owner = EventOwners.objects.create(
+            name="Political Education", isPermanent=True, expiration=FAR_FUTURE,
+        )
+        authorizer = UserFactory.make("authorizer")
+        owner.authorizers.add(authorizer)
+        ownerRequest = AccessRequests.objects.create(
+            requester=self.requester, owner=owner,
+            justification="want in", status=AccessRequests.Status.REQUESTED,
+        )
+        self.loginAs(authorizer)
+        self.client.post(self._reviewUrl(ownerRequest), {"approve": "YES", "reason": "welcome"})
+        ownerRequest.refresh_from_db()
+        self.assertEqual(ownerRequest.status, AccessRequests.Status.APPROVED)
+        # Approval adds the requester to the owner's authorizers...
+        self.assertIn(self.requester, owner.authorizers.all())
+        # ...and adds them to the Event Publishers role group, which carries the
+        # publish permission - so the join is actually useful (authorizer
+        # membership alone is inert without the page-level permission).
+        self.assertTrue(self.requester.groups.filter(name="Event Publishers").exists())
+        self.assertTrue(refetchForPerms(self.requester).has_perm(permissions.PUBLISH_EVENT))
+        self.assertEmailedTo(self.requester.email)
+
+    def test_non_authorizer_cannot_approve_owner_request(self):
+        owner = EventOwners.objects.create(
+            name="Political Education", isPermanent=True, expiration=FAR_FUTURE,
+        )
+        owner.authorizers.add(UserFactory.make("someauthorizer"))
+        ownerRequest = AccessRequests.objects.create(
+            requester=self.requester, owner=owner,
+            justification="want in", status=AccessRequests.Status.REQUESTED,
+        )
+        # self.member is a group member but NOT an authorizer of this owner
+        self.loginAs(self.member)
+        self.client.post(self._reviewUrl(ownerRequest), {"approve": "YES", "reason": "ok"})
+        ownerRequest.refresh_from_db()
+        self.assertEqual(ownerRequest.status, AccessRequests.Status.REQUESTED)
+        self.assertNotIn(self.requester, owner.authorizers.all())
 
     def test_permission_holder_can_approve_permission_request(self):
         perm = permission("manageLinkTree")

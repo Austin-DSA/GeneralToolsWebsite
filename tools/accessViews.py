@@ -28,8 +28,10 @@ logger = logging.getLogger(__name__)
 
 def _getApproversFor(accessRequest: AccessRequests):
     """Everyone who may act on this request: superusers, holders of
-    approveAccessRequest (directly or via a group), and - for group requests -
-    existing members of the requested group. The requester is excluded."""
+    approveAccessRequest (directly or via a group), for group requests existing
+    members of the requested group, and for event-owner requests the owner's
+    current authorizers. The requester is excluded. Mirrors
+    AccessRequests.canBeReviewedBy - keep the two in sync."""
     approvePermission = Permission.objects.filter(
         codename=permissions.APPROVE_ACCESS_REQUEST.split(".")[1],
         content_type__app_label="tools",
@@ -42,6 +44,9 @@ def _getApproversFor(accessRequest: AccessRequests):
         logger.error("AccessRequests: approveAccessRequest permission row is missing")
     if accessRequest.group is not None:
         query |= Q(groups=accessRequest.group)
+    if accessRequest.owner is not None:
+        # related_name on EventOwners.authorizers is "eventAuthorizations"
+        query |= Q(eventAuthorizations=accessRequest.owner)
     return (
         User.objects.filter(query, is_active=True)
         .exclude(id=accessRequest.requester_id)
@@ -95,9 +100,9 @@ def _sendDecisionEmail(accessRequest: AccessRequests):
 
 @login_required
 def request_access(request):
-    """Any logged-in member may ask for group membership or one of the custom
-    tools.* permissions - no permission required, since fresh self-registered
-    accounts start with none."""
+    """Any logged-in member may ask to join an event owner (committee) or for
+    one of the custom tools.* permissions - no permission required, since fresh
+    self-registered accounts start with none."""
     if request.method == "POST":
         form = AccessRequestForm(request.user, request.POST)
         if not form.is_valid():
@@ -107,6 +112,7 @@ def request_access(request):
             requester=request.user,
             group=form.cleaned_data["group"],
             permission=form.cleaned_data["permission"],
+            owner=form.cleaned_data["owner"],
             justification=form.cleaned_data[AccessRequestForm.Keys.JUSTIFICATION],
             status=AccessRequests.Status.REQUESTED,
         )

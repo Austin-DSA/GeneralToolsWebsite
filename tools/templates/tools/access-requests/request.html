@@ -2,7 +2,7 @@
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Request Access</h1>
-  <p class="page-subtitle">Ask to join a group or to be granted a permission. The people who can approve it will get an email with a link to review your request.</p>
+  <p class="page-subtitle">Ask to join an event owner (a committee or working group), or to be granted a permission. The people who can approve it (an owner's current members, or an admin) will get an email with a link to review your request.</p>
   <form action="" method="post">
     {% csrf_token %}
     {% if form.non_field_errors %}
