@@ -17,7 +17,8 @@
     <meta name="twitter:title" content="{{ tree.title|truncatechars:70 }}" />
     <meta name="twitter:description" content="{% if tree.description %}{{ tree.description|striptags|truncatechars:200 }}{% else %}Austin DSA links{% endif %}" />
     <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/social-card.png' %}" />
-    <link rel="icon" href="{% static 'images/favicon-32.png' %}" />
+    <link rel="icon" href="{% static 'images/favicon-32.png' %}" sizes="32x32" />
+    <link rel="icon" href="{% static 'images/bat-circle-red.svg' %}" type="image/svg+xml" />
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/apple-touch-icon.png' %}" />
     <link rel="stylesheet" href="{% static 'css/output.css' %}" />
     <style>
