@@ -31,9 +31,10 @@
   min-height: 60px; /* grows when the nav wraps to its own row on mobile */
 }
 
-/* The masthead is deliberately markless: the AUSTIN DSA / Party Line lockup
-   carries the brand (the detailed circle seal is unreadable at header size;
-   it still appears full-size on the public link-tree pages and the favicon). */
+/* The masthead carries the bare bat+rose mark (.wordmark-logo, bat-rose.svg)
+   beside the AUSTIN DSA / Party Line lockup. The full circle seal stays off
+   the header - its arched text is unreadable at header size; it appears
+   full-size on the public link-tree pages and the apple-touch icon. */
 
 /* In @layer base so component classes (.header-link, .btn, .tool-row) can
    override it - unlayered rules would always win over layered ones. */

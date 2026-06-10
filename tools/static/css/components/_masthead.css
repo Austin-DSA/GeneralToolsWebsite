@@ -1,17 +1,20 @@
-/* PARKED BRANDING: .wordmark-logo, .wordmark-text, and the flex change to
-   .wordmark are in ~/.claude-work/drafts/branding-masthead.patch.
-   When the branding PR is ready, apply those changes BY HAND into this file
-   + base.html (do NOT git stash pop — the context has moved). */
-
 /* Header */
 .header-link {
   @apply text-white no-underline font-medium hover:text-white hover:underline visited:text-white;
 }
 
-/* Masthead lockup: small chapter eyebrow over the Party Line wordmark
-   (the bat logo to the left stays the chapter's mark) */
+/* Masthead lockup: the bare bat+rose mark (bat-rose.svg, tight viewBox) sits
+   left of the chapter eyebrow + Party Line wordmark, riding directly on the
+   red band - the same treatment as the kit's banner asset. The full circle
+   seal stays off the masthead (its arched text is illegible below ~96px). */
 .wordmark {
-  @apply block hover:no-underline;
+  @apply flex items-center gap-3 hover:no-underline;
+}
+.wordmark-logo {
+  @apply block h-9 w-auto md:h-10 shrink-0;
+}
+.wordmark-text {
+  @apply block;
 }
 .wordmark-eyebrow {
   @apply block text-[0.62rem] md:text-xs font-semibold uppercase leading-none;
