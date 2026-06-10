@@ -27,6 +27,9 @@ class PublicViewTests(TestCase):
         # The button points at the tracked /go/ endpoint, not the raw url.
         self.assertContains(resp, reverse("link-go", kwargs={"item_id": self.item.pk}))
         self.assertNotContains(resp, "https://example.org/join")
+        # Brand regression locks: the dark-bg white seal and the OG card tags.
+        self.assertContains(resp, "circle-seal-chapter-white.png")
+        self.assertContains(resp, "twitter:card")
 
     def test_members_tree_redirects_to_login(self):
         resp = self.client.get(reverse("link-tree", kwargs={"slug": "members"}))
