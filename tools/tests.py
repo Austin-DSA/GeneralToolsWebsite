@@ -1,13 +1,24 @@
 import datetime
+from unittest import mock
 
 from django.core.exceptions import ValidationError
-from django.test import TestCase
+from django.core.management import call_command
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from tools.LinkTree import metrics, tracking
 from tools.LinkTree import WikiLinkResolver
-from tools.models import LinkEvent, LinkTree, LinkTreeItem, QRCode
-from tools.WikiAutomation.OutlineAPI import OutlineAPI, OutlineAPIError, OutlineConfig
+from tools.models import LinkEvent, LinkTree, LinkTreeItem, NotifiedHeldNote, QRCode
+from tools.WikiAutomation import LCNotePublisher
+from tools.WikiAutomation.LCNotePublisher import Outcome, sweep
+from tools.WikiAutomation.OutlineAPI import (
+    OutlineAPI,
+    OutlineAPIError,
+    OutlineConfig,
+    OutlineDocument,
+)
+
 
 
 # --- tracking (privacy-first helpers) --------------------------------------
@@ -340,3 +351,370 @@ class MetricsTests(TestCase):
         rows = {r["tree"].slug: r for r in metrics.overviewRows()}
         self.assertEqual(rows["m"]["web"], 3)
         self.assertEqual(rows["m"]["qr"], 2)
+
+
+# ===========================================================================
+# LC-note auto-publishing (OutlineAPI drafts client / LCNotePublisher driver /
+# publish_lc_notes command)
+#
+# Outline HTTP is never hit: the pure client (OutlineAPI) is exercised by
+# overriding ``_call``, and the driver (LCNotePublisher.sweep) is exercised
+# with a fake api object. The full command is covered by call_command
+# integration tests that patch ``OutlineAPI._call`` and the SMTP helper.
+#
+# Precondition: the test runner boots Django, which imports SecretManager at
+# settings-load. Run under DEBUG=True so the devSecrets stubs satisfy that
+# import.
+# ===========================================================================
+
+KEYWORDS = ["executive session", "confidential"]
+
+
+def makeDoc(docId, title="Untitled", text="", email="author@example.com", authorId="u1", published=False):
+    return OutlineDocument(
+        id=docId,
+        title=title,
+        published=published,
+        authorEmail=email,
+        authorId=authorId,
+        text=text,
+        url=f"/doc/{docId}",
+    )
+
+
+class FakeOutlineAPI:
+    """Stand-in for OutlineAPI used to drive sweep() without HTTP."""
+
+    def __init__(self, drafts, listRaises=False, getDocRaisesFor=None, userEmail=None, fallbackBody="fetched body"):
+        self._drafts = drafts
+        self._listRaises = listRaises
+        self._getDocRaisesFor = getDocRaisesFor or set()
+        self._userEmail = userEmail
+        self._fallbackBody = fallbackBody
+        self.published = []
+        self.userInfoCalls = []
+        self.getDocumentCalls = []
+
+    def listDrafts(self):
+        if self._listRaises:
+            raise OutlineAPIError("documents.drafts", 500, "boom")
+        return list(self._drafts)
+
+    def getDocument(self, documentId):
+        self.getDocumentCalls.append(documentId)
+        if documentId in self._getDocRaisesFor:
+            raise OutlineAPIError("documents.info", 404, "not found")
+        return makeDoc(documentId, text=self._fallbackBody)
+
+    def publishDocument(self, documentId):
+        self.published.append(documentId)
+
+    def getUserEmail(self, userId):
+        self.userInfoCalls.append(userId)
+        return self._userEmail
+
+    def absoluteDocUrl(self, urlPath, documentId):
+        return f"https://wiki.example.org{urlPath or '/doc/' + documentId}"
+
+
+def alwaysFirst(_docId):
+    return True
+
+
+def neverFirst(_docId):
+    return False
+
+
+def recordingNotifier(sink, success=True):
+    def _notify(note):
+        sink.append(note.docId)
+        return success
+    return _notify
+
+
+# --------------------------------------------------------------------------
+# Keyword scan
+# --------------------------------------------------------------------------
+class FindExecSessionHitsTests(SimpleTestCase):
+    def test_matches_case_insensitively(self):
+        self.assertEqual(
+            LCNotePublisher.findExecSessionHits("We entered EXECUTIVE Session now", KEYWORDS),
+            ["executive session"],
+        )
+
+    def test_returns_all_matched_keywords(self):
+        hits = LCNotePublisher.findExecSessionHits("confidential executive session", KEYWORDS)
+        self.assertCountEqual(hits, ["executive session", "confidential"])
+
+    def test_no_match_returns_empty(self):
+        self.assertEqual(LCNotePublisher.findExecSessionHits("ordinary minutes", KEYWORDS), [])
+
+    def test_none_text_is_safe(self):
+        self.assertEqual(LCNotePublisher.findExecSessionHits(None, KEYWORDS), [])
+
+
+# --------------------------------------------------------------------------
+# Driver: sweep() classification
+# --------------------------------------------------------------------------
+class SweepTests(SimpleTestCase):
+    def _sweep(self, api, publishEnabled=True, notifier=None, isFirst=alwaysFirst, titlePattern=r".*"):
+        # Default titlePattern matches every title so these tests exercise
+        # classification in isolation; title filtering has its own test below.
+        return sweep(
+            api=api,
+            titlePattern=titlePattern,
+            keywords=KEYWORDS,
+            publishEnabled=publishEnabled,
+            notifier=notifier or (lambda note: True),
+            isFirstNotification=isFirst,
+        )
+
+    def test_only_drafts_matching_title_pattern_are_processed(self):
+        api = FakeOutlineAPI([
+            makeDoc("m1", title="2026-03-01 LC Minutes", text="ordinary"),
+            makeDoc("x1", title="My grocery list", text="ordinary"),
+        ])
+        result = self._sweep(api, titlePattern=r"lc minutes")
+        # Only the LC Minutes draft is acted on; the unrelated draft is ignored.
+        self.assertEqual([n.docId for n in result.published], ["m1"])
+        self.assertEqual(api.published, ["m1"])
+
+    def test_clean_draft_is_published(self):
+        api = FakeOutlineAPI([makeDoc("d1", text="ordinary minutes")])
+        result = self._sweep(api)
+        self.assertEqual(api.published, ["d1"])
+        self.assertEqual(len(result.published), 1)
+        self.assertEqual(result.published[0].outcome, Outcome.PUBLISHED)
+        self.assertEqual(result.held, [])
+
+    def test_flagged_draft_is_held_and_notified_on_first_detection(self):
+        sink = []
+        api = FakeOutlineAPI([makeDoc("d2", text="motion to enter executive session")])
+        result = self._sweep(api, notifier=recordingNotifier(sink))
+        self.assertEqual(api.published, [])  # never published
+        self.assertEqual(len(result.held), 1)
+        self.assertEqual(result.held[0].matchedKeywords, ["executive session"])
+        self.assertTrue(result.held[0].notificationSent)
+        self.assertEqual(sink, ["d2"])
+
+    def test_flagged_draft_held_but_not_notified_when_not_first(self):
+        sink = []
+        api = FakeOutlineAPI([makeDoc("d2", text="executive session")])
+        result = self._sweep(api, notifier=recordingNotifier(sink), isFirst=neverFirst)
+        self.assertEqual(len(result.held), 1)
+        self.assertFalse(result.held[0].notificationSent)
+        self.assertEqual(sink, [])  # notifier never invoked
+
+    def test_dry_run_publishes_nothing(self):
+        api = FakeOutlineAPI([makeDoc("d1", text="ordinary minutes")])
+        self._sweep(api, publishEnabled=False)
+        self.assertEqual(api.published, [])
+
+    def test_author_email_from_list_skips_users_info(self):
+        api = FakeOutlineAPI([makeDoc("d1", text="minutes", email="known@example.com")])
+        self._sweep(api)
+        self.assertEqual(api.userInfoCalls, [])
+
+    def test_missing_author_email_falls_back_to_users_info(self):
+        api = FakeOutlineAPI(
+            [makeDoc("d1", text="minutes", email=None)], userEmail="resolved@example.com"
+        )
+        result = self._sweep(api)
+        self.assertEqual(api.userInfoCalls, ["u1"])
+        self.assertEqual(result.published[0].authorEmail, "resolved@example.com")
+
+    def test_empty_body_triggers_getDocument_fallback(self):
+        api = FakeOutlineAPI([makeDoc("d1", text="")])
+        self._sweep(api)
+        self.assertEqual(api.getDocumentCalls, ["d1"])
+
+    def test_per_doc_error_does_not_abort_sweep(self):
+        api = FakeOutlineAPI(
+            [makeDoc("bad", text=""), makeDoc("good", text="ordinary minutes")],
+            getDocRaisesFor={"bad"},
+        )
+        result = self._sweep(api)
+        self.assertEqual([n.docId for n in result.errored], ["bad"])
+        self.assertEqual([n.docId for n in result.published], ["good"])
+
+    def test_listing_failure_is_fatal_and_skips_notifications(self):
+        sink = []
+        api = FakeOutlineAPI([], listRaises=True)
+        result = self._sweep(api, notifier=recordingNotifier(sink))
+        self.assertIsNotNone(result.fatalError)
+        self.assertEqual(result.published, [])
+        self.assertEqual(sink, [])
+
+    def test_notifier_failure_marks_notification_not_sent(self):
+        api = FakeOutlineAPI([makeDoc("d2", text="executive session")])
+        result = self._sweep(api, notifier=recordingNotifier([], success=False))
+        self.assertFalse(result.held[0].notificationSent)
+
+    def test_invalid_title_pattern_is_fatal_not_a_crash(self):
+        api = FakeOutlineAPI([makeDoc("d1", text="ordinary minutes")])
+        result = self._sweep(api, titlePattern="[unclosed")  # invalid regex
+        self.assertIsNotNone(result.fatalError)
+        self.assertIn("Invalid", result.fatalError)
+        self.assertEqual(api.published, [])  # nothing acted on
+
+    def test_empty_body_after_fallback_is_handled_safely(self):
+        # getDocument fallback returns a None body; the scan must not crash and
+        # (title being clean) the note is published — only the title was scanned.
+        api = FakeOutlineAPI([makeDoc("d1", title="2026 LC Minutes", text="")], fallbackBody=None)
+        result = self._sweep(api)
+        self.assertEqual(api.getDocumentCalls, ["d1"])
+        self.assertEqual([n.docId for n in result.published], ["d1"])
+
+
+# --------------------------------------------------------------------------
+# Client: listDrafts pagination + payload
+# --------------------------------------------------------------------------
+class ListDraftsTests(SimpleTestCase):
+    def test_uses_drafts_endpoint_drops_published_and_paginates(self):
+        # This instance only surfaces drafts via documents.drafts (documents.list
+        # omits them, statusFilter 500s, and the collectionId filter is ignored
+        # because drafts have no collection). listDrafts takes no collection arg.
+        def draftDoc(i, published=False):
+            doc = {"id": f"p1-{i}", "title": "t", "createdBy": {}}
+            if published:
+                doc["publishedAt"] = "2026-01-01T00:00:00Z"
+            return doc
+
+        page1 = [draftDoc(i) for i in range(100)]
+        page1[0] = draftDoc(0, published=True)  # defensively dropped
+        pages = [
+            {"data": page1},
+            {"data": [draftDoc(0)]},  # one more draft on page 2
+        ]
+        calls = []
+
+        class RecordingAPI(OutlineAPI):
+            def _call(self, method, payload):
+                calls.append((method, payload))
+                return pages[payload["offset"] // 100]
+
+        api = RecordingAPI(OutlineConfig(baseUrl="https://x", apiToken="t"))
+        drafts = api.listDrafts()
+
+        self.assertEqual(calls[0][0], "documents.drafts")
+        self.assertNotIn("statusFilter", calls[0][1])  # unsupported on this instance
+        self.assertNotIn("collectionId", calls[0][1])  # endpoint ignores it; drafts have none
+        self.assertEqual(calls[1][1]["offset"], 100)  # paginated on raw page size
+        # 99 drafts from page 1 (one published dropped) + 1 from page 2 = 100
+        self.assertEqual(len(drafts), 100)
+        self.assertTrue(all(not d.published for d in drafts))
+
+
+# --------------------------------------------------------------------------
+# Model + full command integration
+# --------------------------------------------------------------------------
+class PublishCommandIntegrationTests(TestCase):
+    def setUp(self):
+        # Titles follow the real "<YYYY-MM-DD> LC Minutes" convention so they
+        # match the default title pattern. The grocery-list draft does NOT match
+        # and must be left untouched. createdBy has no email (like the live
+        # drafts endpoint), so the command resolves it via users.info.
+        self.listData = [
+            {"id": "clean1", "title": "2026-03-01 LC Minutes", "text": "ordinary business",
+             "url": "/doc/clean1", "createdBy": {"id": "u1"}},
+            {"id": "held1", "title": "2026-04-01 LC Minutes", "text": "moved into executive session",
+             "url": "/doc/held1", "createdBy": {"id": "u1"}},
+            {"id": "skip1", "title": "Grocery list", "text": "milk, eggs",
+             "url": "/doc/skip1", "createdBy": {"id": "u1"}},
+        ]
+
+    def _fakeCall(self):
+        listData = self.listData
+
+        def _call(_self, method, payload):
+            if method == "documents.drafts":
+                # single page (fewer than the page size)
+                return {"data": listData if payload["offset"] == 0 else []}
+            if method in ("documents.update", "users.info"):
+                return {"data": {}}
+            raise AssertionError(f"unexpected method {method}")
+
+        return _call
+
+    def test_publishes_clean_holds_flagged_and_dedupes_notifications(self):
+        emails = []
+
+        def fakeSend(toAddress, subject, messageText, attachments=None):
+            emails.append((toAddress, subject))
+
+        with mock.patch.object(OutlineAPI, "_call", self._fakeCall()), \
+             mock.patch("tools.management.commands.publish_lc_notes.EmailApi.sendEmailFromWebsiteAccount", side_effect=fakeSend):
+            call_command("publish_lc_notes")
+
+            # held1 recorded exactly once, with a notification
+            self.assertEqual(NotifiedHeldNote.objects.count(), 1)
+            record = NotifiedHeldNote.objects.get(docId="held1")
+            self.assertEqual(record.notifyCount, 1)
+            # The held-note email is the one addressed to the author ("Action needed");
+            # the run-summary email also mentions "held" so filter on the distinctive phrase.
+            held_emails = [e for e in emails if "action needed" in e[1].lower()]
+            self.assertEqual(len(held_emails), 1)
+
+            emails.clear()
+            # Second run within 7 days: held note must NOT be re-notified.
+            call_command("publish_lc_notes")
+            self.assertEqual(NotifiedHeldNote.objects.get(docId="held1").notifyCount, 1)
+            self.assertEqual([e for e in emails if "action needed" in e[1].lower()], [])
+
+    def test_reminder_fires_at_exactly_seven_days(self):
+        def fakeSend(toAddress, subject, messageText, attachments=None):
+            pass
+
+        with mock.patch.object(OutlineAPI, "_call", self._fakeCall()), \
+             mock.patch("tools.management.commands.publish_lc_notes.EmailApi.sendEmailFromWebsiteAccount", side_effect=fakeSend):
+            call_command("publish_lc_notes")
+            # Age to EXACTLY 7 days (update() bypasses auto_now). The next run's
+            # now() is a hair later, so elapsed >= 7d and the reminder fires.
+            NotifiedHeldNote.objects.filter(docId="held1").update(
+                lastNotifiedAt=timezone.now() - datetime.timedelta(days=7)
+            )
+            call_command("publish_lc_notes")
+            self.assertEqual(NotifiedHeldNote.objects.get(docId="held1").notifyCount, 2)
+
+    def test_no_reminder_before_seven_days(self):
+        emails = []
+
+        def fakeSend(toAddress, subject, messageText, attachments=None):
+            emails.append(subject)
+
+        with mock.patch.object(OutlineAPI, "_call", self._fakeCall()), \
+             mock.patch("tools.management.commands.publish_lc_notes.EmailApi.sendEmailFromWebsiteAccount", side_effect=fakeSend):
+            call_command("publish_lc_notes")
+            # Age to 6 days — still inside the weekly window, so no re-notify.
+            NotifiedHeldNote.objects.filter(docId="held1").update(
+                lastNotifiedAt=timezone.now() - datetime.timedelta(days=6)
+            )
+            emails.clear()
+            call_command("publish_lc_notes")
+            self.assertEqual(NotifiedHeldNote.objects.get(docId="held1").notifyCount, 1)
+            self.assertEqual([s for s in emails if "action needed" in s.lower()], [])
+
+    def test_dry_run_publishes_nothing_and_sends_no_email(self):
+        sent = []
+
+        def fakeSend(toAddress, subject, messageText, attachments=None):
+            sent.append(subject)
+
+        updateCalls = []
+        listData = self.listData
+
+        def _call(_self, method, payload):
+            if method == "documents.drafts":
+                return {"data": listData if payload["offset"] == 0 else []}
+            if method == "documents.update":
+                updateCalls.append(payload)
+                return {"data": {}}
+            return {"data": {}}
+
+        with mock.patch.object(OutlineAPI, "_call", _call), \
+             mock.patch("tools.management.commands.publish_lc_notes.EmailApi.sendEmailFromWebsiteAccount", side_effect=fakeSend):
+            call_command("publish_lc_notes", "--dry-run")
+
+        self.assertEqual(updateCalls, [])  # nothing published
+        self.assertEqual(sent, [])  # no emails
+        self.assertEqual(NotifiedHeldNote.objects.count(), 0)
