@@ -8,12 +8,25 @@ from django.urls import reverse
 from . import permissions
 from . import utils
 
-# Role group that an approved event-owner join adds the member to. It carries
-# the page-level event permissions (the actual publishing capability); the
-# EventOwner's authorizer list scopes which owner they may act for. This
-# name/contents is a sensible default (matches the seed's "Event Publishers"
-# group) pending confirmation of the chapter's real role group.
-EVENT_PUBLISHER_ROLE_GROUP = "Event Publishers"
+# Approving a committee (EventOwner) join grants the full event-lead capability
+# through this managed role group. The EventOwner's authorizer list scopes which
+# owner the member may act for; this group carries the page-level event
+# permissions that the scoping is otherwise inert without. The lead bundle is
+# publish + approve delegated events (plus the two list views needed to use them).
+#
+# Garrigan's call (2026-06): bundle committee membership with the lead capability
+# for now, but keep the grant structured as two separable steps (see grantTo) so
+# we can split them later - e.g. if enough non-lead members start joining that
+# membership should stop implying publish/approve rights. To separate, stop
+# granting EVENT_LEAD_ROLE_GROUP on join and grant the narrower publish-only
+# "Event Publishers" group (and "Event Approvers" for approvers) instead.
+EVENT_LEAD_ROLE_GROUP = "Event Leads"
+EVENT_LEAD_PERMISSIONS = (
+    permissions.PUBLISH_EVENT,
+    permissions.VIEW_PUBLISHED_EVENTS,
+    permissions.VIEW_DELEGATED_EVENTS,
+    permissions.APPROVE_DELEGATED_EVENT,
+)
 
 
 class User(AbstractUser):
@@ -382,27 +395,25 @@ class AccessRequests(models.Model):
         elif self.permission is not None:
             requester.user_permissions.add(self.permission)
         elif self.owner is not None:
-            # Joining a committee scopes the member to this owner (authorizer)
-            # and confers the publishing capability through a managed role group
-            # rather than a stack of individual permission grants - easier to
-            # audit and adjust centrally (the chapter's preferred shape).
-            # Authorizer membership alone is inert; the group carries the
-            # page-level permissions that actually let them publish. (Approving
-            # delegated events additionally needs approveDelegatedEvent; left out
-            # of this bundle pending confirmation of the lead role.)
-            self.owner.authorizers.add(requester)
-            roleGroup, created = Group.objects.get_or_create(name=EVENT_PUBLISHER_ROLE_GROUP)
-            if created:
-                bundle = (
-                    permissions.PUBLISH_EVENT,
-                    permissions.VIEW_PUBLISHED_EVENTS,
-                    permissions.VIEW_DELEGATED_EVENTS,
-                )
-                roleGroup.permissions.add(*Permission.objects.filter(
-                    codename__in=[name.split(".")[1] for name in bundle],
-                    content_type__app_label="tools",
-                ))
-            requester.groups.add(roleGroup)
+            # Two deliberately separate steps (Garrigan's bundle-now-separable-later
+            # call): (1) committee membership scopes which owner the member may act
+            # for; (2) the event-lead role group confers the actual page-level
+            # capability. Authorizer membership alone is inert without (2). To stop
+            # bundling, drop step (2) or swap in a narrower role group.
+            self.owner.authorizers.add(requester)        # (1) committee membership
+            self._grantEventLeadRole(requester)          # (2) event-lead capability
+
+    def _grantEventLeadRole(self, requester) -> None:
+        """Add the requester to the managed event-lead role group, creating it
+        with its permission bundle on first use. Kept distinct from the authorizer
+        grant in grantTo so the two can be separated later (see EVENT_LEAD_ROLE_GROUP)."""
+        roleGroup, created = Group.objects.get_or_create(name=EVENT_LEAD_ROLE_GROUP)
+        if created:
+            roleGroup.permissions.add(*Permission.objects.filter(
+                codename__in=[name.split(".")[1] for name in EVENT_LEAD_PERMISSIONS],
+                content_type__app_label="tools",
+            ))
+        requester.groups.add(roleGroup)
 
 
 # ---------------------------------------------------------------------------

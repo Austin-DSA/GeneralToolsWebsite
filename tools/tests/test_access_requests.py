@@ -219,11 +219,14 @@ class AccessRequestReviewTests(AccessFixtureMixin, MailAssertionsMixin, LoginCli
         self.assertEqual(ownerRequest.status, AccessRequests.Status.APPROVED)
         # Approval adds the requester to the owner's authorizers...
         self.assertIn(self.requester, owner.authorizers.all())
-        # ...and adds them to the Event Publishers role group, which carries the
-        # publish permission - so the join is actually useful (authorizer
-        # membership alone is inert without the page-level permission).
-        self.assertTrue(self.requester.groups.filter(name="Event Publishers").exists())
-        self.assertTrue(refetchForPerms(self.requester).has_perm(permissions.PUBLISH_EVENT))
+        # ...and adds them to the Event Leads role group, which carries the full
+        # event-lead capability - publish AND approve delegated events - so the
+        # join is actually useful (authorizer membership alone is inert without
+        # the page-level permissions).
+        self.assertTrue(self.requester.groups.filter(name="Event Leads").exists())
+        leadRequester = refetchForPerms(self.requester)
+        self.assertTrue(leadRequester.has_perm(permissions.PUBLISH_EVENT))
+        self.assertTrue(leadRequester.has_perm(permissions.APPROVE_DELEGATED_EVENT))
         self.assertEmailedTo(self.requester.email)
 
     def test_non_authorizer_cannot_approve_owner_request(self):
