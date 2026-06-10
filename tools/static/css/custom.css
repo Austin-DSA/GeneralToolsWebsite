@@ -39,7 +39,7 @@
    override it - unlayered rules would always win over layered ones. */
 @layer base {
   a {
-    @apply underline text-blue-700 hover:text-blue-900 visited:text-purple-800;
+    @apply underline text-primary-dark hover:text-primary visited:text-primary-dark;
   }
 }
 

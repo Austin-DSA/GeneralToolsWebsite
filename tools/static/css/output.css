@@ -525,14 +525,14 @@
 }
 @layer base {
   a {
-    color: var(--color-blue-700);
+    color: var(--color-primary-dark);
     text-decoration-line: underline;
     &:visited {
-      color: var(--color-purple-800);
+      color: var(--color-primary-dark);
     }
     &:hover {
       @media (hover: hover) {
-        color: var(--color-blue-900);
+        color: var(--color-primary);
       }
     }
   }
