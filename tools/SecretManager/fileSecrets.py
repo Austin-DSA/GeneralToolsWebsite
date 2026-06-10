@@ -16,7 +16,7 @@ class Keys:
     GOOGLE_DELEGATE_ACCOUNT = "GoogleDelegateAccount"
     WEBSITE_EMAIL_ACCOUNT_USERNAME = "WebsiteEmailAccountUsername"
     WEBSITE_EMAIL_ACCOUNT_PASSWORD = "WebsiteEmailAccountPassword"
-    # Outline wiki - Link Tree read-only service account. OPTIONAL (see
+    # Outline wiki — Link Tree read-only service account. OPTIONAL (see
     # OPTIONAL_KEYS): when absent, wiki-backed link items simply stay unresolved
     # and hidden, so the app still boots without these configured.
     OUTLINE_BASE_URL = "OutlineBaseUrl"
@@ -89,11 +89,11 @@ def WebsiteEmailAccountPassword():
 
 
 def OutlineBaseUrl():
-    # Optional - None when not configured (see OPTIONAL_KEYS).
+    # Optional — None when not configured (see OPTIONAL_KEYS).
     return secretObject.get(Keys.OUTLINE_BASE_URL)
 
 
 def OutlineReadApiToken():
-    # Optional - None when not configured (see OPTIONAL_KEYS).
+    # Optional — None when not configured (see OPTIONAL_KEYS).
     return secretObject.get(Keys.OUTLINE_READ_API_TOKEN)
 
