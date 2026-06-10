@@ -3,15 +3,15 @@
 Reproduces the chapter's current third-party Linktree pages so the self-hosted
 version is usable out of the box:
 
-  * "links"   (PUBLIC)  ← linktr.ee/austindsa  - events, media, donate, socials
-  * "members" (MEMBERS) ← linktr.ee/redtails   - agenda / resolutions / helpful
+  * "links"   (PUBLIC)  ← linktr.ee/austindsa  — events, media, donate, socials
+  * "members" (MEMBERS) ← linktr.ee/redtails   — agenda / resolutions / helpful
                                                   links, grouped under headers
 
 Notes on the mapping:
   * The redtails tree's many ``wiki.austindsa.org/s/...`` links are *share* URLs,
     so they're seeded as MANUAL links (their current form). Two WIKI
     "latest matching" items are added to demonstrate auto-surfacing the newest
-    GBM / Convention agenda - those resolve once the Outline read token is
+    GBM / Convention agenda — those resolve once the Outline read token is
     configured and `sync_link_tree_wiki` runs (until then they're hidden, not
     dead).
   * Social accounts are seeded as ordinary links under a "Follow us" header.
@@ -57,7 +57,7 @@ EXTERNAL = {
 
 INTERNAL = {
     "slug": "members",
-    "title": "Austin DSA - Members",
+    "title": "Austin DSA — Members",
     "description": "Meeting agendas, resolutions, and member resources.",
     "visibility": LinkTree.Visibility.MEMBERS,
     "items": [
@@ -82,8 +82,8 @@ INTERNAL = {
         (M, "", "Member handbook", "https://docs.google.com/document/d/1AXxW0qKopSrMcaDLafPlukg4hTAz8-uLo_hdf6vijno/edit?usp=sharing"),
         (M, "", "Robert's Rules", "https://roberts.chicagodsa.org/"),
         (M, "", "Join DSA!", "http://dsausa.org/join"),
-        (M, "", "Switch to Solidarity Dues - Give Your 1% for the 99%!", "https://act.dsausa.org/donate/ibd_campaign"),
-        (M, "", "Pete Seeger - Solidarity Forever (Lyrics)", "https://wiki.austindsa.org/s/b4b09117-c1ba-44de-8254-c892069dd368"),
+        (M, "", "Switch to Solidarity Dues — Give Your 1% for the 99%!", "https://act.dsausa.org/donate/ibd_campaign"),
+        (M, "", "Pete Seeger – Solidarity Forever (Lyrics)", "https://wiki.austindsa.org/s/b4b09117-c1ba-44de-8254-c892069dd368"),
         (M, "", "DSA 2024 Program: Workers Deserve More", "http://2024.dsausa.org"),
     ],
 }
