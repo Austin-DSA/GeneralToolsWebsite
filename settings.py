@@ -58,6 +58,13 @@ DEMO_MODE = env("DEMO_MODE")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
+# Every fronting proxy this app runs behind (nginx-conf/*.conf, Railway's edge)
+# terminates TLS and sets X-Forwarded-Proto, so trust it - otherwise
+# request.scheme reports "http" and absolute URLs built from the request
+# (og:image, og:url) advertise the wrong scheme. Plain runserver sends no
+# header and falls back to the actual scheme.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 AUTH_USER_MODEL = "tools.user"
 
 # Without this a direct login (no ?next=) bounces to Django's default
