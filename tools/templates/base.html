@@ -3,20 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}Party Line - Austin DSA{% endblock title %}</title>
+    <title>{% block title %}Echo - Austin DSA{% endblock title %}</title>
     {% load static %}
     {% load navigation_tags %}
     <!-- Favicon/OG block mirrors tree.html - update both on asset rename -->
     <!-- theme-color mirrors --color-primary in custom.css -->
     <meta name="theme-color" content="#ec1f27" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Party Line" />
-    <meta property="og:title" content="Party Line - Austin DSA" />
+    <meta property="og:site_name" content="Echo" />
+    <meta property="og:title" content="Echo - Austin DSA" />
     <meta property="og:description" content="Austin DSA event and member tools" />
     <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/social-card.png' %}" />
     <meta property="og:url" content="{{ request.build_absolute_uri }}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Party Line - Austin DSA" />
+    <meta name="twitter:title" content="Echo - Austin DSA" />
     <meta name="twitter:description" content="Austin DSA event and member tools" />
     <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/social-card.png' %}" />
     <link rel="icon" href="{% static 'images/favicon-32.png' %}" sizes="32x32" />
@@ -38,7 +38,7 @@
               <img class="wordmark-logo" src="{% static 'images/bat-rose.svg' %}" alt="" aria-hidden="true" />
               <span class="wordmark-text">
                 <span class="wordmark-eyebrow">Austin DSA</span>
-                <span class="wordmark-name">Party Line</span>
+                <span class="wordmark-name">Echo</span>
               </span>
             </a>
           </h1>
