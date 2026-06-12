@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-event-owners' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Event Owners" parentUrl=parentToolUrl currentLabel=owner.name %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-3xl">
+  <h1 class="page-title">{{ owner.name }}</h1>
+  <p class="page-subtitle">{{ ownerAuthorizerCount }} authorizer{{ ownerAuthorizerCount|pluralize }} · requests filed here need one of them to approve.</p>
+
+  {% if ownerEditSaved %}
+  <div class="alert alert-success">Owner updated.</div>
+  {% endif %}
+  {% if not ownerAuthorizerCount %}
+  <div class="alert alert-error">No one can approve requests for this owner. Add at least one authorizer below.</div>
+  {% endif %}
+  {% if not ownerIsActive %}
+  <div class="alert alert-warning">This owner has expired and can no longer receive event requests. Extend the expiration or mark it permanent to reactivate it.</div>
+  {% endif %}
+
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-row max-w-sm">
+      <label for="{{ form.ownerName.id_for_label }}">{{ form.ownerName.label }}</label>
+      {{ form.ownerName }}
+      {% if form.ownerName.errors %}<div class="form-errors">{{ form.ownerName.errors }}</div>{% endif %}
+    </div>
+
+    <h2 class="section-title">Expiration</h2>
+    <div class="form-row form-row-checkbox">
+      <label for="{{ form.ownerIsPermanent.id_for_label }}">{{ form.ownerIsPermanent }}<span>{{ form.ownerIsPermanent.label }}</span></label>
+      {% if form.ownerIsPermanent.errors %}<div class="form-errors">{{ form.ownerIsPermanent.errors }}</div>{% endif %}
+    </div>
+    <div class="form-row max-w-sm">
+      <label for="{{ form.ownerExpiration.id_for_label }}">{{ form.ownerExpiration.label }}</label>
+      {{ form.ownerExpiration }}
+      <div class="form-help">{{ form.ownerExpiration.help_text }}</div>
+      {% if form.ownerExpiration.errors %}<div class="form-errors">{{ form.ownerExpiration.errors }}</div>{% endif %}
+    </div>
+
+    <div>
+      <h2 class="section-title">Authorizers ({{ ownerAuthorizerCount }})</h2>
+      <p class="form-help pb-2">Anyone here can approve requests filed against this owner. Typing filters the current roster and suggests people who aren't authorizers yet. Changes apply when you save.</p>
+      <input type="search" id="authorizer-search" class="form-field max-w-xl" placeholder="Search members by name, username, or email…"
+             autocomplete="off" data-endpoint="{% url 'manage-event-owner-authorizer-search' owner.id %}" />
+      <div id="authorizer-search-results" class="search-results" hidden></div>
+      <div id="staged-adds" class="choice-list pt-2"></div>
+      <div class="choice-list pt-2">
+        {% for row in ownerAuthorizerRows %}
+        <div class="member-row" data-member-id="{{ row.user.id }}"
+             data-filter-text="{{ row.user.username|lower }} {{ row.user.first_name|lower }} {{ row.user.last_name|lower }} {{ row.user.email|lower }}">
+          <span class="choice-card-body">
+            <span class="choice-card-title">{{ row.user.username }}</span>
+            <span class="choice-card-desc">{{ row.user.first_name }} {{ row.user.last_name }} · {{ row.user.email }}</span>
+          </span>
+          <button type="button" class="btn btn-secondary btn-small" data-remove-authorizer>Remove</button>
+        </div>
+        {% empty %}
+        <p class="form-help" id="empty-roster-note">No authorizers yet - search above to add the first one.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <input type="submit" value="Save owner" class="btn btn-primary" />
+      <a href="{% url 'manage-event-owners' %}" class="btn btn-secondary">Cancel</a>
+      <span class="pending-note" id="pending-note" hidden></span>
+    </div>
+  </form>
+
+  {% if ownerStuckRequests %}
+  <h2 class="section-title">Stuck requests ({{ ownerStuckRequests|length }})</h2>
+  <p class="form-help pb-3">These requests can't be approved while the owner is expired or has no authorizers. Fix the owner above, or cancel them - the requester is emailed either way.</p>
+  <table class="data-table">
+    <tr>
+      <th>Event</th>
+      <th>Requester</th>
+      <th>Requested</th>
+      <th>Cancel</th>
+    </tr>
+    {% for event in ownerStuckRequests %}
+    <tr class="row-attention">
+      <td class="md:whitespace-nowrap"><b>{{ event.title }}</b></td>
+      <td data-label="Requester">{{ event.creator.getDisplayName }}</td>
+      <td data-label="Requested" class="md:whitespace-nowrap">{{ event.dateCreated|date:"M j, Y" }}</td>
+      <td>
+        <form action="{% url 'cancel-stuck-delegated-event' owner.id event.id %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-small">Cancel request</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+</div>
+
+{% include "tools/event-owners/_expiration_toggle.html" %}
+
+<script>
+  // Search-to-add: query the server for non-authorizers as you type; picked
+  // members are staged as hidden addAuthorizers inputs until Save. DOM nodes
+  // are built with textContent, never innerHTML, since names/emails are user
+  // data. (Copied from manage-group.html's member search - the house pattern
+  // for assigning users to a thing; the hidden-input names differ, so the
+  // block is duplicated per page rather than abstracted across domains.)
+  const searchInput = document.getElementById("authorizer-search");
+  const resultsPanel = document.getElementById("authorizer-search-results");
+  const stagedAdds = document.getElementById("staged-adds");
+  let searchTimer = null;
+
+  function updatePendingNote() {
+    const adds = stagedAdds.querySelectorAll('input[name="addAuthorizers"]').length;
+    const removes = document.querySelectorAll('input[name="removeAuthorizers"]').length;
+    const note = document.getElementById("pending-note");
+    note.hidden = !(adds || removes);
+    note.textContent = `Pending: ${adds} addition${adds === 1 ? "" : "s"}, ${removes} removal${removes === 1 ? "" : "s"}`;
+    // The server-rendered "No authorizers yet" note describes the saved
+    // roster - hide it while additions are staged so it does not contradict
+    // the staged rows above it.
+    const emptyRosterNote = document.getElementById("empty-roster-note");
+    if (emptyRosterNote) { emptyRosterNote.hidden = adds > 0; }
+  }
+
+  function authorizerBody(user) {
+    const body = document.createElement("span");
+    body.className = "choice-card-body";
+    const title = document.createElement("span");
+    title.className = "choice-card-title";
+    title.textContent = user.username;
+    const desc = document.createElement("span");
+    desc.className = "choice-card-desc";
+    desc.textContent = [user.fullName, user.email].filter(Boolean).join(" · ");
+    body.appendChild(title);
+    body.appendChild(desc);
+    return body;
+  }
+
+  function stageAdd(user) {
+    const row = document.createElement("div");
+    row.className = "member-row staged-add";
+    const hidden = document.createElement("input");
+    hidden.type = "hidden";
+    hidden.name = "addAuthorizers";
+    hidden.value = user.id;
+    const undoButton = document.createElement("button");
+    undoButton.type = "button";
+    undoButton.className = "btn btn-secondary btn-small";
+    undoButton.textContent = "Undo";
+    undoButton.addEventListener("click", () => { row.remove(); updatePendingNote(); });
+    row.appendChild(hidden);
+    row.appendChild(authorizerBody(user));
+    row.appendChild(undoButton);
+    stagedAdds.appendChild(row);
+    resultsPanel.hidden = true;
+    searchInput.value = "";
+    updatePendingNote();
+  }
+
+  function renderResults(users) {
+    resultsPanel.textContent = "";
+    const staged = new Set(
+      [...stagedAdds.querySelectorAll('input[name="addAuthorizers"]')].map((input) => input.value)
+    );
+    const fresh = users.filter((user) => !staged.has(String(user.id)));
+    if (fresh.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "search-result-empty";
+      empty.textContent = "No matching members found.";
+      resultsPanel.appendChild(empty);
+    }
+    fresh.forEach((user) => {
+      const row = document.createElement("div");
+      row.className = "search-result-row";
+      const addButton = document.createElement("button");
+      addButton.type = "button";
+      addButton.className = "btn btn-secondary btn-small";
+      addButton.textContent = "Add";
+      addButton.addEventListener("click", () => stageAdd(user));
+      row.appendChild(authorizerBody(user));
+      row.appendChild(addButton);
+      resultsPanel.appendChild(row);
+    });
+    resultsPanel.hidden = false;
+  }
+
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const query = searchInput.value.trim();
+    // Local half: narrow the existing roster immediately (staged-add rows
+    // carry no data-filter-text, so they always stay visible)
+    document.querySelectorAll(".member-row[data-filter-text]").forEach((row) => {
+      row.hidden = query && !row.dataset.filterText.includes(query.toLowerCase());
+    });
+    // Remote half: suggest people who aren't authorizers yet
+    if (query.length < 2) {
+      resultsPanel.hidden = true;
+      return;
+    }
+    searchTimer = setTimeout(async () => {
+      const resp = await fetch(searchInput.dataset.endpoint + "?q=" + encodeURIComponent(query));
+      if (!resp.ok) return;
+      renderResults((await resp.json()).results);
+    }, 250);
+  });
+
+  // Remove/undo on existing authorizers: staging a removal adds a hidden
+  // removeAuthorizers input and strikes the row through until Save.
+  document.querySelectorAll("[data-remove-authorizer]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest(".member-row");
+      const existing = row.querySelector('input[name="removeAuthorizers"]');
+      if (existing) {
+        existing.remove();
+        row.classList.remove("staged-removed");
+        button.textContent = "Remove";
+      } else {
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "removeAuthorizers";
+        hidden.value = row.dataset.memberId;
+        row.appendChild(hidden);
+        row.classList.add("staged-removed");
+        button.textContent = "Undo";
+      }
+      updatePendingNote();
+    });
+  });
+</script>
+{% endblock page_content %}

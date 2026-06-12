@@ -1,0 +1,60 @@
+/* Header */
+.header-link {
+  @apply text-white no-underline font-medium hover:text-white hover:underline visited:text-white;
+}
+
+/* Masthead lockup: the bare bat+rose mark (bat-rose.svg, tight viewBox) sits
+   left of the chapter eyebrow + Echo wordmark, riding directly on the
+   red band - the same treatment as the kit's banner asset. The full circle
+   seal stays off the masthead (its arched text is illegible below ~96px). */
+.wordmark {
+  @apply flex items-center gap-3 hover:no-underline;
+}
+.wordmark-logo {
+  @apply block h-9 w-auto md:h-10 shrink-0;
+}
+.wordmark-text {
+  @apply block;
+}
+.wordmark-eyebrow {
+  @apply block text-[0.62rem] md:text-xs font-semibold uppercase leading-none;
+  letter-spacing: 0.16em;
+  color: rgb(255 255 255 / 0.8);
+}
+.wordmark-name {
+  @apply block text-lg md:text-2xl font-semibold leading-tight;
+}
+
+/* Masthead nav: one permission-filtered link per domain landing page
+   (/events, /link-trees, /access); the active domain stays marked */
+.main-nav {
+  @apply flex items-center gap-1 px-4;
+}
+.main-nav-link {
+  @apply relative px-3 py-2 rounded-md text-base font-medium no-underline whitespace-nowrap;
+  color: rgb(255 255 255 / 0.9);
+}
+.main-nav-link:hover,
+.main-nav-link:visited {
+  @apply text-white;
+}
+.main-nav-link:hover {
+  background-color: rgb(255 255 255 / 0.12);
+}
+.main-nav-link.is-active {
+  @apply text-white font-semibold;
+}
+.main-nav-link.is-active::after {
+  content: "";
+  @apply absolute left-3 right-3 bottom-0.5 h-0.5 rounded-full bg-white;
+}
+.nav-menu-icon {
+  @apply inline-flex items-center justify-center flex-none text-secondary;
+}
+.nav-menu-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+.mobile-menu-item .nav-menu-icon {
+  @apply text-white;
+}

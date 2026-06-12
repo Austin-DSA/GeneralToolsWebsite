@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-groups' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Groups" parentUrl=parentToolUrl currentLabel=group.name %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-3xl">
+  <h1 class="page-title">{{ group.name }}</h1>
+  <p class="page-subtitle">{{ activeMemberCount }} member{{ activeMemberCount|pluralize }} · changes here affect every member at once.</p>
+
+  {% if saved %}
+  <div class="alert alert-success">Group updated.</div>
+  {% endif %}
+
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-row max-w-sm">
+      <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+      {{ form.name }}
+      {% if form.name.errors %}<div class="form-errors">{{ form.name.errors }}</div>{% endif %}
+    </div>
+
+    <h2 class="section-title">Permissions this group grants</h2>
+    <p class="form-help pb-2">Every member holds these. Unchecking one removes it from all {{ activeMemberCount }} member{{ activeMemberCount|pluralize }} at once.</p>
+    <input type="search" id="access-filter" class="form-field max-w-sm mb-2" placeholder="Filter permissions…" autocomplete="off" />
+
+    {% for section in permissionSections %}
+    <div data-filter-section>
+      <h3 class="menu-section-title">{{ section.title }}</h3>
+      <div class="choice-list">
+        {% for row in section.rows %}
+        <label class="choice-card" data-filter-text="{{ row.shortLabel|lower }}">
+          <input type="checkbox" name="permissions" value="{{ row.permission.id }}" {% if row.checked %}checked{% endif %} />
+          <span class="choice-card-body">
+            <span class="choice-card-title">{{ row.shortLabel }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div>
+      <h2 class="section-title">Members ({{ activeMemberCount }})</h2>
+      <p class="form-help pb-2">Typing filters the current roster and suggests people who aren't in the group yet. Changes apply when you save.</p>
+      <input type="search" id="member-search" class="form-field max-w-xl" placeholder="Search members by name, username, or email…"
+             autocomplete="off" data-endpoint="{% url 'manage-group-member-search' group.id %}" />
+      <div id="member-search-results" class="search-results" hidden></div>
+      <div id="staged-adds" class="choice-list pt-2"></div>
+      <div class="choice-list pt-2">
+        {% for row in memberRows %}
+        <div class="member-row" data-member-id="{{ row.user.id }}"
+             data-filter-text="{{ row.user.username|lower }} {{ row.user.first_name|lower }} {{ row.user.last_name|lower }} {{ row.user.email|lower }}">
+          <span class="choice-card-body">
+            <span class="choice-card-title">{{ row.user.username }}</span>
+            <span class="choice-card-desc">{{ row.user.first_name }} {{ row.user.last_name }} · {{ row.user.email }}</span>
+          </span>
+          <button type="button" class="btn btn-secondary btn-small" data-remove-member>Remove</button>
+        </div>
+        {% empty %}
+        <p class="form-help" id="empty-roster-note">No members yet - search above to add the first one.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <input type="submit" value="Save group" class="btn btn-primary" />
+      <a href="{% url 'manage-groups' %}" class="btn btn-secondary">Cancel</a>
+      <span class="pending-note" id="pending-note" hidden></span>
+    </div>
+  </form>
+
+  <div class="mt-8 rounded-lg border border-danger/40 p-4">
+    <h2 class="text-base font-semibold text-danger pb-1">Delete this group</h2>
+    <p class="form-help pb-3">Removes the group from all {{ activeMemberCount }} member{{ activeMemberCount|pluralize }} and denies any pending requests for it. This cannot be undone.</p>
+    <form action="{% url 'manage-group-delete' group.id %}" method="post" class="flex items-center gap-3 flex-wrap">
+      {% csrf_token %}
+      <input type="text" name="confirmName" id="confirm-name" class="form-field max-w-xs"
+             placeholder="Type “{{ group.name }}” to confirm" data-expected="{{ group.name }}" autocomplete="off" />
+      <button type="submit" id="delete-button" class="btn btn-danger" disabled>Delete group</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Text filter across permissions and members; section headings hide when
+  // nothing under them matches.
+  document.getElementById("access-filter").addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    document.querySelectorAll("[data-filter-section]").forEach((section) => {
+      let anyVisible = false;
+      section.querySelectorAll("[data-filter-text]").forEach((card) => {
+        const show = !query || card.dataset.filterText.includes(query);
+        card.hidden = !show;
+        if (show) anyVisible = true;
+      });
+      section.hidden = !anyVisible;
+    });
+  });
+
+  // Delete stays disabled until the group name is typed back exactly.
+  const confirmInput = document.getElementById("confirm-name");
+  const deleteButton = document.getElementById("delete-button");
+  confirmInput.addEventListener("input", () => {
+    deleteButton.disabled = confirmInput.value.trim() !== confirmInput.dataset.expected;
+  });
+
+  // Search-to-add: query the server for non-members as you type; picked
+  // members are staged as hidden addMembers inputs until Save. DOM nodes are
+  // built with textContent, never innerHTML, since names/emails are user data.
+  const searchInput = document.getElementById("member-search");
+  const resultsPanel = document.getElementById("member-search-results");
+  const stagedAdds = document.getElementById("staged-adds");
+  let searchTimer = null;
+
+  function updatePendingNote() {
+    const adds = stagedAdds.querySelectorAll('input[name="addMembers"]').length;
+    const removes = document.querySelectorAll('input[name="removeMembers"]').length;
+    const note = document.getElementById("pending-note");
+    note.hidden = !(adds || removes);
+    note.textContent = `Pending: ${adds} addition${adds === 1 ? "" : "s"}, ${removes} removal${removes === 1 ? "" : "s"}`;
+  }
+
+  function memberBody(user) {
+    const body = document.createElement("span");
+    body.className = "choice-card-body";
+    const title = document.createElement("span");
+    title.className = "choice-card-title";
+    title.textContent = user.username;
+    const desc = document.createElement("span");
+    desc.className = "choice-card-desc";
+    desc.textContent = [user.fullName, user.email].filter(Boolean).join(" · ");
+    body.appendChild(title);
+    body.appendChild(desc);
+    return body;
+  }
+
+  function stageAdd(user) {
+    const row = document.createElement("div");
+    row.className = "member-row staged-add";
+    const hidden = document.createElement("input");
+    hidden.type = "hidden";
+    hidden.name = "addMembers";
+    hidden.value = user.id;
+    const undoButton = document.createElement("button");
+    undoButton.type = "button";
+    undoButton.className = "btn btn-secondary btn-small";
+    undoButton.textContent = "Undo";
+    undoButton.addEventListener("click", () => { row.remove(); updatePendingNote(); });
+    row.appendChild(hidden);
+    row.appendChild(memberBody(user));
+    row.appendChild(undoButton);
+    stagedAdds.appendChild(row);
+    resultsPanel.hidden = true;
+    searchInput.value = "";
+    updatePendingNote();
+  }
+
+  function renderResults(users) {
+    resultsPanel.textContent = "";
+    const staged = new Set(
+      [...stagedAdds.querySelectorAll('input[name="addMembers"]')].map((input) => input.value)
+    );
+    const fresh = users.filter((user) => !staged.has(String(user.id)));
+    if (fresh.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "search-result-empty";
+      empty.textContent = "No matching members found.";
+      resultsPanel.appendChild(empty);
+    }
+    fresh.forEach((user) => {
+      const row = document.createElement("div");
+      row.className = "search-result-row";
+      const addButton = document.createElement("button");
+      addButton.type = "button";
+      addButton.className = "btn btn-secondary btn-small";
+      addButton.textContent = "Add";
+      addButton.addEventListener("click", () => stageAdd(user));
+      row.appendChild(memberBody(user));
+      row.appendChild(addButton);
+      resultsPanel.appendChild(row);
+    });
+    resultsPanel.hidden = false;
+  }
+
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const query = searchInput.value.trim();
+    // Local half: narrow the existing roster immediately (staged-add rows
+    // carry no data-filter-text, so they always stay visible)
+    document.querySelectorAll(".member-row[data-filter-text]").forEach((row) => {
+      row.hidden = query && !row.dataset.filterText.includes(query.toLowerCase());
+    });
+    // Remote half: suggest people who aren't in the group yet
+    if (query.length < 2) {
+      resultsPanel.hidden = true;
+      return;
+    }
+    searchTimer = setTimeout(async () => {
+      const resp = await fetch(searchInput.dataset.endpoint + "?q=" + encodeURIComponent(query));
+      if (!resp.ok) return;
+      renderResults((await resp.json()).results);
+    }, 250);
+  });
+
+  // Remove/undo on existing members: staging a removal adds a hidden
+  // removeMembers input and strikes the row through until Save.
+  document.querySelectorAll("[data-remove-member]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const row = button.closest(".member-row");
+      const existing = row.querySelector('input[name="removeMembers"]');
+      if (existing) {
+        existing.remove();
+        row.classList.remove("staged-removed");
+        button.textContent = "Remove";
+      } else {
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "removeMembers";
+        hidden.value = row.dataset.memberId;
+        row.appendChild(hidden);
+        row.classList.add("staged-removed");
+        button.textContent = "Undo";
+      }
+      updatePendingNote();
+    });
+  });
+</script>
+{% endblock page_content %}

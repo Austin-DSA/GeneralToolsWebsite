@@ -5,6 +5,21 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ tree.title }}</title>
+    <!-- Favicon/OG block mirrors base.html - update both on asset rename -->
+    <!-- theme-color mirrors --color-primary in custom.css -->
+    <meta name="theme-color" content="#ec1f27" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{{ tree.title|truncatechars:70 }}" />
+    <meta property="og:description" content="{% if tree.description %}{{ tree.description|striptags|truncatechars:200 }}{% else %}Austin DSA links{% endif %}" />
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/social-card.png' %}" />
+    <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ tree.title|truncatechars:70 }}" />
+    <meta name="twitter:description" content="{% if tree.description %}{{ tree.description|striptags|truncatechars:200 }}{% else %}Austin DSA links{% endif %}" />
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/social-card.png' %}" />
+    <link rel="icon" href="{% static 'images/favicon-32.png' %}" sizes="32x32" />
+    <link rel="icon" href="{% static 'images/bat-circle-red.svg' %}" type="image/svg+xml" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/apple-touch-icon.png' %}" />
     <link rel="stylesheet" href="{% static 'css/output.css' %}" />
     <style>
       /* Self-contained so the public page renders correctly even if the
@@ -24,7 +39,7 @@
       .lt-wrap { width: 100%; max-width: 560px; padding: 32px 18px 56px; text-align: center; }
       .lt-logo { width: 96px; height: 96px; border-radius: 50%; margin: 8px auto 16px; display: block; }
       .lt-title { font-size: 1.6rem; margin: 0 0 6px; }
-      .lt-desc { color: #d8d4d4; margin: 0 auto 28px; max-width: 42ch; line-height: 1.4; }
+      .lt-desc { color: #c1c0bf; margin: 0 auto 28px; max-width: 42ch; line-height: 1.4; }
       .lt-links { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; }
       .lt-link {
         display: block;
@@ -42,16 +57,16 @@
       .lt-link .lt-sub { display: block; font-weight: 400; font-size: .85rem; color: #605c5c; margin-top: 3px; }
       .lt-icon { margin-right: 8px; }
       .lt-header { text-align: left; font-size: .82rem; font-weight: 700; letter-spacing: .06em;
-        text-transform: uppercase; color: #d8d4d4; margin: 18px 4px 2px; padding-top: 6px;
-        border-bottom: 1px solid #4a4646; }
-      .lt-empty { color: #d8d4d4; margin-top: 40px; }
+        text-transform: uppercase; color: #c1c0bf; margin: 18px 4px 2px; padding-top: 6px;
+        border-bottom: 1px solid #8c8989; }
+      .lt-empty { color: #c1c0bf; margin-top: 40px; }
       .lt-footer { margin-top: 40px; font-size: .8rem; color: #8c8989; }
-      .lt-footer a { color: #d8d4d4; }
+      .lt-footer a { color: #c1c0bf; }
     </style>
   </head>
   <body>
     <div class="lt-wrap">
-      <img class="lt-logo" src="{% static 'images/ATXDSA Circle Logo with Chapter Black.png' %}" alt="Austin DSA" />
+      <img class="lt-logo" src="{% static 'images/circle-seal-chapter-white.png' %}" alt="Austin DSA" />
       <h1 class="lt-title">{{ tree.title }}</h1>
       {% if tree.description %}<p class="lt-desc">{{ tree.description }}</p>{% endif %}
 
@@ -71,7 +86,7 @@
           {% endfor %}
         </ul>
       {% else %}
-        <p class="lt-empty">No links here yet — check back soon.</p>
+        <p class="lt-empty">No links here yet - check back soon.</p>
       {% endif %}
 
       <p class="lt-footer">Austin DSA</p>

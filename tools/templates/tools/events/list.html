@@ -1,36 +1,28 @@
-{% extends "base.html" %} 
+{% extends "base.html" %}
 {% block page_content %}
-<h1>Published Events</h1>
-<style>
-table, th, td {
-  border: 1px solid black;
-}
-th, td {
-    padding: 5px;
-}
-table.center {
-  margin-left: auto;
-  margin-right: auto;
-}
-</style>
-<table border="1px solid black">
-    <tr>
-        <th>Title</th>
-        <th>StartDate</th>
-        <th>EndDate</th>
-        <th>Creator</th>
-        <th>Approver</th>
-        <th>Url</th>
-    </tr>
-    {% for event in object_list %}
-        <tr>
-            <td>{{event.title}}</td>
-            <td>{{event.getStartLocalizedStr}}</td>
-            <td>{{event.getEndLocalizedStr}}</td>
-            <td>{{event.getCreatorName}}</td>
-            <td>{{event.getApproverName}}</td>
-            <td><a href={{event.getUrl}}>Details</a></td>
-        </tr>
-    {% endfor %}
-</table>
+<h1 class="page-title">Published Events</h1>
+<div class="page-card">
+  <table class="data-table">
+      <tr>
+          <th>Title</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>Creator</th>
+          <th>Approver</th>
+          <th>Details</th>
+      </tr>
+      {% for event in object_list %}
+          <tr>
+              <td class="min-w-40">{{event.title}}</td>
+              <td data-label="Start" class="md:whitespace-nowrap">{{event.getStartLocalizedStr}}</td>
+              <td data-label="End" class="md:whitespace-nowrap">{{event.getEndLocalizedStr}}</td>
+              <td data-label="Creator">{{event.creator.getDisplayName}}</td>
+              <td data-label="Approver">{{event.authorizer.getDisplayName}}</td>
+              <td><a href="{{event.getUrl}}">Details</a></td>
+          </tr>
+      {% empty %}
+          <tr><td colspan="6">No published events yet.</td></tr>
+      {% endfor %}
+  </table>
+</div>
 {% endblock %}

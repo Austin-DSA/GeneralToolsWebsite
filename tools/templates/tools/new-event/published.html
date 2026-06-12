@@ -1,23 +1,19 @@
-{% extends "base.html" %} {% block page_content %}
-<h1 class="text-xl py-8">Event Published</h1>
-<p>Your event was published successfully and a confirmation email was sent to your email. Here are your links.</p>
-<hr>
-<p>
-    Action Network Share Link: <a href="{{anShareLink}}">{{anShareLink}}</a><br>
-    <br>
-    Action Network Manage Link: <a href="{{anManageLink}}">{{anManageLink}}</a><br>
-    <br>
-    {% comment %} Some events may not have a zoom link  {% endcomment %}
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'new-event' as parentToolUrl %}{% breadcrumbs parentLabel="Create an Event" parentUrl=parentToolUrl currentLabel="Published" %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Event Published</h1>
+  <div class="alert alert-success">Your event was published successfully and a confirmation email was sent to your email.</div>
+  <h2 class="section-title">Your links</h2>
+  <dl class="detail-grid">
+    <dt>Action Network Share</dt><dd><a href="{{anShareLink}}">{{anShareLink}}</a></dd>
+    <dt>Action Network Manage</dt><dd><a href="{{anManageLink}}">{{anManageLink}}</a></dd>
+    {% comment %} Some events may not have a zoom link {% endcomment %}
     {% if zoomLink %}
-    Zoom 
-    {% if zoomAccount %}
-    ({{zoomAccount}})
+    <dt>Zoom{% if zoomAccount %} ({{zoomAccount}}){% endif %}</dt><dd><a href="{{zoomLink}}">{{zoomLink}}</a></dd>
     {% endif %}
-    : <a href="{{zoomLink}}">{{zoomLink}}</a><br>
-    <br>
-    {% endif %}
-    Google Calendar Link: <a href="{{gCalLink}}">{{gCalLink}}</a><br>
-    <br>
-
-</p>
+    <dt>Google Calendar</dt><dd><a href="{{gCalLink}}">{{gCalLink}}</a></dd>
+  </dl>
+</div>
 {% endblock page_content %}

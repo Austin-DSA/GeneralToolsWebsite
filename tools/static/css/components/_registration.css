@@ -1,0 +1,34 @@
+/* Password strength meter + live requirements checklist (registration) */
+.pw-meter {
+  @apply w-full max-w-xl h-2 rounded-full bg-neutral-200 overflow-hidden mt-2;
+}
+.pw-meter-fill {
+  @apply h-full rounded-full;
+  width: 0%;
+  background-color: var(--color-gray-med);
+  transition: width 0.25s ease, background-color 0.25s ease;
+}
+.pw-strength-label {
+  @apply text-sm text-secondary pt-1;
+}
+.pw-rules {
+  @apply list-none p-0 m-0 pt-2 text-sm text-secondary;
+}
+.pw-rules li {
+  @apply py-0.5;
+}
+.pw-rules li::before {
+  content: "○ ";
+  color: var(--color-gray-med);
+}
+.pw-rules li.ok {
+  @apply text-dark;
+}
+.pw-rules li.ok::before {
+  content: "✓ ";
+  color: var(--color-success);
+  font-weight: 700;
+}
+.pw-match {
+  @apply text-sm pt-1;
+}

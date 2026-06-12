@@ -1,0 +1,13 @@
+{% comment %} Renders the `conflicts` list from an EventAutomationDriver Result. {% endcomment %}
+<ul class="list-disc pl-6 py-2">
+{% for conflict in conflicts %}
+<li class="py-1">
+    {% if conflict.type == 0 %}
+        <b>Zoom{%if conflict.zoomUser %} ({{conflict.zoomUser}}){% endif %}:</b>
+    {% else %}
+        <b>Google Calendar:</b>
+    {% endif %}
+    {{ conflict.title }}, {{ conflict.start }} to {{ conflict.end }}
+</li>
+{% endfor %}
+</ul>

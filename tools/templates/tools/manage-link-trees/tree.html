@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-link-tree-list' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Link Trees" parentUrl=parentToolUrl currentLabel=tree.title %}{% endblock breadcrumbs %}
+{% block page_content %}
+<h1 class="page-title">{{ tree.title }}</h1>
+<p class="page-subtitle">Public page: <a href="{{ tree.getPublicUrl }}">/t/{{ tree.slug }}/</a></p>
+
+{% if treeSaved %}
+<div class="alert alert-success">Link tree updated.</div>
+{% endif %}
+
+<div class="page-card max-w-2xl">
+  <h2 class="section-title pt-0">Settings</h2>
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    {% include "tools/common/formRow.html" with field=field %}
+    {% endfor %}
+    <button type="submit" class="btn btn-primary mt-3">Save settings</button>
+  </form>
+</div>
+
+<div class="page-card">
+  <h2 class="section-title pt-0">Items</h2>
+  <p class="form-help pb-3">Use the up/down buttons to reorder, then click Save order. Edit an item to change its content or hide it.</p>
+  <p class="pb-4">
+    <a href="{% url 'manage-link-tree-item-new' tree.id %}" class="btn btn-primary btn-small no-underline">
+      {% include "tools/common/icon.html" with name="plus" %}&nbsp;Add item
+    </a>
+  </p>
+
+  <table class="data-table" id="items-table">
+    <thead>
+      <tr>
+        <th>Order</th>
+        <th>Kind</th>
+        <th>Label</th>
+        <th>Status</th>
+        <th>Reorder</th>
+        <th>Edit</th>
+      </tr>
+    </thead>
+    <tbody id="items-body">
+      {% for item in items %}
+      <tr data-item-id="{{ item.id }}">
+        <td class="md:whitespace-nowrap"><b>{{ item.order }}</b></td>
+        <td data-label="Kind">{{ item.get_kind_display }}</td>
+        <td data-label="Label">{{ item.displayLabel|default:"(no label)" }}</td>
+        <td data-label="Status">
+          {% if item.isActive %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}
+          {% if not item.isHeader and not item.isResolved %}<span class="badge badge-unresolved">Unresolved</span>{% endif %}
+        </td>
+        <td data-label="Reorder">
+          <span class="reorder-controls">
+            <button type="button" class="btn btn-secondary btn-small" data-move="up" aria-label="Move up">{% include "tools/common/icon.html" with name="arrow-up" %}</button>
+            <button type="button" class="btn btn-secondary btn-small" data-move="down" aria-label="Move down">{% include "tools/common/icon.html" with name="arrow-down" %}</button>
+          </span>
+        </td>
+        <td><a href="{% url 'manage-link-tree-item-edit' tree.id item.id %}">Edit</a></td>
+      </tr>
+      {% empty %}
+      <tr id="items-empty-row"><td colspan="6" class="text-secondary">No items yet - add the first one above.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if items %}
+  <form method="post" action="{% url 'manage-link-tree-item-reorder' tree.id %}" id="reorder-form" class="pt-4">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-secondary">Save order</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="page-card">
+  <h2 class="section-title pt-0">QR codes for this tree</h2>
+  <p class="form-help pb-3">Codes that point at this tree or one of its items. Manage all codes on the <a href="{% url 'manage-qr-code-list' %}">QR codes page</a>.</p>
+  <table class="data-table">
+    <thead>
+      <tr><th>Label</th><th>Code</th><th>Edit</th></tr>
+    </thead>
+    <tbody>
+      {% for qr in qrCodes %}
+      <tr>
+        <td class="min-w-40"><b>{{ qr.label }}</b></td>
+        <td data-label="Code"><a href="{{ qr.scanUrl }}">/qr/{{ qr.code }}/</a></td>
+        <td><a href="{% url 'manage-qr-code-edit' qr.code %}">Edit</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="text-secondary">No QR codes point at this tree yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="pt-4">
+    <a href="{% url 'manage-qr-code-new' %}" class="btn btn-secondary btn-small no-underline">{% include "tools/common/icon.html" with name="qr-code" %}&nbsp;New QR code</a>
+    <a href="{% url 'link-metrics-tree' tree.slug %}" class="btn btn-secondary btn-small no-underline">{% include "tools/common/icon.html" with name="bar-chart" %}&nbsp;View metrics</a>
+  </p>
+</div>
+
+<script>
+  // Reorder via up/down buttons. The items table has NO filter, so every row
+  // is serialized unconditionally; the server renumbers densely and ignores
+  // any id that doesn't belong to this tree. DOM is built with setAttribute /
+  // createElement only - never innerHTML.
+  (function () {
+    const body = document.getElementById("items-body");
+    const reorderForm = document.getElementById("reorder-form");
+    if (!body || !reorderForm) { return; }
+
+    function rebuildHiddenInputs() {
+      // Drop any previously-appended ordering inputs, then re-serialize the
+      // current row order from scratch.
+      reorderForm.querySelectorAll('input[name="itemOrder"]').forEach((input) => input.remove());
+      body.querySelectorAll("tr[data-item-id]").forEach((row) => {
+        const hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "itemOrder";
+        hidden.setAttribute("value", row.getAttribute("data-item-id"));
+        reorderForm.appendChild(hidden);
+      });
+    }
+
+    body.querySelectorAll("[data-move]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const row = button.closest("tr[data-item-id]");
+        if (!row) { return; }
+        if (button.getAttribute("data-move") === "up") {
+          const previous = row.previousElementSibling;
+          if (previous && previous.hasAttribute("data-item-id")) {
+            row.parentNode.insertBefore(row, previous);
+          }
+        } else {
+          const next = row.nextElementSibling;
+          if (next && next.hasAttribute("data-item-id")) {
+            next.parentNode.insertBefore(next, row);
+          }
+        }
+        rebuildHiddenInputs();
+      });
+    });
+
+    rebuildHiddenInputs();
+  })();
+</script>
+{% endblock page_content %}

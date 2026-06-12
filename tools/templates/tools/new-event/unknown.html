@@ -1,5 +1,10 @@
-{% extends "base.html" %} {% block page_content %}
-<p> The following error occured and you event was not published </p>
-<hr>
-<p>{{ errorStr }}</p>
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'new-event' as parentToolUrl %}{% breadcrumbs parentLabel="Create an Event" parentUrl=parentToolUrl currentLabel="Error" %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Something went wrong</h1>
+  <div class="alert alert-error">The following error occured and your event was not published.</div>
+  <p>{{ errorStr }}</p>
+</div>
 {% endblock page_content %}

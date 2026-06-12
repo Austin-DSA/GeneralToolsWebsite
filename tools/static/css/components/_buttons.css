@@ -1,0 +1,29 @@
+/* Buttons - combine: class="btn btn-primary" */
+.btn {
+  @apply inline-flex items-center justify-center px-5 py-2.5 rounded-lg font-semibold cursor-pointer transition-colors no-underline;
+}
+.btn-primary {
+  @apply bg-primary text-white border-0 hover:bg-primary-dark;
+}
+.btn-secondary {
+  @apply bg-white text-dark border border-neutral-300 hover:bg-neutral-100;
+}
+.btn-danger {
+  @apply text-white border-0;
+  background-color: var(--color-danger);
+}
+.btn-danger:hover {
+  background-color: color-mix(in srgb, var(--color-danger) 85%, black);
+}
+.btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+/* Icons inline in buttons ("+ New QR code") track the button's text size.
+   A bare .icon has no base size - containers that need another size set
+   their own (.nav-menu-icon, .reorder-controls, ...). */
+.btn .icon {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+}

@@ -1,0 +1,20 @@
+/* Alerts / callouts - combine: class="alert alert-error" */
+.alert {
+  @apply rounded-lg border px-4 py-3 my-4;
+}
+.alert-error {
+  @apply border-danger/40 text-danger;
+  background-color: color-mix(in srgb, var(--color-danger) 6%, white);
+}
+.alert-success {
+  @apply border-success/40;
+  background-color: color-mix(in srgb, var(--color-success) 7%, white);
+  color: #00611a;
+}
+.alert-warning {
+  @apply border-warning text-dark;
+  background-color: color-mix(in srgb, var(--color-warning) 25%, white);
+}
+.alert-info {
+  @apply border-info text-dark bg-info/40;
+}

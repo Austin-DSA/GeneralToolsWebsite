@@ -1,6 +1,6 @@
 """Link Tree views.
 
-Three of these are PUBLIC (no login) — the whole point of a link tree is a page
+Three of these are PUBLIC (no login) - the whole point of a link tree is a page
 anyone can open, plus the tracked redirect endpoints a click/scan lands on:
 
     public_tree   GET /t/<slug>/           render the tree (members trees gate on login)
@@ -23,12 +23,15 @@ import logging
 
 import segno
 
-from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.views import redirect_to_login
+from django.db import models, transaction
 from django.http import Http404, HttpResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from . import permissions
+from .forms import LinkTreeItemForm, LinkTreeSettingsForm, QRCodeForm
 from .LinkTree import metrics, tracking
 from .models import LinkEvent, LinkTree, LinkTreeItem, QRCode
 
@@ -168,7 +171,7 @@ def link_metrics(request, slug=None):
 
 @permission_required(permissions.VIEW_LINK_METRICS)
 def link_metrics_csv(request, slug):
-    """Per-day, per-source aggregate export for a tree (privacy-safe — no PII)."""
+    """Per-day, per-source aggregate export for a tree (privacy-safe - no PII)."""
     tree = get_object_or_404(LinkTree, slug=slug)
 
     response = HttpResponse(content_type="text/csv")
@@ -179,3 +182,276 @@ def link_metrics_csv(request, slug):
     for row in metrics.dailyEventTotals(LinkEvent.objects.filter(tree=tree)):
         writer.writerow([row["day"], labels.get(row["source"], row["source"]), row["total"]])
     return response
+
+
+# MARK: Link Tree management (maintainers only)
+#
+# The in-app management surface, gated solely on manageLinkTree (no is_staff).
+# Form validation is the authoritative guard: views assign cleaned values field
+# by field and save - they never call model full_clean()/clean(), and they never
+# write the wiki resolve cache (resolution stays out-of-band).
+
+
+def _formatVisibleWindow(value):
+    """Render a stored UTC datetime for the datetime-local widget without any
+    localization (the field documents itself as UTC)."""
+    if value is None:
+        return ""
+    return value.strftime("%Y-%m-%dT%H:%M")
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_link_tree_list(request):
+    treeRows = [
+        {
+            "tree": tree,
+            "itemCount": tree.items.count(),
+            "qrCount": tree.qrCodes.count(),
+        }
+        for tree in LinkTree.objects.order_by("title")
+    ]
+    return render(request, "tools/manage-link-trees/list.html", {
+        "treeRows": treeRows,
+    })
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_link_tree_create(request):
+    """Dedicated create page: a tree's settings first, then straight into the
+    edit page to add its items."""
+    if request.method == "POST":
+        form = LinkTreeSettingsForm(request.POST)
+        if form.is_valid():
+            tree = LinkTree()
+            tree.slug = form.cleaned_data[LinkTreeSettingsForm.Keys.SLUG]
+            tree.title = form.cleaned_data[LinkTreeSettingsForm.Keys.TITLE]
+            tree.description = form.cleaned_data[LinkTreeSettingsForm.Keys.DESCRIPTION]
+            tree.visibility = form.cleaned_data[LinkTreeSettingsForm.Keys.VISIBILITY]
+            tree.isActive = form.cleaned_data[LinkTreeSettingsForm.Keys.IS_ACTIVE]
+            tree.save()
+            logger.info(
+                "ManageLinkTree: %s created link tree '%s'",
+                request.user.get_username(), tree.slug,
+            )
+            return redirect("manage-link-tree-edit", treeId=tree.pk)
+    else:
+        form = LinkTreeSettingsForm()
+    return render(request, "tools/manage-link-trees/new.html", {"form": form})
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_link_tree_edit(request, treeId):
+    tree = get_object_or_404(LinkTree, pk=treeId)
+    treeSaved = False
+    if request.method == "POST":
+        form = LinkTreeSettingsForm(request.POST, tree=tree)
+        if form.is_valid():
+            tree.slug = form.cleaned_data[LinkTreeSettingsForm.Keys.SLUG]
+            tree.title = form.cleaned_data[LinkTreeSettingsForm.Keys.TITLE]
+            tree.description = form.cleaned_data[LinkTreeSettingsForm.Keys.DESCRIPTION]
+            tree.visibility = form.cleaned_data[LinkTreeSettingsForm.Keys.VISIBILITY]
+            tree.isActive = form.cleaned_data[LinkTreeSettingsForm.Keys.IS_ACTIVE]
+            tree.save()
+            logger.info(
+                "ManageLinkTree: %s edited link tree '%s'",
+                request.user.get_username(), tree.slug,
+            )
+            treeSaved = True
+    else:
+        form = LinkTreeSettingsForm(tree=tree, initial={
+            LinkTreeSettingsForm.Keys.SLUG: tree.slug,
+            LinkTreeSettingsForm.Keys.TITLE: tree.title,
+            LinkTreeSettingsForm.Keys.DESCRIPTION: tree.description,
+            LinkTreeSettingsForm.Keys.VISIBILITY: tree.visibility,
+            LinkTreeSettingsForm.Keys.IS_ACTIVE: tree.isActive,
+        })
+
+    return render(request, "tools/manage-link-trees/tree.html", {
+        "tree": tree,
+        "form": form,
+        "treeSaved": treeSaved,
+        "items": tree.items.all(),
+        "qrCodes": tree.qrCodes.all(),
+    })
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_link_tree_item_edit(request, treeId, itemId=None):
+    tree = get_object_or_404(LinkTree, pk=treeId)
+    if itemId is None:
+        item = None
+    else:
+        item = get_object_or_404(LinkTreeItem, pk=itemId, tree_id=treeId)
+
+    if request.method == "POST":
+        form = LinkTreeItemForm(request.POST)
+        if form.is_valid():
+            if item is None:
+                item = LinkTreeItem(tree=tree)
+            item.kind = form.cleaned_data[LinkTreeItemForm.Keys.KIND]
+            item.order = form.cleaned_data[LinkTreeItemForm.Keys.ORDER]
+            item.icon = form.cleaned_data[LinkTreeItemForm.Keys.ICON]
+            item.label = form.cleaned_data[LinkTreeItemForm.Keys.LABEL]
+            item.subtitle = form.cleaned_data[LinkTreeItemForm.Keys.SUBTITLE]
+            item.url = form.cleaned_data[LinkTreeItemForm.Keys.URL]
+            item.isActive = form.cleaned_data[LinkTreeItemForm.Keys.IS_ACTIVE]
+            item.visibleFrom = form.cleaned_data[LinkTreeItemForm.Keys.VISIBLE_FROM]
+            item.visibleUntil = form.cleaned_data[LinkTreeItemForm.Keys.VISIBLE_UNTIL]
+            item.wikiMode = (
+                form.cleaned_data[LinkTreeItemForm.Keys.WIKI_MODE]
+                if form.cleaned_data[LinkTreeItemForm.Keys.WIKI_MODE] != ""
+                else LinkTreeItem.WikiMode.LATEST_MATCH
+            )
+            item.wikiQuery = form.cleaned_data[LinkTreeItemForm.Keys.WIKI_QUERY]
+            item.wikiCollectionId = form.cleaned_data[LinkTreeItemForm.Keys.WIKI_COLLECTION_ID]
+            item.pinnedWikiDocId = form.cleaned_data[LinkTreeItemForm.Keys.PINNED_WIKI_DOC_ID]
+            item.save()
+            logger.info(
+                "ManageLinkTree: %s saved item %s on tree '%s'",
+                request.user.get_username(), item.pk, tree.slug,
+            )
+            return redirect("manage-link-tree-edit", treeId=treeId)
+    else:
+        if item is None:
+            defaultOrder = (tree.items.aggregate(maxOrder=models.Max("order"))["maxOrder"] or -1) + 1
+            form = LinkTreeItemForm(initial={
+                LinkTreeItemForm.Keys.KIND: LinkTreeItem.Kind.MANUAL,
+                LinkTreeItemForm.Keys.ORDER: defaultOrder,
+                LinkTreeItemForm.Keys.IS_ACTIVE: True,
+                LinkTreeItemForm.Keys.WIKI_MODE: LinkTreeItem.WikiMode.LATEST_MATCH,
+            })
+        else:
+            form = LinkTreeItemForm(initial={
+                LinkTreeItemForm.Keys.KIND: item.kind,
+                LinkTreeItemForm.Keys.ORDER: item.order,
+                LinkTreeItemForm.Keys.ICON: item.icon,
+                LinkTreeItemForm.Keys.LABEL: item.label,
+                LinkTreeItemForm.Keys.SUBTITLE: item.subtitle,
+                LinkTreeItemForm.Keys.URL: item.url,
+                LinkTreeItemForm.Keys.IS_ACTIVE: item.isActive,
+                LinkTreeItemForm.Keys.VISIBLE_FROM: _formatVisibleWindow(item.visibleFrom),
+                LinkTreeItemForm.Keys.VISIBLE_UNTIL: _formatVisibleWindow(item.visibleUntil),
+                LinkTreeItemForm.Keys.WIKI_MODE: item.wikiMode,
+                LinkTreeItemForm.Keys.WIKI_QUERY: item.wikiQuery,
+                LinkTreeItemForm.Keys.WIKI_COLLECTION_ID: item.wikiCollectionId,
+                LinkTreeItemForm.Keys.PINNED_WIKI_DOC_ID: item.pinnedWikiDocId,
+            })
+
+    return render(request, "tools/manage-link-trees/item.html", {
+        "tree": tree,
+        "item": item,
+        "form": form,
+        # The item page's trail has two crumbs between the domain and the
+        # leaf; the tree crumb's reverse() needs tree.id, so the list is
+        # built here for {% breadcrumbs parentCrumbs=... %}.
+        "breadcrumbParentCrumbs": [
+            {"label": "Manage Link Trees", "url": reverse("manage-link-tree-list")},
+            {"label": tree.title, "url": reverse("manage-link-tree-edit", args=[tree.id])},
+        ],
+    })
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_link_tree_item_reorder(request, treeId):
+    if request.method != "POST":
+        return redirect("manage-link-tree-edit", treeId=treeId)
+
+    # Discard anything that isn't an int; the redirect target is never read from
+    # a param, so there is no open-redirect surface here.
+    submittedIds = []
+    for raw in request.POST.getlist("itemOrder"):
+        try:
+            submittedIds.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+
+    if not submittedIds:
+        # Empty/garbage POST: nothing to reorder, no writes.
+        return redirect("manage-link-tree-edit", treeId=treeId)
+
+    with transaction.atomic():
+        treeItems = list(
+            LinkTreeItem.objects.filter(tree_id=treeId).order_by("order", "id")
+        )
+        treeItemIds = {item.id for item in treeItems}
+
+        # Submitted ids that belong to this tree, in submitted order; then the
+        # rest of the tree's items in their prior relative order. This densely
+        # renumbers ALL items 0..n-1 in one pass (no stale-order ties).
+        orderedIds = [itemId for itemId in submittedIds if itemId in treeItemIds]
+        seen = set(orderedIds)
+        for item in treeItems:
+            if item.id not in seen:
+                orderedIds.append(item.id)
+                seen.add(item.id)
+
+        newOrderByItemId = {itemId: index for index, itemId in enumerate(orderedIds)}
+        for item in treeItems:
+            item.order = newOrderByItemId[item.id]
+        # bulk_update only touches "order"; LinkTreeItem has no auto_now or save
+        # signal, so this is lossless.
+        LinkTreeItem.objects.bulk_update(treeItems, ["order"])
+
+    return redirect("manage-link-tree-edit", treeId=treeId)
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_qr_code_list(request):
+    qrRows = [
+        {"qr": qr, "scanUrl": qr.scanUrl(), "targetUrl": qr.targetUrl()}
+        for qr in QRCode.objects.select_related("tree", "item").order_by("label")
+    ]
+    return render(request, "tools/manage-link-trees/qr-list.html", {"qrRows": qrRows})
+
+
+@login_required
+@permission_required(permissions.MANAGE_LINK_TREE)
+def manage_qr_code_edit(request, code=None):
+    if code is None:
+        qr = None
+    else:
+        qr = get_object_or_404(QRCode, code=code)
+
+    if request.method == "POST":
+        form = QRCodeForm(request.POST, qr=qr)
+        if form.is_valid():
+            if qr is None:
+                qr = QRCode()
+                qr.createdBy = request.user
+            qr.code = form.cleaned_data["code"]
+            qr.label = form.cleaned_data["label"]
+            qr.campaign = form.cleaned_data["campaign"]
+            qr.tree = form.cleaned_data["tree"]
+            qr.item = form.cleaned_data["item"]
+            qr.rawUrl = form.cleaned_data["rawUrl"]
+            qr.isActive = form.cleaned_data["isActive"]
+            qr.save()
+            logger.info(
+                "ManageLinkTree: %s saved QR code '%s'",
+                request.user.get_username(), qr.code,
+            )
+            return redirect("manage-qr-code-list")
+    else:
+        if qr is None:
+            form = QRCodeForm(initial={"isActive": True})
+        else:
+            form = QRCodeForm(qr=qr, initial={
+                "code": qr.code,
+                "label": qr.label,
+                "campaign": qr.campaign,
+                "tree": qr.tree_id,
+                "item": qr.item_id,
+                "rawUrl": qr.rawUrl,
+                "isActive": qr.isActive,
+            })
+
+    return render(request, "tools/manage-link-trees/qr.html", {
+        "qr": qr,
+        "form": form,
+    })

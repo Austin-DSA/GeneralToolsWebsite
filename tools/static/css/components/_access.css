@@ -1,0 +1,81 @@
+/* Selectable choice cards (manage-access): whole card is the label, so the
+   entire row is a click target. Combine with .choice-list for the grid. */
+.choice-list {
+  @apply grid gap-2;
+}
+.choice-card {
+  @apply flex items-start gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 cursor-pointer transition-colors hover:border-neutral-400;
+}
+.choice-card input[type="checkbox"] {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.15rem;
+  accent-color: var(--color-primary);
+  @apply cursor-pointer flex-none;
+}
+.choice-card:has(input:checked) {
+  @apply border-primary;
+  background-color: color-mix(in srgb, var(--color-primary) 4%, white);
+}
+.choice-card-body {
+  @apply flex-auto;
+}
+.choice-card-title {
+  @apply block font-medium text-dark;
+}
+.choice-card-desc {
+  @apply block text-sm text-secondary pt-0.5;
+}
+.choice-card-hint {
+  @apply block text-xs pt-0.5;
+  color: var(--color-success);
+}
+.choice-card.is-covered .choice-card-title {
+  @apply text-secondary;
+}
+
+/* Sticky action bar so Save stays reachable on long checklists */
+.save-bar {
+  @apply sticky bottom-4 flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 mt-6 shadow-lg z-10;
+}
+.pending-note {
+  @apply text-sm text-secondary;
+}
+
+/* Member roster + search-to-add (manage-group): only current members
+   render; additions come from the typeahead so the page never holds the
+   whole org. */
+.member-row {
+  @apply flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3;
+}
+.member-row.staged-removed {
+  @apply opacity-60 border-danger/40;
+}
+.member-row.staged-removed .choice-card-title {
+  @apply line-through;
+}
+.member-row.staged-add {
+  @apply border-success;
+  background-color: color-mix(in srgb, var(--color-success) 5%, white);
+}
+.search-results {
+  @apply mt-2 max-w-xl rounded-lg border border-neutral-200 bg-white shadow-lg divide-y divide-neutral-100;
+}
+.search-result-row {
+  @apply flex items-center justify-between gap-3 px-4 py-2.5;
+}
+.search-result-empty {
+  @apply px-4 py-2.5 text-sm text-secondary;
+}
+/* combine: class="btn btn-secondary btn-small" */
+.btn-small {
+  @apply px-3 py-1 text-sm;
+}
+/* Link Tree item reorder: the up/down icon buttons sit side by side */
+.reorder-controls {
+  @apply inline-flex gap-1;
+}
+.reorder-controls .icon {
+  width: 16px;
+  height: 16px;
+}

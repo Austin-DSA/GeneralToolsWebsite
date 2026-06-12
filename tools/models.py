@@ -1,14 +1,42 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, Group, Permission
+from django.utils import timezone as djangoTimezone
 from .EventAutomation.EventAutomationDriver import EventInfo, ActionNetworkAutomation
 import datetime
 import pytz
 from django.urls import reverse
+from . import permissions
 from . import utils
+
+# Approving a committee (EventOwner) join grants the full event-lead capability
+# through this managed role group. The EventOwner's authorizer list scopes which
+# owner the member may act for; this group carries the page-level event
+# permissions that the scoping is otherwise inert without. The lead bundle is
+# publish + approve delegated events (plus the two list views needed to use them).
+#
+# Garrigan's call (2026-06): bundle committee membership with the lead capability
+# for now, but keep the grant structured as two separable steps (see grantTo) so
+# we can split them later - e.g. if enough non-lead members start joining that
+# membership should stop implying publish/approve rights. To separate, stop
+# granting EVENT_LEAD_ROLE_GROUP on join and grant the narrower publish-only
+# "Event Publishers" group (and "Event Approvers" for approvers) instead.
+EVENT_LEAD_ROLE_GROUP = "Event Leads"
+EVENT_LEAD_PERMISSIONS = (
+    permissions.PUBLISH_EVENT,
+    permissions.VIEW_PUBLISHED_EVENTS,
+    permissions.VIEW_DELEGATED_EVENTS,
+    permissions.APPROVE_DELEGATED_EVENT,
+)
+
 
 class User(AbstractUser):
     def getUserNameString(self) -> str:
         return f"{self.first_name} {self.last_name} - {self.email}"
+
+    def getDisplayName(self) -> str:
+        """Compact name for list tables (detail pages keep name + email)."""
+        fullName = f"{self.first_name} {self.last_name}".strip()
+        return fullName or self.username
 
 class EventOwners(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -179,8 +207,19 @@ class DelegatedEvents(models.Model):
             return ""
         return self.owner.name
     
-    def getUrl(self) -> str:
-        if self.status == DelegatedEvents.Status.REQUESTED:
+    def canBeApprovedBy(self, user) -> bool:
+        # Mirrors the two gates on approve_delegated_event: the Django
+        # permission plus membership in the owner's authorizers.
+        if self.status != DelegatedEvents.Status.REQUESTED or self.owner is None:
+            return False
+        return (user.has_perm(permissions.APPROVE_DELEGATED_EVENT)
+                and self.owner.authorizers.filter(id=user.id).exists())
+
+    def getUrlFor(self, user) -> str:
+        # Send the viewer to the approve page only if they can actually act on
+        # the request; everyone else gets the read-only detail page (the
+        # approve view rejects them anyway).
+        if self.canBeApprovedBy(user):
             return reverse("approve-delegated-event", kwargs={ "id" :self.id})
         return reverse("delegated-event-detail", kwargs={"pk" : self.id})
 
@@ -226,6 +265,157 @@ class DelegatedEvents(models.Model):
                          zoomRequired=self.zoomRequired)
 
 
+# A member's request to join an event owner (committee), be added to a group,
+# or be granted one of the custom tools.* permissions. Mirrors the
+# DelegatedEvents request/approve pattern: the row is the request/audit record,
+# approvers are reached by an emailed review link, and the actual grant happens
+# on approval.
+class AccessRequests(models.Model):
+    class Status:
+        REQUESTED = 0
+        DENIED = 1
+        APPROVED = 2
+
+    requester = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequestsCreated",
+    )
+
+    # Exactly one of group / permission / owner is set - see clean().
+    group = models.ForeignKey(
+        Group, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequests",
+    )
+    permission = models.ForeignKey(
+        Permission, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequests",
+    )
+    # Applying to join an event owner (committee): approval adds the requester
+    # to owner.authorizers, and the owner's current authorizers are the peer
+    # reviewers (see canBeReviewedBy). SET_NULL so an owner deleted in /admin/
+    # leaves reviewed history intact, exactly like the group/permission targets.
+    owner = models.ForeignKey(
+        EventOwners, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequests",
+    )
+
+    justification = models.TextField(
+        help_text="Why the requester needs this access, e.g. 'I run events for the Anti-ICE campaign.'",
+    )
+
+    status = models.IntegerField(default=Status.REQUESTED)
+    reviewer = models.ForeignKey(
+        User, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="accessRequestsReviewed",
+    )
+    reason = models.TextField(blank=True)
+
+    dateCreated = models.DateTimeField(auto_now_add=True)
+    dateReviewed = models.DateTimeField(null=True, blank=True, default=None)
+
+    class Meta:
+        verbose_name = "Access Request"
+
+    def __str__(self) -> str:
+        return f"{self.getRequesterName()} -> {self.getTargetDescription()} ({self.getStatusAsString()})"
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        targets = [
+            self.group_id is not None,
+            self.permission_id is not None,
+            self.owner_id is not None,
+        ]
+        if sum(1 for t in targets if t) != 1:
+            raise ValidationError(
+                "An access request must target exactly one thing: a group, a permission, or an event owner."
+            )
+
+    def getStatusAsString(self) -> str:
+        if self.status == AccessRequests.Status.REQUESTED:
+            return "Requested"
+        elif self.status == AccessRequests.Status.DENIED:
+            return "Denied"
+        elif self.status == AccessRequests.Status.APPROVED:
+            return "Approved"
+        else:
+            return f"Unkown {self.status}"
+
+    def getRequesterName(self) -> str:
+        if self.requester is None:
+            return ""
+        return self.requester.getUserNameString()
+
+    def getReviewerName(self) -> str:
+        if self.reviewer is None:
+            return ""
+        return self.reviewer.getUserNameString()
+
+    def getTargetDescription(self) -> str:
+        if self.group is not None:
+            return f"Group: {self.group.name}"
+        if self.permission is not None:
+            return f"Permission: {self.permission.name}"
+        if self.owner is not None:
+            return f"Event Owner: {self.owner.name}"
+        return "Unknown target"
+
+    def getUrl(self) -> str:
+        return reverse("review-access-request", kwargs={"id": self.id})
+
+    def getDateCreatedStr(self) -> str:
+        """Rendered in the request's active timezone (the browser's, via
+        TimezoneMiddleware) rather than raw UTC."""
+        if not self.dateCreated:
+            return ""
+        return djangoTimezone.localtime(self.dateCreated).strftime(utils.DATE_TIME_FORMAT)
+
+    def canBeReviewedBy(self, user) -> bool:
+        """Approver rules: admins (superuser or approveAccessRequest holders)
+        can review anything; existing members of the requested group - or
+        existing authorizers of the requested event owner - can review requests
+        for that group/owner; nobody reviews their own request."""
+        if not user.is_authenticated or not user.is_active:
+            return False
+        if self.requester is not None and user.id == self.requester_id:
+            return False
+        if user.is_superuser or user.has_perm(permissions.APPROVE_ACCESS_REQUEST):
+            return True
+        if self.group_id is not None:
+            return user.groups.filter(id=self.group_id).exists()
+        if self.owner_id is not None:
+            return self.owner.authorizers.filter(id=user.id).exists()
+        return False
+
+    def grantTo(self, requester) -> None:
+        """Apply the requested access to the requester."""
+        if self.group is not None:
+            requester.groups.add(self.group)
+        elif self.permission is not None:
+            requester.user_permissions.add(self.permission)
+        elif self.owner is not None:
+            # Two deliberately separate steps (Garrigan's bundle-now-separable-later
+            # call): (1) committee membership scopes which owner the member may act
+            # for; (2) the event-lead role group confers the actual page-level
+            # capability. Authorizer membership alone is inert without (2). To stop
+            # bundling, drop step (2) or swap in a narrower role group.
+            self.owner.authorizers.add(requester)        # (1) committee membership
+            self._grantEventLeadRole(requester)          # (2) event-lead capability
+
+    def _grantEventLeadRole(self, requester) -> None:
+        """Add the requester to the managed event-lead role group, creating it
+        with its permission bundle on first use. Kept distinct from the authorizer
+        grant in grantTo so the two can be separated later (see EVENT_LEAD_ROLE_GROUP)."""
+        roleGroup, created = Group.objects.get_or_create(name=EVENT_LEAD_ROLE_GROUP)
+        if created:
+            roleGroup.permissions.add(*Permission.objects.filter(
+                codename__in=[name.split(".")[1] for name in EVENT_LEAD_PERMISSIONS],
+                content_type__app_label="tools",
+            ))
+        requester.groups.add(roleGroup)
+
+
 # ---------------------------------------------------------------------------
 # Link Tree
 #
@@ -248,8 +438,8 @@ class LinkTree(models.Model):
         MEMBERS = 1  # login required
 
     VISIBILITY_CHOICES = (
-        (Visibility.PUBLIC, "Public — anyone with the link"),
-        (Visibility.MEMBERS, "Members only — requires login"),
+        (Visibility.PUBLIC, "Public - anyone with the link"),
+        (Visibility.MEMBERS, "Members only - requires login"),
     )
 
     slug = models.SlugField(
@@ -338,7 +528,7 @@ class LinkTreeItem(models.Model):
 
     label = models.CharField(
         max_length=200, blank=True,
-        help_text="Button text — or the heading text for a section header. For wiki "
+        help_text="Button text - or the heading text for a section header. For wiki "
         "links, leave blank to use the document's own title.",
     )
     subtitle = models.CharField(
@@ -391,11 +581,11 @@ class LinkTreeItem(models.Model):
     # Cache written by sync_link_tree_wiki; read by the public page.
     resolvedUrl = models.TextField(
         blank=True,
-        help_text="Auto-filled for wiki links by the sync command — the resolved document URL.",
+        help_text="Auto-filled for wiki links by the sync command - the resolved document URL.",
     )
     resolvedLabel = models.CharField(
         max_length=300, blank=True,
-        help_text="Auto-filled for wiki links by the sync command — the resolved document title.",
+        help_text="Auto-filled for wiki links by the sync command - the resolved document title.",
     )
     resolvedAt = models.DateTimeField(
         null=True, blank=True,
@@ -420,7 +610,7 @@ class LinkTreeItem(models.Model):
         return self.isHeader() or self.isResolved()
 
     def displayLabel(self) -> str:
-        """What to show on the button — explicit label wins, else resolved title."""
+        """What to show on the button - explicit label wins, else resolved title."""
         return self.label or (self.resolvedLabel if self.isWiki() else "")
 
     def destinationUrl(self) -> str | None:
@@ -435,7 +625,7 @@ class LinkTreeItem(models.Model):
     def trackedUrl(self) -> str | None:
         """Site URL that logs a click then redirects (what the page links to).
 
-        None for a section header — a header is not a link, so it has no tracked
+        None for a section header - a header is not a link, so it has no tracked
         destination. Callers (and the template) gate on isHeader() before using
         this, and this makes that contract honest rather than relying on the
         template alone.
@@ -448,7 +638,7 @@ class LinkTreeItem(models.Model):
 class QRCode(models.Model):
     """A repointable, tracked QR code.
 
-    The generated image encodes the site's /qr/<code>/ URL — NOT the destination.
+    The generated image encodes the site's /qr/<code>/ URL - NOT the destination.
     Scans hit qr_redirect, which logs the scan and 302s to the current target, so
     a printed code can be repointed in admin without reprinting and every scan is
     still counted. Exactly one of tree / item / rawUrl is the target.
@@ -511,7 +701,7 @@ class QRCode(models.Model):
         Returns ``(destinationUrl, tree, item)`` where destinationUrl is where a
         scan should 302 (or None if not yet resolvable), and tree/item are the
         objects to attribute the scan to in analytics. Centralizing this here
-        means a new target type is added in exactly one place — the view and any
+        means a new target type is added in exactly one place - the view and any
         other caller just consume the tuple.
         """
         if self.tree is not None:

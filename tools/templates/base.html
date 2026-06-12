@@ -1,39 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}Echo - Austin DSA{% endblock title %}</title>
+    {% load static %}
+    {% load navigation_tags %}
+    <!-- Favicon/OG block mirrors tree.html - update both on asset rename -->
+    <!-- theme-color mirrors --color-primary in custom.css -->
+    <meta name="theme-color" content="#ec1f27" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Echo" />
+    <meta property="og:title" content="Echo - Austin DSA" />
+    <meta property="og:description" content="Austin DSA event and member tools" />
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/social-card.png' %}" />
+    <meta property="og:url" content="{{ request.build_absolute_uri }}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Echo - Austin DSA" />
+    <meta name="twitter:description" content="Austin DSA event and member tools" />
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/social-card.png' %}" />
+    <link rel="icon" href="{% static 'images/favicon-32.png' %}" sizes="32x32" />
+    <link rel="icon" href="{% static 'images/bat-circle-red.svg' %}" type="image/svg+xml" />
+    <link rel="apple-touch-icon" sizes="180x180" href="{% static 'images/apple-touch-icon.png' %}" />
+    <link rel="stylesheet" href="{% static 'css/output.css' %}" />
     <script>
       // Saves the users timezone in a cookie
-      // Timezone settings
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; // e.g. "America/New_York"
       document.cookie = "django_timezone=" + timezone;
     </script>
-  <head>
-    <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0"
-    />
-    <title>{% block title %}Austin DSA Tools{% endblock title %}</title>
-    {% load static %}
-    <link
-      rel="stylesheet"
-      href="{% static 'css/output.css' %}"
-    />
   </head>
-  <body class="font-display text-dark max-w-full">
-    <header class="bg-primary w-full tools-header">
-      <div class="flex justify-start items-center">
-        <div class="bat-logo flex-none">
-          <img src="{% static 'images\ATXDSA Circle Logo with Chapter Black.png' %}">
+  <body class="font-display text-dark bg-paper min-h-screen flex flex-col">
+    <header class="bg-primary w-full tools-header shadow-md">
+      <div class="flex items-center min-h-[60px]">
+        <div class="pl-4 md:pl-6 flex-auto whitespace-nowrap">
+          <h1>
+            <a class="header-link wordmark" href="/">
+              <img class="wordmark-logo" src="{% static 'images/bat-rose.svg' %}" alt="" aria-hidden="true" />
+              <span class="wordmark-text">
+                <span class="wordmark-eyebrow">Austin DSA</span>
+                <span class="wordmark-name">Echo</span>
+              </span>
+            </a>
+          </h1>
         </div>
-        <div class="app-title text-2xl flex-auto">
-          <h1><a href="/" style="text-decoration-line: none; color: black;">Austin DSA Tools</a></h1>
-        </div>
+        {% if user.is_authenticated %}
+          {% if navDomains %}
+          {% comment %} Desktop: one dropdown per domain (native <details>, registry-fed) so
+          every tool is one click from any page. Mobile gets the hamburger menu below. {% endcomment %}
+          <nav class="main-nav hidden md:flex" aria-label="Primary">
+            {% for domain in navDomains %}
+            <details class="nav-menu">
+              <summary class="main-nav-link{% if domain.isActiveNavDomain %} is-active{% endif %}"{% if domain.isActiveNavDomain %} aria-current="true"{% endif %}>{{ domain.title }}<span class="nav-menu-caret" aria-hidden="true">&#9662;</span></summary>
+              <div class="nav-menu-panel">
+                <a class="nav-menu-overview" href="{{ domain.href }}">{{ domain.title }} overview</a>
+                {% for page in domain.pages %}
+                <a class="nav-menu-link" href="{{ page.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>{{ page.title }}</a>
+                {% endfor %}
+              </div>
+            </details>
+            {% endfor %}
+          </nav>
+          {% endif %}
+          <div class="hidden md:block flex-none px-8 text-white" style="font-size: 0.875rem;">
+            <details class="user-menu">
+              <summary>{{ user.username }}</summary>
+              <div class="user-menu-panel">
+                <span class="user-menu-header">Signed in as <b>{{ user.username }}</b></span>
+                <a class="user-menu-item" href="{% url 'password_change' %}">Change password</a>
+                <form action="{% url 'logout' %}" method="post">
+                  {% csrf_token %}
+                  <button type="submit" class="user-menu-item">Log out</button>
+                </form>
+              </div>
+            </details>
+          </div>
+          <button id="menu-toggle" class="menu-toggle" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu">
+            <svg class="icon-burger" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg class="icon-close" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" hidden><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+        {% else %}
+          <div class="flex-none px-4 md:px-8 text-white" style="font-size: 0.875rem;">
+            <a class="header-link" href="{% url 'login' %}">Log in</a>
+          </div>
+        {% endif %}
       </div>
+      {% if user.is_authenticated %}
+      <nav id="mobile-menu" class="mobile-menu" aria-label="Mobile" hidden>
+        {% for domain in navDomains %}
+        <a class="mobile-menu-domain{% if domain.isActiveNavDomain %} is-active{% endif %}"{% if domain.isActiveNavDomain %} aria-current="page"{% endif %} href="{{ domain.href }}">{{ domain.title }}<span aria-hidden="true">&rarr;</span></a>
+        {% for page in domain.pages %}
+        <a class="mobile-menu-item" href="{{ page.href }}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name=page.icon %}</span>{{ page.title }}</a>
+        {% endfor %}
+        {% endfor %}
+        <div class="mobile-menu-section">{{ user.username }}</div>
+        <a class="mobile-menu-item" href="{% url 'password_change' %}"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name="lock" %}</span>Change password</a>
+        <form action="{% url 'logout' %}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="mobile-menu-item"><span class="nav-menu-icon">{% include "tools/common/icon.html" with name="log-out" %}</span>Log out</button>
+        </form>
+      </nav>
+      {% endif %}
     </header>
-    <div class="flex justify-center">
-      <div class="w-full px-8">
-        {% block page_content %}{% endblock page_content %}
-      </div>
-    </div>
+    <script>
+      // Close the header popovers (user menu + the domain nav dropdowns) when
+      // clicking outside them or pressing Escape. (Kept as a selector loop:
+      // any future header <details> popover can join the list and inherit
+      // the behavior.)
+      const headerMenus = "details.user-menu, details.nav-menu";
+      document.addEventListener("click", (event) => {
+        for (const menu of document.querySelectorAll(headerMenus)) {
+          if (menu.hasAttribute("open") && !menu.contains(event.target)) {
+            menu.removeAttribute("open");
+          }
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          for (const menu of document.querySelectorAll(headerMenus)) {
+            menu.removeAttribute("open");
+          }
+          setMobileMenu(false);
+        }
+      });
+
+      // Mobile hamburger: toggles the slide-down menu and swaps the icon
+      const menuToggle = document.getElementById("menu-toggle");
+      const mobileMenu = document.getElementById("mobile-menu");
+      function setMobileMenu(open) {
+        if (!menuToggle || !mobileMenu) return;
+        mobileMenu.toggleAttribute("hidden", !open);
+        menuToggle.setAttribute("aria-expanded", String(open));
+        menuToggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+        menuToggle.querySelector(".icon-burger").toggleAttribute("hidden", open);
+        menuToggle.querySelector(".icon-close").toggleAttribute("hidden", !open);
+      }
+      if (menuToggle) {
+        menuToggle.addEventListener("click", () => {
+          setMobileMenu(mobileMenu.hasAttribute("hidden"));
+        });
+      }
+      for (const menu of document.querySelectorAll(headerMenus)) {
+        menu.addEventListener("toggle", () => {
+          if (!menu.open) return;
+          for (const other of document.querySelectorAll(headerMenus)) {
+            if (other !== menu) { other.removeAttribute("open"); }
+          }
+        });
+      }
+    </script>
+    <main class="flex-auto w-full max-w-5xl mx-auto px-4 py-8">
+      {% comment %} Default trail (Home > Domain > Page) derived from the nav
+      registry; pages whose route has no registry tile override this block
+      with an explicit {% breadcrumbs %} call. {% endcomment %}
+      {% block breadcrumbs %}{% breadcrumbs %}{% endblock breadcrumbs %}
+      {% block page_content %}{% endblock page_content %}
+    </main>
   </body>
 </html>

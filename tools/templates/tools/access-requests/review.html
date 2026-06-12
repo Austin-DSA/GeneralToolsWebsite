@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'access-request-list' as parentToolUrl %}{% with requestIdText=accessRequest.id|stringformat:"s" %}{% breadcrumbs parentLabel="Access Requests" parentUrl=parentToolUrl currentLabel="Request #"|add:requestIdText %}{% endwith %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Access Request <span class="badge badge-{{accessRequest.getStatusAsString|lower}} align-middle">{{ accessRequest.getStatusAsString }}</span></h1>
+  <dl class="detail-grid">
+    <dt>Requester</dt><dd>{{ accessRequest.getRequesterName }}</dd>
+    <dt>Requested</dt><dd>{{ accessRequest.getTargetDescription }}</dd>
+    <dt>Why</dt><dd>{{ accessRequest.justification }}</dd>
+    <dt>Submitted</dt><dd>{{ accessRequest.getDateCreatedStr }}</dd>
+    {% if accessRequest.reviewer %}
+    <dt>Reviewed by</dt><dd>{{ accessRequest.getReviewerName }}</dd>
+    <dt>Reason</dt><dd>{{ accessRequest.reason }}</dd>
+    {% endif %}
+  </dl>
+
+  {% if canAct %}
+  <h2 class="section-title">Approve this request?</h2>
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    <div class="form-row">
+      {{ field.label_tag }}
+      {{ field }}
+      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+    </div>
+    {% endfor %}
+
+    <input type="submit" value="Submit" class="btn btn-primary my-3" />
+  </form>
+  {% endif %}
+</div>
+{% endblock page_content %}

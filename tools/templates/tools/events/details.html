@@ -1,23 +1,25 @@
-{% extends "base.html" %} 
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'event-list' as parentToolUrl %}{% breadcrumbs parentLabel="Published Events" parentUrl=parentToolUrl currentLabel=object.title %}{% endblock breadcrumbs %}
 {% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">{{ object.title }}</h1>
+  {% include "tools/common/commonEventDetails.html" %}
 
-<p>
-{% include "tools/common/commonEventDetails.html" %}
-{% if object.anManageLink %}
-<a href="{{ object.anManageLink }}"> AN Manage Link</a> <br>
-{% endif %}
-
-{% if object.anShareLink %}
-<a href="{{ object.anShareLink }}">An Share Link</a><br>
-{% endif %}
-
-{% if object.gCalLink %}
-<a href="{{ object.gCalLink }}">GCal Link</a><br>
-{% endif %}
-
-{% if object.zoomLink %}
-<a href="{{ object.zoomLink }}">Zoom Link ({{ object.zoomAccount }})</a><br>
-{% endif %}
-
-</p>
+  <h2 class="section-title">Links</h2>
+  <p class="flex flex-wrap gap-3">
+  {% if object.anManageLink %}
+  <a class="btn btn-secondary" href="{{ object.anManageLink }}" target="_blank" rel="noopener">{% include "tools/common/brandIcon.html" with name="action-network" %}&nbsp;Manage on Action Network</a>
+  {% endif %}
+  {% if object.anShareLink %}
+  <a class="btn btn-secondary" href="{{ object.anShareLink }}" target="_blank" rel="noopener">{% include "tools/common/brandIcon.html" with name="action-network" %}&nbsp;Public RSVP page</a>
+  {% endif %}
+  {% if object.gCalLink %}
+  <a class="btn btn-secondary" href="{{ object.gCalLink }}" target="_blank" rel="noopener">{% include "tools/common/brandIcon.html" with name="google-calendar" %}&nbsp;View on chapter calendar</a>
+  {% endif %}
+  {% if object.zoomLink %}
+  <a class="btn btn-secondary" href="{{ object.zoomLink }}" target="_blank" rel="noopener">{% include "tools/common/brandIcon.html" with name="zoom" %}&nbsp;Join Zoom ({{ object.zoomAccount }})</a>
+  {% endif %}
+  </p>
+</div>
 {% endblock page_content %}

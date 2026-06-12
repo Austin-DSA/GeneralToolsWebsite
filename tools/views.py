@@ -1,38 +1,39 @@
 import logging
-import dataclasses
 
+from django.http import Http404
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 
-from . import permissions
-import dataclasses
+from . import navigation
+from .models import AccessRequests
 
 logger = logging.getLogger(__name__)
-
-@dataclasses.dataclass
-class PageOption:
-    href : str
-    title : str
-    permission : str
-
-    def getOptionDict(self):
-        return {"href" : self.href, "title": self.title}
-    
-PAGES = [
-    PageOption(href="new-event", title="Create an Event", permission=permissions.PUBLISH_EVENT),
-    PageOption(href="new-delegated-event", title="Create Delegated Event Request", permission=permissions.REQUEST_DELEGATED_EVENT),
-    PageOption(href="events", title="View Published Events", permission=permissions.VIEW_PUBLISHED_EVENTS),
-    PageOption(href="delegated-events", title="View Delegated Events", permission=permissions.VIEW_DELEGATED_EVENTS),
-    PageOption(href="/admin/tools/linktree/", title="Manage Link Trees", permission=permissions.MANAGE_LINK_TREE),
-    PageOption(href="link-metrics", title="Link Tree Metrics", permission=permissions.VIEW_LINK_METRICS),
-]
-
-def getPagesForUser(user) -> list[dict[str,str]]:
-    pagesForUser = [x.getOptionDict() for x in PAGES if user.has_perm(x.permission)]
-    return pagesForUser
 
 
 @login_required
 def index(request):
-    options = getPagesForUser(request.user)
-    return render(request, "tools/home.html", {"options" : options})
+    # Surface anything waiting on this user's approval right on the landing page
+    pendingRequests = AccessRequests.objects.filter(
+        status=AccessRequests.Status.REQUESTED
+    ).exclude(requester=request.user)
+    pendingReviewCount = sum(
+        1 for accessRequest in pendingRequests if accessRequest.canBeReviewedBy(request.user)
+    )
+
+    return render(request, "tools/home.html", {
+        "domains": navigation.visibleDomainsForUser(request.user),
+        "pendingReviewCount": pendingReviewCount,
+    })
+
+
+@login_required
+def domain(request, domainSlug):
+    """Landing page for one domain: the tools the user can reach within it."""
+    domainInfo = navigation.findDomainBySlug(domainSlug)
+    if domainInfo is None:
+        raise Http404(f"No such domain: {domainSlug}")
+
+    return render(request, "tools/domain.html", {
+        "domain": domainInfo,
+        "pages": navigation.visibleToolLinksForDomain(domainSlug, request.user),
+    })

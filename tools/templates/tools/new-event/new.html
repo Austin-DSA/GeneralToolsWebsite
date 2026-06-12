@@ -1,50 +1,64 @@
-{% extends "base.html" %} {% block page_content %}
+{% extends "base.html" %}
+{% block page_content %}
 <script>
 window.addEventListener("load", () => {
-    document.querySelector('[name="eventType"]').onchange = function(val)
+    const locationFields = ["locationName", "address", "city", "state", "country", "zipcode"];
+    document.querySelector('[name="eventType"]').onchange = function()
     {
-      var newVal = document.querySelector('[name="eventType"]').value
-      if(newVal == "1" || newVal == 1)
-      {
-        document.querySelector('[name="locationName"]').style.display = "none";
-        document.querySelector('[name="address"]').style.display = "none";
-        document.querySelector('[name="city"]').style.display = "none";
-        document.querySelector('[name="state"]').style.display = "none";
-        document.querySelector('[name="country"]').style.display = "none";
-        document.querySelector('[name="zipcode"]').style.display = "none";
-      }
-      else
-      {
-        document.querySelector('[name="locationName"]').style.display = "block";
-        document.querySelector('[name="address"]').style.display = "block";
-        document.querySelector('[name="city"]').style.display = "block";
-        document.querySelector('[name="state"]').style.display = "block";
-        document.querySelector('[name="country"]').style.display = "block";
-        document.querySelector('[name="zipcode"]').style.display = "block";
+      // 1 == virtual: location fields don't apply
+      var newVal = document.querySelector('[name="eventType"]').value;
+      var display = (newVal == "1" || newVal == 1) ? "none" : "block";
+      for (const name of locationFields) {
+        const row = document.querySelector('[data-field="' + name + '"]');
+        if (row) { row.style.display = display; }
       }
     };
+
+    // Publishing runs Zoom, Action Network, and Google Calendar in series on a
+    // plain synchronous POST and can take up to a minute - surface that as a
+    // loading state and guard against a double-submit.
+    const form = document.querySelector("form");
+    const submitButton = form.querySelector('[type="submit"]');
+    form.addEventListener("submit", () => {
+      submitButton.value = "Publishing to Zoom, Action Network, and Google Calendar...";
+      // Disable on the next tick so the button's value still posts with the form.
+      setTimeout(() => { submitButton.disabled = true; }, 0);
+    });
   });
 </script>
-<h1 class="text-xl py-8">Create an Event</h1>
-<form
-  action=""
-  method="post"
->
-  {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
-  <div>
-    <div class="py-2">
-      <div>{{ field.label_tag }}</div>
-      <div>{{ field }}</div>
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Create an Event</h1>
+  <p class="page-subtitle">Publishes to Zoom, Action Network, and Google Calendar in one go.</p>
+  <form
+    action=""
+    method="post"
+  >
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    {% if field.field.widget.input_type == "checkbox" %}
+    <div class="form-row form-row-checkbox" data-field="{{ field.name }}">
+      <label for="{{ field.id_for_label }}">{{ field }}<span>{{ field.label }}</span></label>
+      {% if field.help_text %}<div class="form-help">{{ field.help_text }}</div>{% endif %}
+      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
     </div>
-    <div class="text-danger">{{ field.errors }}</div>
-  </div>
-  {% endfor %}
+    {% else %}
+    <div class="form-row" data-field="{{ field.name }}">
+      {{ field.label_tag }}
+      {{ field }}
+      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
 
-  <input
-    type="submit"
-    name="submit-new-event"
-    value="Submit"
-    class="bg-primary text-white p-2 my-3"
-  />
-</form>
+    <input
+      type="submit"
+      name="submit-new-event"
+      value="Submit"
+      class="btn btn-primary my-3"
+    />
+  </form>
+</div>
 {% endblock page_content %}

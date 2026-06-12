@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1 class="page-title">My Access</h1>
+<p class="page-subtitle">What you can do on this site, and where each piece of access comes from.</p>
+
+{% if user.is_superuser %}
+<div class="alert alert-info">You are a <b>superuser</b> - you implicitly hold every permission, regardless of groups.</div>
+{% endif %}
+
+<div class="page-card">
+  <h2 class="section-title pt-0">Your groups</h2>
+  {% if groupsInfo %}
+  <table class="data-table">
+    <tr>
+      <th>Group</th>
+      <th>Grants</th>
+    </tr>
+    {% for group in groupsInfo %}
+    <tr>
+      <td class="md:whitespace-nowrap">{{ group.name }}</td>
+      <td data-label="Grants">{{ group.permissionNames|join:" · "|default:"-" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p>You're not in any groups yet.</p>
+  {% endif %}
+</div>
+
+<div class="page-card">
+  <h2 class="section-title pt-0">Your permissions</h2>
+  {% if heldPermissions %}
+  <table class="data-table">
+    <tr>
+      <th>Permission</th>
+      <th>Source</th>
+    </tr>
+    {% for permission in heldPermissions %}
+    <tr>
+      <td>{{ permission.name }}</td>
+      <td data-label="Source" class="md:whitespace-nowrap">{{ permission.source }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p>You don't have any permissions yet.</p>
+  {% endif %}
+  <p class="pt-4 text-sm">Need something you don't have? <a href="{% url 'request-access' %}">Request access here.</a></p>
+</div>
+{% endblock page_content %}

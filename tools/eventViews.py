@@ -13,6 +13,8 @@ from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 
+import settings
+
 from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
 from .forms import NewEventForm, ApproveDelegatedEventForm
@@ -34,6 +36,16 @@ class DelegatedEventListView(LoginRequiredMixin, PermissionRequiredMixin,ListVie
     permission_required = VIEW_DELEGATED_EVENTS
     model = DelegatedEvents
     template_name = "tools/delegated-events/list.html"
+
+    def get_context_data(self, **kwargs):
+        # The approve page layers two checks this list's permission doesn't
+        # imply (APPROVE_DELEGATED_EVENT + owner.authorizers), so pick each
+        # row's link per-viewer: approvers get the approve page, everyone
+        # else the read-only detail page.
+        context = super().get_context_data(**kwargs)
+        for event in context["object_list"]:
+            event.viewerUrl = event.getUrlFor(self.request.user)
+        return context
 
 class PostedEventDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     permission_required = VIEW_PUBLISHED_EVENTS
@@ -68,9 +80,12 @@ def new_event(request):
             logger.exception("PublishEvent: Could not get event owner")
             raise err
         
-        if not owner.isActive:
+        # isActive is a method - the call parens matter. Reading the bare
+        # attribute (the old bug) tests the bound method, which is always
+        # truthy, silently disabling the expiration check.
+        if not owner.isActive():
             logger.error("PublishEvent: Owner %s is no longer active and cannot create events", owner.name)
-            return render(request, "tools/new-event/unknown.html", {"errorStr": f"Owner {owner.name} is no longer active and cannot create"})
+            return render(request, "tools/new-event/unknown.html", {"errorStr": f"Owner {owner.name} is no longer active and cannot create events"})
         if request.user not in owner.authorizers.all():
             logger.error("PublishEvent: You are not an authorizer for owner %s", owner.name)
             return render(request, "tools/new-event/unknown.html", {"errorStr": f"You are not an authorizer for owner {owner.name}"})
@@ -87,17 +102,33 @@ def new_event(request):
         ]
 
         logger.info("PublishEvent: Attempting to publish event")
-        result = EventAutomationDriver.publishEvent(
-            eventInfo=eventInfo,
-            config=EventAutomationDriver.Config(
-                zoomConfig=zoomConfig,
-                anConfig=anConfig,
-                gCalConfig=gCalConfig,
-                ignoreResolveableConflicts=ignoreResolveableConflicts
+        if settings.DEMO_MODE:
+            # The demo box has stubbed Zoom / Action Network / Google credentials
+            # and no Selenium container, so a real publish can only fail. Skip it
+            # and return a placeholder PUBLISHED result so the demo walks the full
+            # happy path (loading -> success page with links) without contacting
+            # any external service or creating a real meeting. The short sleep
+            # makes the loading state visible; the real pipeline takes 15-30s.
+            logger.info("PublishEvent: DEMO_MODE is on, returning a stubbed result without publishing")
+            time.sleep(2)
+            result = EventAutomationDriver.Result(
+                type=EventAutomationDriver.Result.ResultType.PUBLISHED,
+                zoomAccount="events@austindsa.org (demo)" if eventInfo.zoomRequired else "",
+                zoomLink="https://us02web.zoom.us/j/0000000000" if eventInfo.zoomRequired else "",
+                anManageLink="https://actionnetwork.org/events/demo-event/manage",
+                anShareLink="https://actionnetwork.org/events/demo-event",
+                gCalLink="https://calendar.google.com/calendar/u/0/r/eventedit",
             )
-        )
-        # Left around for debugging, useful if you want to test thigns out without having to actuall publish a bunch of stuff
-        # result = EventAutomationDriver.Result(EventAutomationDriver.Result.ResultType.PUBLISHED, anManageLink="manageLink", anShareLink="shareLink", gCalLink="gCalLink", zoomAccount="Account", zoomLink="zoomLink")
+        else:
+            result = EventAutomationDriver.publishEvent(
+                eventInfo=eventInfo,
+                config=EventAutomationDriver.Config(
+                    zoomConfig=zoomConfig,
+                    anConfig=anConfig,
+                    gCalConfig=gCalConfig,
+                    ignoreResolveableConflicts=ignoreResolveableConflicts
+                )
+            )
         if result.type == EventAutomationDriver.Result.ResultType.PUBLISHED:
             # Return success and links back to user
             logger.info(
@@ -234,7 +265,11 @@ def new_delegated_event(request):
         form = NewEventForm(request.POST)
         if not form.is_valid():
             logger.error("PublishDelegatedEvent: Submitted Form is not valid")
-            return render(request, "tools/new-delegated-event/unknown.html", {"errorStr": "The form could not be validated, please go back and try again."})
+            # error.html, not unknown.html - unknown.html doesn't exist in
+            # this template directory, and this branch is reachable now that
+            # the owner dropdown excludes unhealthy owners (a stale tab can
+            # submit an owner that has since expired or lost its authorizers).
+            return render(request, "tools/new-delegated-event/error.html", {"errorStr": "The form could not be validated, please go back and try again."})
 
         eventInfo = form.convertToEventInfo()
         logger.info("PublishDelegatedEvent: Recieved event data %s", str(eventInfo))
@@ -246,6 +281,18 @@ def new_delegated_event(request):
         except Exception as err:
             logger.exception("PublishDelegatedEvent: Could not get event owner")
             raise err
+
+        # Inactive owners can't receive new requests. Sits before the
+        # publishEvent dry-run below so we never touch Zoom/AN/gCal for a
+        # request that can't proceed. (The error.html context here is
+        # deliberately {"errorStr": ...} - the template reads only errorStr;
+        # the unexpected-error branch below passes dataclasses.asdict(result),
+        # which has no errorStr key and renders a blank message. Don't "align"
+        # this to that pre-existing bug.)
+        if not owner.isActive():
+            logger.error("PublishDelegatedEvent: Rejected delegated event request for inactive owner %s", owner.name)
+            return render(request, "tools/new-delegated-event/error.html",
+                          {"errorStr": f"Owner {owner.name} is no longer active and cannot accept event requests"})
         logger.info("PublishDelegatedEvent: Got and validated event owner %s", owner.name)
         
         logger.info("PublishDelegatedEvent: Getting configuration")

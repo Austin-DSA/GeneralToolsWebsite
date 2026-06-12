@@ -1,26 +1,33 @@
-{% extends "base.html" %} {% block page_content %}
-<p>
-{% include "tools/common/commonEventDetails.html" %}
-</p>
-<h1 class="text-xl py-8">Approve Delegated Event</h1>
-<form
-  action=""
-  method="post"
->
-  {% csrf_token %} {{ form.non_field_errors }} {% for field in form %}
-  <div>
-    <div class="py-2">
-      <div>{{ field.label_tag }}</div>
-      <div>{{ field }}</div>
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'delegated-event-list' as parentToolUrl %}{% breadcrumbs parentLabel="Delegated Events" parentUrl=parentToolUrl currentLabel="Review" %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Approve Delegated Event</h1>
+  {% include "tools/common/commonEventDetails.html" %}
+
+  <h2 class="section-title">Approve this event?</h2>
+  <form
+    action=""
+    method="post"
+  >
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+    {% for field in form %}
+    <div class="form-row">
+      {{ field.label_tag }}
+      {{ field }}
+      {% if field.errors %}<div class="form-errors">{{ field.errors }}</div>{% endif %}
     </div>
-    <div class="text-danger">{{ field.errors }}</div>
-  </div>
-  {% endfor %}
-<input
-    type="submit"
-    name="submit-new-event"
-    value="Submit"
-    class="bg-primary text-white p-2 my-3"
-  />
-</form>
+    {% endfor %}
+    <input
+      type="submit"
+      name="submit-new-event"
+      value="Submit"
+      class="btn btn-primary my-3"
+    />
+  </form>
+</div>
 {% endblock page_content %}

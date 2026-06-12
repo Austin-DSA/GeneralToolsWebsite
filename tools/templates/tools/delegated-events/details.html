@@ -1,8 +1,9 @@
-{% extends "base.html" %} 
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'delegated-event-list' as parentToolUrl %}{% breadcrumbs parentLabel="Delegated Events" parentUrl=parentToolUrl currentLabel=object.title %}{% endblock breadcrumbs %}
 {% block page_content %}
-<p>
-{% include "tools/common/commonEventDetails.html" %}
-Status: {{object.getStatusAsString}}<br>
-<br>
-</p>
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">{{ object.title }} <span class="badge badge-{{object.getStatusAsString|lower}} align-middle">{{object.getStatusAsString}}</span></h1>
+  {% include "tools/common/commonEventDetails.html" %}
+</div>
 {% endblock page_content %}

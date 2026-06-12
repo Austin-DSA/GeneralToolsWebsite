@@ -1,0 +1,38 @@
+/* Status badges - combine: class="badge badge-{{ getStatusAsString|lower }}" */
+.badge {
+  @apply inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap;
+}
+.badge-requested {
+  @apply bg-warning text-dark;
+}
+.badge-approved {
+  @apply text-white;
+  background-color: var(--color-success);
+}
+.badge-denied {
+  @apply text-white;
+  background-color: var(--color-danger);
+}
+/* Shared by Link Tree management and Manage Event Owners */
+.badge-active {
+  @apply text-white;
+  background-color: var(--color-success);
+}
+/* Link Tree management: inactive/unresolved item + tree state */
+.badge-inactive {
+  @apply bg-neutral-200 text-secondary;
+}
+.badge-unresolved {
+  @apply bg-warning text-dark;
+}
+/* Owner lifecycle badge (Manage Event Owners) */
+.badge-expired {
+  @apply text-white;
+  background-color: var(--color-danger);
+}
+
+/* Rows needing attention (expired owner, no authorizers, stuck request).
+   Targets td so the tint survives the under-md stacked-card collapse. */
+.data-table tr.row-attention td {
+  background-color: color-mix(in srgb, var(--color-warning) 18%, white);
+}

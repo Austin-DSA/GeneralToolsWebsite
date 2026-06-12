@@ -1,24 +1,12 @@
-{% extends "base.html" %} {% block page_content %}
-<p> Your event could not be published due to the following RESOLVEABLE conflicts. <br>
-    If you still want this event published go back to the new event form, re-enter the details, and check "Ignore Resolveable Conflicts"
-</p>
-<hr>
-<p>
-    <ul>
-    {% for conflict in conflicts %}
-    <li>
-        {% if conflict.type == 0 %}
-            Zoom  
-            {%if conflict.zoomUser %} 
-                ({{conflict.zoomUser}})
-            {% endif %}
-            :
-        {% else %}
-            Gcal: 
-        {% endif %}
-        {{ conflict.title }} - {{ conflict.start }} - {{ conflict.end }}
-    </li>
-    {% endfor %}
-    </ul>
-</p>
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'new-event' as parentToolUrl %}{% breadcrumbs parentLabel="Create an Event" parentUrl=parentToolUrl currentLabel="Calendar conflict" %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Schedule conflicts found</h1>
+  <div class="alert alert-warning">Your event could not be published due to the following <b>resolveable</b> conflicts.
+    If you still want this event published go back to the new event form, re-enter the details, and check "Ignore Resolveable Conflicts".</div>
+  {% include "tools/common/conflictList.html" %}
+  <p class="py-3"><a class="btn btn-primary" href="{% url 'new-event' %}">Back to the event form</a></p>
+</div>
 {% endblock page_content %}

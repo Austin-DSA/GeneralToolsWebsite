@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @theme {
   --color-primary: #ec1f27;
+  --color-primary-dark: #c4151c;
   --color-secondary: #605c5c;
   --color-success: #00a02a;
   --color-info: #fbd2d4;
@@ -8,6 +9,7 @@
   --color-warning: #ffe45e;
   --color-dark: #231f20;
   --color-gray-med: #8c8989;
+  --color-paper: #f6f4f3;
   --font-display: "StyreneB", "ManifoldDSA", "sans-serif";
 }
 
@@ -26,24 +28,48 @@
 }
 
 .tools-header {
-  height: 60px;
+  min-height: 60px; /* grows when the nav wraps to its own row on mobile */
 }
 
-.bat-logo {
-  height: 60px;
-  width: 60px;
+/* The masthead carries the bare bat+rose mark (.wordmark-logo, bat-rose.svg)
+   beside the AUSTIN DSA / Echo lockup. The full circle seal stays off
+   the header - its arched text is unreadable at header size; it appears
+   full-size on the public link-tree pages and the apple-touch icon. */
+
+/* In @layer base so component classes (.header-link, .btn, .tool-row) can
+   override it - unlayered rules would always win over layered ones. */
+@layer base {
+  a {
+    @apply underline text-primary-dark hover:text-primary visited:text-primary-dark;
+  }
 }
 
-.app-title {
-  padding-left: 20px;
-}
+/* --- Component layer: the site-wide design system. Split by concern into
+   per-component partials under components/. Import order = cascade order, and
+   it matches the original source order, so the compiled output is unchanged.
+   Edit the relevant partial for component changes; edit this file only for
+   tokens, fonts, .tools-header, or the base link rule.
 
-.form-field {
-  border: 1px solid var(--color-gray-med);
-  padding: 5px;
-  min-width: 200px;
-}
-
-a {
-   @apply underline text-blue-600 hover:text-blue-800 visited:text-purple-600
+   The whole list is wrapped in ONE @layer components { ... } here so the
+   partials stay layer-free and the compiler emits a single merged component
+   layer (per-partial @layer wrappers would emit boundary markers and break
+   the output.css content gate). ----------------------------------------------- */
+@layer components {
+  @import "./components/_masthead.css";
+  @import "./components/_mobile-menu.css";
+  @import "./components/_dropdowns.css";
+  @import "./components/_breadcrumbs.css";
+  @import "./components/_layout.css";
+  @import "./components/_buttons.css";
+  @import "./components/_forms.css";
+  @import "./components/_tables.css";
+  @import "./components/_badges.css";
+  @import "./components/_alerts.css";
+  @import "./components/_detail.css";
+  @import "./components/_checkbox-list.css";
+  @import "./components/_access.css";
+  @import "./components/_registration.css";
+  @import "./components/_metrics.css";
+  @import "./components/_home.css";
+  @import "./components/_menu-section.css";
 }

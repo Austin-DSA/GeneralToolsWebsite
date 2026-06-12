@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ domain.title }} - Echo{% endblock title %}
+{% block page_content %}
+<h1 class="page-title">{{ domain.title }}</h1>
+<p class="page-subtitle">{{ domain.description }}</p>
+
+{% if pages %}
+<ul class="tool-list max-w-3xl">
+  {% for page in pages %}
+  <li>
+    <a class="tool-row" href="{{ page.href }}">
+      <span class="tool-row-index" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+      <span class="tool-row-body">
+        <span class="tool-row-title">{{ page.title }}</span>
+        <span class="tool-row-desc">{{ page.description }}</span>
+      </span>
+      <span class="tool-row-arrow" aria-hidden="true">→</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="page-card page-card-narrow">
+  <p class="pb-4">You don't have access to any {{ domain.title }} tools yet.</p>
+  <a class="btn btn-primary" href="{% url 'request-access' %}">Request access</a>
+</div>
+{% endif %}
+{% endblock page_content %}

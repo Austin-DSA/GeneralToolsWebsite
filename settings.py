@@ -26,6 +26,12 @@ BASE_DIR = Path(__file__).resolve().parent
 environ.Env.read_env(BASE_DIR / "dev-env.env")
 env = environ.Env(
     DEBUG=(bool,False),
+    # Demo/dev switch: when on, event publishing returns a placeholder success
+    # instead of contacting Zoom / Action Network / Google Calendar. The Railway
+    # demo box has stubbed credentials and no Selenium container, so a real
+    # publish can only fail there; set DEMO_MODE=1 on that box to show the full
+    # happy path. Leave off (default) in production.
+    DEMO_MODE=(bool,False),
     ALLOWED_HOSTS=(list,[]),
     CSRF_TRUSTED_ORIGINS=(list,[]),
     # Only used for dev/prod, would need to do more work generally to support non-gmail accounts since we are already tied to gCal
@@ -45,10 +51,25 @@ LINK_TRACKING_SALT = env("LINK_TRACKING_SALT", default=SECRET_KEY)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
 
+# When on, event publishing is stubbed (no external services contacted) - see
+# the env() default above and tools/eventViews.py new_event.
+DEMO_MODE = env("DEMO_MODE")
+
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
+# Every fronting proxy this app runs behind (nginx-conf/*.conf, Railway's edge)
+# terminates TLS and sets X-Forwarded-Proto, so trust it - otherwise
+# request.scheme reports "http" and absolute URLs built from the request
+# (og:image, og:url) advertise the wrong scheme. Plain runserver sends no
+# header and falls back to the actual scheme.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 AUTH_USER_MODEL = "tools.user"
+
+# Without this a direct login (no ?next=) bounces to Django's default
+# /accounts/profile/, which doesn't exist here.
+LOGIN_REDIRECT_URL = "/"
 
 # Application definition
 
@@ -70,6 +91,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Activates the browser-reported timezone (django_timezone cookie set in
+    # base.html) so timestamps render in the member's local time
+    "tools.middleware.TimezoneMiddleware",
 ]
 
 ROOT_URLCONF = "urls"
@@ -85,6 +109,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "tools.contextProcessors.navigation",
             ],
         },
     },
@@ -169,6 +194,10 @@ EMAIL_HOST = env("EMAIL_HOST")
 EMAIL_PORT = env("EMAIL_PORT")
 EMAIL_HOST_USER = tools.SecretManager.SecretManager.getWebsiteEmailAccountUserName()
 EMAIL_HOST_PASSWORD = tools.SecretManager.SecretManager.getWebsiteEmailAccountPassword()
+# Used by django.core.mail senders (e.g. the built-in password-reset emails)
+# when no explicit from address is given; without it Django falls back to
+# webmaster@localhost.
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 EMAIL_USE_TLS = True
 # EMAIL_USE_SSL = True
 EMAIL_FAIL_SILENTLY = False 

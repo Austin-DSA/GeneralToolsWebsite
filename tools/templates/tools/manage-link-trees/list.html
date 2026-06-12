@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block page_content %}
+<h1 class="page-title">Manage Link Trees</h1>
+<p class="page-subtitle">The chapter's link pages. Edit a tree to add, reorder, and hide its items, or jump to <a href="{% url 'manage-qr-code-list' %}">QR codes</a>.</p>
+
+<div class="page-card">
+  <p class="pb-4">
+    <a href="{% url 'manage-link-tree-new' %}" class="btn btn-primary no-underline">{% include "tools/common/icon.html" with name="plus" %}&nbsp;New link tree</a>
+  </p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Slug</th>
+        <th>Visibility</th>
+        <th>Active</th>
+        <th class="text-right">Items</th>
+        <th class="text-right">QR codes</th>
+        <th>Manage</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in treeRows %}
+      <tr>
+        <td class="min-w-40"><b>{{ row.tree.title }}</b></td>
+        <td data-label="Slug"><a href="{{ row.tree.getPublicUrl }}">/t/{{ row.tree.slug }}/</a></td>
+        <td data-label="Visibility">{{ row.tree.get_visibility_display }}</td>
+        <td data-label="Active">{% if row.tree.isActive %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+        <td data-label="Items" class="text-right">{{ row.itemCount }}</td>
+        <td data-label="QR codes" class="text-right">{{ row.qrCount }}</td>
+        <td><a href="{% url 'manage-link-tree-edit' row.tree.id %}">Manage</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-secondary">No link trees yet - create the first one.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock page_content %}

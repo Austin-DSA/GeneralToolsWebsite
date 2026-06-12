@@ -41,3 +41,13 @@ Thumbs.db
 
 # --- Logs ---
 *.log
+
+# --- Local browser-testing artifacts (Playwright MCP) ---
+.playwright-mcp/
+staged-add-note-hidden.png
+
+# --- Railway demo deploy (party-line-dev): intentionally NOT ignored ---
+# railway.json / railway-entrypoint.sh / railway-seed.py are local-only and
+# must never be committed to the upstream PR branch - but they must NOT be
+# gitignored either: `railway up` only uploads files that aren't gitignored,
+# so ignoring them would stop them deploying. Leave them untracked.

@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block page_content %}
+<div class="page-card page-card-narrow">
+  <h1 class="page-title">Logged out</h1>
+  <p>You have been logged out of Echo.</p>
+  <p class="py-3"><a class="btn btn-primary" href="{% url 'login' %}">Log back in</a></p>
+</div>
+{% endblock page_content %}

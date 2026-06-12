@@ -1,113 +1,95 @@
 {% extends "base.html" %}
+{% load navigation_tags %}
 {% block title %}Link Tree Metrics{% endblock title %}
+{% block breadcrumbs %}{% if tree %}{% url 'link-metrics' as parentToolUrl %}{% breadcrumbs parentLabel="Link Tree Metrics" parentUrl=parentToolUrl currentLabel=tree.title %}{% else %}{% breadcrumbs %}{% endif %}{% endblock breadcrumbs %}
 {% block page_content %}
-<style>
-  .lm-wrap { max-width: 920px; margin: 0 auto; padding: 8px 0 48px; }
-  .lm-cards { display: flex; flex-wrap: wrap; gap: 14px; margin: 18px 0 28px; }
-  .lm-card { flex: 1 1 150px; border: 1px solid #8c8989; border-radius: 10px; padding: 14px 16px; }
-  .lm-card .n { font-size: 1.8rem; font-weight: 700; color: #231f20; }
-  .lm-card .l { font-size: .8rem; color: #605c5c; text-transform: uppercase; letter-spacing: .03em; }
-  .lm-section { margin: 30px 0; }
-  .lm-section h2 { font-size: 1.15rem; margin-bottom: 10px; }
-  table.lm { width: 100%; border-collapse: collapse; }
-  table.lm th, table.lm td { text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e0e0; font-size: .92rem; }
-  table.lm th { color: #605c5c; font-weight: 600; }
-  table.lm td.num, table.lm th.num { text-align: right; }
-  .lm-bars { display: flex; flex-direction: column; gap: 4px; }
-  .lm-bar-row { display: grid; grid-template-columns: 92px 1fr 64px; align-items: center; gap: 8px; font-size: .82rem; }
-  .lm-bar-track { background: #f1eeee; border-radius: 5px; overflow: hidden; height: 16px; }
-  .lm-bar-fill { background: #ec1f27; height: 100%; }
-  .lm-muted { color: #8c8989; }
-  .lm-actions a { margin-right: 14px; }
-</style>
-
-<div class="lm-wrap">
 {% if not tree %}
-  <h1 class="text-xl py-4">Link Tree Metrics</h1>
-  <p class="lm-muted">Pick a tree to see clicks, scans, and trends.</p>
-  <div class="lm-section">
-    <table class="lm">
+  <h1 class="page-title">Link Tree Metrics</h1>
+  <p class="page-subtitle">Pick a tree to see clicks, scans, and trends.</p>
+
+  <div class="page-card">
+    <table class="data-table">
       <thead>
-        <tr><th>Link tree</th><th class="num">Web clicks</th><th class="num">QR scans</th><th></th></tr>
+        <tr><th>Link tree</th><th class="text-right">Web clicks</th><th class="text-right">QR scans</th><th class="text-right">View</th></tr>
       </thead>
       <tbody>
         {% for row in overview %}
           <tr>
-            <td>{{ row.tree.title }} <span class="lm-muted">/t/{{ row.tree.slug }}/</span></td>
-            <td class="num">{{ row.web }}</td>
-            <td class="num">{{ row.qr }}</td>
-            <td><a href="{% url 'link-metrics-tree' row.tree.slug %}">View →</a></td>
+            <td>{{ row.tree.title }} <span class="text-sm text-secondary">/t/{{ row.tree.slug }}/</span></td>
+            <td data-label="Web clicks" class="text-right">{{ row.web }}</td>
+            <td data-label="QR scans" class="text-right">{{ row.qr }}</td>
+            <td class="text-right"><a href="{% url 'link-metrics-tree' row.tree.slug %}">View →</a></td>
           </tr>
         {% empty %}
-          <tr><td colspan="4" class="lm-muted">No link trees yet. Create one in the admin.</td></tr>
+          <tr><td colspan="4" class="text-secondary">No link trees yet. Create one in the admin.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
 {% else %}
-  <h1 class="text-xl py-4">{{ tree.title }} — Metrics</h1>
-  <p class="lm-actions">
-    <a href="{{ tree.getPublicUrl }}">Open public page ↗</a>
-    <a href="{% url 'link-metrics-csv' tree.slug %}">Download CSV</a>
-    <a href="{% url 'link-metrics' %}">← All trees</a>
+  <h1 class="page-title">{{ tree.title }} - Metrics</h1>
+  <p class="page-subtitle">Click and scan activity for <a href="{{ tree.getPublicUrl }}">/t/{{ tree.slug }}/</a>.</p>
+
+  <p class="flex items-center gap-3 pb-2">
+    <a href="{{ tree.getPublicUrl }}" class="btn btn-secondary btn-small no-underline">Open public page ↗</a>
+    <a href="{% url 'link-metrics-csv' tree.slug %}" class="btn btn-secondary btn-small no-underline">Download CSV</a>
   </p>
 
-  <div class="lm-cards">
-    <div class="lm-card"><div class="n">{{ grandTotal }}</div><div class="l">Total opens</div></div>
-    <div class="lm-card"><div class="n">{{ webTotal }}</div><div class="l">Web clicks</div></div>
-    <div class="lm-card"><div class="n">{{ qrTotal }}</div><div class="l">QR scans</div></div>
-    <div class="lm-card"><div class="n">{{ uniqueVisitors }}</div><div class="l">Approx. visitors</div></div>
+  <div class="stat-grid">
+    <div class="stat-card"><span class="stat-card-number">{{ grandTotal }}</span><span class="stat-card-label">Total opens</span></div>
+    <div class="stat-card"><span class="stat-card-number">{{ webTotal }}</span><span class="stat-card-label">Web clicks</span></div>
+    <div class="stat-card"><span class="stat-card-number">{{ qrTotal }}</span><span class="stat-card-label">QR scans</span></div>
+    <div class="stat-card"><span class="stat-card-number">{{ uniqueVisitors }}</span><span class="stat-card-label">Approx. visitors</span></div>
   </div>
 
-  <div class="lm-section">
-    <h2>Last {{ windowDays }} days</h2>
+  <div class="page-card">
+    <h2 class="section-title pt-0">Last {{ windowDays }} days</h2>
     {% if series %}
-      <div class="lm-bars">
+      <div class="bar-list">
         {% for d in series %}
-          <div class="lm-bar-row">
-            <span class="lm-muted">{{ d.day|date:"M j" }}</span>
-            <span class="lm-bar-track"><span class="lm-bar-fill" style="width: {{ d.pct }}%"></span></span>
-            <span class="num">{{ d.total }} <span class="lm-muted">({{ d.web }}w/{{ d.qr }}q)</span></span>
+          <div class="bar-row">
+            <span class="text-secondary">{{ d.day|date:"M j" }}</span>
+            <span class="bar-track"><span class="bar-fill" style="width: {{ d.pct }}%"></span></span>
+            <span class="text-right">{{ d.total }} <span class="text-secondary">({{ d.web }}w/{{ d.qr }}q)</span></span>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <p class="lm-muted">No activity in this window yet.</p>
+      <p class="text-secondary">No activity in this window yet.</p>
     {% endif %}
   </div>
 
-  <div class="lm-section">
-    <h2>Top links</h2>
-    <table class="lm">
-      <thead><tr><th>Link</th><th class="num">Opens</th></tr></thead>
+  <div class="page-card">
+    <h2 class="section-title pt-0">Top links</h2>
+    <table class="data-table">
+      <thead><tr><th>Link</th><th class="text-right">Opens</th></tr></thead>
       <tbody>
         {% for row in topItems %}
-          <tr><td>{{ row.label }}</td><td class="num">{{ row.total }}</td></tr>
+          <tr><td>{{ row.label }}</td><td data-label="Opens" class="text-right">{{ row.total }}</td></tr>
         {% empty %}
-          <tr><td colspan="2" class="lm-muted">No link clicks recorded yet.</td></tr>
+          <tr><td colspan="2" class="text-secondary">No link clicks recorded yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-  <div class="lm-section">
-    <h2>QR codes</h2>
-    <table class="lm">
-      <thead><tr><th>Code</th><th>Campaign</th><th class="num">Scans</th></tr></thead>
+  <div class="page-card">
+    <h2 class="section-title pt-0">QR codes</h2>
+    <table class="data-table">
+      <thead><tr><th>Code</th><th>Campaign</th><th class="text-right">Scans</th></tr></thead>
       <tbody>
         {% for row in qrRows %}
           <tr>
-            <td>{{ row.qr__label }} <span class="lm-muted">/qr/{{ row.qr__code }}/</span></td>
-            <td>{{ row.qr__campaign|default:"—" }}</td>
-            <td class="num">{{ row.scans }}</td>
+            <td>{{ row.qr__label }} <span class="text-sm text-secondary">/qr/{{ row.qr__code }}/</span></td>
+            <td data-label="Campaign">{{ row.qr__campaign|default:"-" }}</td>
+            <td data-label="Scans" class="text-right">{{ row.scans }}</td>
           </tr>
         {% empty %}
-          <tr><td colspan="3" class="lm-muted">No QR scans recorded yet.</td></tr>
+          <tr><td colspan="3" class="text-secondary">No QR scans recorded yet.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 {% endif %}
-</div>
 {% endblock page_content %}

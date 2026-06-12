@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-access' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Member Access" parentUrl=parentToolUrl currentLabel=target.username %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-3xl">
+  <h1 class="page-title">{{ target.username }}
+    {% if target.is_superuser %}<span class="badge badge-approved align-middle">superuser</span>{% endif %}
+  </h1>
+  <p class="page-subtitle">{{ target.first_name }} {{ target.last_name }} · {{ target.email }}</p>
+
+  {% if saved %}
+  <div class="alert alert-success">Access updated.</div>
+  {% endif %}
+  {% if target.is_superuser %}
+  <div class="alert alert-info">Superusers hold every permission implicitly - groups and direct permissions below are still saved, but don't limit them.</div>
+  {% endif %}
+
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <input type="search" id="access-filter" class="form-field max-w-sm" placeholder="Filter groups and permissions…" autocomplete="off" />
+
+    <div data-filter-section>
+      <h2 class="section-title">Groups</h2>
+      <div class="choice-list">
+        {% for row in groupRows %}
+        <label class="choice-card" data-filter-text="{{ row.group.name|lower }}">
+          <input type="checkbox" name="groups" value="{{ row.group.id }}"
+                 {% if row.checked %}checked{% endif %}
+                 data-group-checkbox data-group-id="{{ row.group.id }}" data-group-name="{{ row.group.name }}" />
+          <span class="choice-card-body">
+            <span class="choice-card-title">{{ row.group.name }}</span>
+            <span class="choice-card-desc">
+              {% if row.permissionNames %}Grants: {{ row.permissionNames|join:", " }}{% else %}No tool permissions attached yet.{% endif %}
+            </span>
+          </span>
+        </label>
+        {% empty %}
+        <p class="form-help">No groups exist yet - create one on the <a href="{% url 'manage-groups' %}">Manage Groups</a> page.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <h2 class="section-title">Directly-granted permissions</h2>
+    <p class="form-help pb-2">Permissions the member holds individually, on top of whatever their groups grant.</p>
+
+    {% for section in permissionSections %}
+    <div data-filter-section>
+      <h3 class="menu-section-title">{{ section.title }}</h3>
+      <div class="choice-list">
+        {% for row in section.rows %}
+        <label class="choice-card" data-filter-text="{{ row.shortLabel|lower }}" data-granted-by="{{ row.viaGroupIds }}">
+          <input type="checkbox" name="permissions" value="{{ row.permission.id }}" {% if row.checked %}checked{% endif %} />
+          <span class="choice-card-body">
+            <span class="choice-card-title">{{ row.shortLabel }}</span>
+            <span class="choice-card-hint" data-via-hint hidden></span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="save-bar">
+      <input type="submit" value="Save access" class="btn btn-primary" />
+      <a href="{% url 'manage-access' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  // "Already granted via <group>" hints - recomputed live as group boxes toggle,
+  // so the admin can see when a direct grant would be redundant.
+  const groupBoxes = document.querySelectorAll("[data-group-checkbox]");
+  function refreshHints() {
+    const checkedGroups = new Map();
+    groupBoxes.forEach((box) => {
+      if (box.checked) checkedGroups.set(box.dataset.groupId, box.dataset.groupName);
+    });
+    document.querySelectorAll("[data-granted-by]").forEach((card) => {
+      const names = card.dataset.grantedBy
+        .split(",")
+        .filter((id) => checkedGroups.has(id))
+        .map((id) => checkedGroups.get(id));
+      const hint = card.querySelector("[data-via-hint]");
+      if (names.length > 0) {
+        hint.textContent = "✓ Already granted via " + names.join(", ");
+        hint.hidden = false;
+        card.classList.add("is-covered");
+      } else {
+        hint.hidden = true;
+        card.classList.remove("is-covered");
+      }
+    });
+  }
+  groupBoxes.forEach((box) => box.addEventListener("change", refreshHints));
+  refreshHints();
+
+  // Text filter across both groups and permissions; section headings hide
+  // when nothing under them matches.
+  document.getElementById("access-filter").addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    document.querySelectorAll("[data-filter-section]").forEach((section) => {
+      let anyVisible = false;
+      section.querySelectorAll("[data-filter-text]").forEach((card) => {
+        const show = !query || card.dataset.filterText.includes(query);
+        card.hidden = !show;
+        if (show) anyVisible = true;
+      });
+      section.hidden = !anyVisible;
+    });
+  });
+</script>
+{% endblock page_content %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% url 'manage-event-owners' as parentToolUrl %}{% breadcrumbs parentLabel="Manage Event Owners" parentUrl=parentToolUrl currentLabel="Create" %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Create Event Owner</h1>
+  <p class="page-subtitle">Name the owner and set its expiration policy. You'll add authorizers on the next page - until it has at least one, nobody can approve requests filed against it.</p>
+
+  <form action="" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <div class="alert alert-error">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="form-row max-w-sm">
+      <label for="{{ form.ownerName.id_for_label }}">{{ form.ownerName.label }}</label>
+      {{ form.ownerName }}
+      {% if form.ownerName.errors %}<div class="form-errors">{{ form.ownerName.errors }}</div>{% endif %}
+    </div>
+
+    <div class="form-row form-row-checkbox">
+      <label for="{{ form.ownerIsPermanent.id_for_label }}">{{ form.ownerIsPermanent }}<span>{{ form.ownerIsPermanent.label }}</span></label>
+      {% if form.ownerIsPermanent.errors %}<div class="form-errors">{{ form.ownerIsPermanent.errors }}</div>{% endif %}
+    </div>
+    <div class="form-row max-w-sm">
+      <label for="{{ form.ownerExpiration.id_for_label }}">{{ form.ownerExpiration.label }}</label>
+      {{ form.ownerExpiration }}
+      <div class="form-help">{{ form.ownerExpiration.help_text }}</div>
+      {% if form.ownerExpiration.errors %}<div class="form-errors">{{ form.ownerExpiration.errors }}</div>{% endif %}
+    </div>
+
+    <div class="flex items-center gap-3 pt-4">
+      <input type="submit" value="Create owner" class="btn btn-primary" />
+      <a href="{% url 'manage-event-owners' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% include "tools/event-owners/_expiration_toggle.html" %}
+{% endblock page_content %}

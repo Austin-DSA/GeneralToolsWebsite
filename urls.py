@@ -18,10 +18,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from tools import authViews
+
 urlpatterns = [
     path("", include("tools.urls")),
     path("admin/", admin.site.urls),
-    # TODO: Skipping this for now cause its mostly QOL, but need to add in all the various account management views described in django.contrib.auth.urlpatterns
-    # Also if we want to allow simple user registration need to add that
+    # Self-service registration (Django provides no built-in view for this);
+    # must be registered before the contrib.auth include below.
+    path("accounts/register/", authViews.register, name="register"),
+    # Login/logout/password-change/password-reset views from Django itself;
+    # their templates live in tools/templates/registration/.
     path("accounts/", include("django.contrib.auth.urls"))
 ]
