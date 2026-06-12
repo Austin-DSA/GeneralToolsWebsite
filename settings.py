@@ -53,7 +53,7 @@ LINK_TRACKING_SALT = env("LINK_TRACKING_SALT", default=SECRET_KEY)
 DEBUG = env("DEBUG")
 
 # When on, event publishing is stubbed (no external services contacted) - see
-# the env() default above and tools/eventViews.py new_event.
+# the env() default above and tools/tasks.py publishEventJob.
 DEMO_MODE = env("DEMO_MODE")
 
 # Background tasks (Huey). The queue lives in its own SQLite file - deliberately

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block breadcrumbs %}{% breadcrumbs currentLabel="Publishing" %}{% endblock breadcrumbs %}
+{% block page_content %}
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Publishing your event</h1>
+  <p class="page-subtitle">Publishing to Zoom, Action Network, and Google Calendar...</p>
+  <p>This usually takes under a minute. This page checks automatically and will show the result when publishing finishes - no need to refresh.</p>
+  <p id="stale-note" class="alert alert-warning" hidden>
+    This is taking longer than expected. Check the <a href="{% url 'event-list' %}">published events list</a> before retrying.
+  </p>
+</div>
+<script>
+  // Poll the job's JSON endpoint every 2 seconds; once the job reaches a
+  // terminal status, reload - the view then renders the result page at this
+  // same URL. The stale check is anchored on the job's createdAt from the
+  // poll response (not a local timer), so it survives page reloads.
+  (() => {
+    const statusUrl = "{% url 'publish-status-json' jobId=job.id %}";
+    const staleAfterMs = 5 * 60 * 1000;
+    const staleNote = document.getElementById("stale-note");
+    const poll = () => {
+      fetch(statusUrl)
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.isTerminal) {
+            window.location.reload();
+            return;
+          }
+          if (Date.now() - Date.parse(data.createdAtIso) > staleAfterMs) {
+            staleNote.hidden = false;
+          }
+          setTimeout(poll, 2000);
+        })
+        .catch(() => { setTimeout(poll, 2000); });
+    };
+    setTimeout(poll, 2000);
+  })();
+</script>
+{% endblock page_content %}

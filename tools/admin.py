@@ -69,6 +69,37 @@ admin.site.register(PostedEvents)
 admin.site.register(DelegatedEvents)
 
 
+@admin.register(PublishJob)
+class PublishJobAdmin(admin.ModelAdmin):
+    """Read-only oversight of background publish runs - and the recovery
+    surface for a job stuck in RUNNING (worker death mid-publish): inspect the
+    payload here, check the Zoom/AN dashboards for partial side effects, and
+    decide manually whether to re-submit (precedent: the manual judgment in
+    cancel_stuck_delegated_event). Never edit a row - the worker owns them."""
+
+    list_display = ("id", "kindLabel", "statusLabel", "creator", "createdAt", "finishedAt")
+    list_filter = ("status", "kind", "createdAt")
+    readonly_fields = (
+        "kind", "status", "payload", "conflicts", "errorMessage",
+        "creator", "owner", "postedEvent", "delegatedEvent",
+        "createdAt", "startedAt", "finishedAt",
+    )
+
+    @admin.display(description="Kind")
+    def kindLabel(self, obj):
+        return obj.getKindAsString()
+
+    @admin.display(description="Status")
+    def statusLabel(self, obj):
+        return obj.getStatusAsString()
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(AccessRequests)
 class AccessRequestsAdmin(admin.ModelAdmin):
     """Read-only oversight of the self-service request queue; decisions happen

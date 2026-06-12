@@ -78,6 +78,7 @@ services:
       HUEY_DB_PATH: /data/huey.sqlite3
     depends_on:
       - tools-site # the web entrypoint runs migrations; start after it
+      - chrome # event publishes drive Selenium through the chrome sidecar
 
   webserver:
     image: nginx:latest
