@@ -23,6 +23,16 @@ def getANAutomatorConfig() -> ANAutomatorConfig:
     return ANAutomatorConfig(email=ANUserName(), password=ANPassword())
 
 
+def getANAPIKey() -> str | None:
+    """Action Network OSDI API token for the live MIG check (resolution sign-on).
+
+    Optional: returns None/empty when not configured (e.g. the demo box), so
+    sign-on falls back to the mock validator instead of hitting the live API.
+    Distinct from getANAutomatorConfig(), which carries the Selenium login event
+    automation uses."""
+    return ANAPIKey()
+
+
 def getGCalConfig() -> GoogleCalendarConfig:
     return GoogleCalendarConfig(
         serviceKeyPath=GoogleServiceKeyPath(),

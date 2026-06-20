@@ -1,0 +1,24 @@
+{% comment %}
+Pager for a Django Paginator page. Context: `page` (a Page) and optional
+`querystring` (the current filters, urlencoded, without `page`) so the links
+preserve filters. Plain CSS with brand-token fallbacks, so it needs no
+output.css rebuild.
+{% endcomment %}
+{% if page.paginator.num_pages > 1 %}
+<style>
+  .pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1.25rem; }
+  .pager-summary { color: var(--color-secondary, #605c5c); font-size: 0.85rem; }
+  .pager-controls { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+  .pager-link { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; padding: 0 0.6rem; border: 1px solid #d4d4d8; border-radius: 0.4rem; background: #fff; color: var(--color-dark, #231f20); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+  .pager-link:hover { background: #f5f5f5; }
+  .pager-link.is-current { background: var(--color-primary, #ec1f27); border-color: var(--color-primary, #ec1f27); color: #fff; }
+</style>
+<nav class="pager" aria-label="Pagination">
+  <span class="pager-summary">Showing {{ page.start_index }} to {{ page.end_index }} of {{ page.paginator.count }}</span>
+  <span class="pager-controls">
+    {% if page.has_previous %}<a class="pager-link" href="?page={{ page.previous_page_number }}{% if querystring %}&{{ querystring }}{% endif %}" rel="prev">Prev</a>{% endif %}
+    {% for n in page.paginator.page_range %}{% if n == page.number %}<span class="pager-link is-current" aria-current="page">{{ n }}</span>{% else %}<a class="pager-link" href="?page={{ n }}{% if querystring %}&{{ querystring }}{% endif %}">{{ n }}</a>{% endif %}{% endfor %}
+    {% if page.has_next %}<a class="pager-link" href="?page={{ page.next_page_number }}{% if querystring %}&{{ querystring }}{% endif %}" rel="next">Next</a>{% endif %}
+  </span>
+</nav>
+{% endif %}

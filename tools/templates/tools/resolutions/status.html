@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}On Deck - Echo{% endblock title %}
+{% block page_content %}
+<h1 class="page-title">On Deck</h1>
+<p class="page-subtitle">Resolutions in flight. You drive each one to a vote.</p>
+
+<div class="page-card">
+  <h2 class="section-title pt-0">In flight ({{ resolutions|length }})</h2>
+  {% if resolutions %}
+  <table class="data-table">
+    <tr>
+      <th>Resolution</th>
+      <th>Type</th>
+      <th>Sign-ons</th>
+      <th>Stage</th>
+      <th>Meeting</th>
+      <th>Actions</th>
+    </tr>
+    {% for r in resolutions %}
+    <tr>
+      <td>
+        <a href="{% url 'resolution-detail' pk=r.pk %}"><strong>{{ r.title }}</strong></a><br />
+        <span class="text-dark/60">by {{ r.proponent.getDisplayName }}</span>
+      </td>
+      <td data-label="Type">{{ r.getKindDisplay }}</td>
+      <td data-label="Sign-ons">
+        {% if r.threshold %}
+          {% if r.meetsThreshold %}
+          <span class="badge badge-approved">{{ r.signatureCount }}/{{ r.threshold }}</span>
+          {% else %}
+          <span class="badge badge-requested">{{ r.signatureCount }}/{{ r.threshold }}</span>
+          {% endif %}
+        {% else %}
+        <span class="text-dark/60">no threshold</span>
+        {% endif %}
+      </td>
+      <td data-label="Stage">{% include "tools/resolutions/_statusBadge.html" with r=r %}</td>
+      <td data-label="Meeting" class="md:whitespace-nowrap">
+        {% if r.targetMeeting %}{{ r.targetMeeting.title }}{% else %}<span class="text-dark/60">to be set</span>{% endif %}
+      </td>
+      <td data-label="Actions"><a class="btn btn-small btn-secondary" href="{% url 'resolution-detail' pk=r.pk %}">Manage</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="text-dark/70">Nothing in flight right now.</p>
+  {% endif %}
+</div>
+
+<div class="page-card page-card-narrow">
+  <h2 class="section-title pt-0">What this is checking</h2>
+  <ul class="list-disc pl-5 space-y-1">
+    <li><strong>Sign-ons</strong> - proponent + 35 members for a bylaws amendment (<a href="https://github.com/Austin-DSA/Bylaws-Resolutions/blob/main/bylaws.md#section-101-notice-of-proposed-amendments" target="_blank" rel="noopener">Section 10.1</a>); 25 for a project committee or campaign (<a href="https://github.com/Austin-DSA/Bylaws-Resolutions/blob/main/bylaws.md#section-71-project-committees" target="_blank" rel="noopener">Section 7.1</a>). General resolutions and candidate endorsements need none, so they show no threshold.</li>
+    <li><strong>Stage</strong> - "Gathering sign-ons" collects toward the threshold; "On the agenda" means you have scheduled it for a meeting and closed sign-ons. Open one and use <strong>Record the vote</strong> to adopt or reject it.</li>
+    <li><strong>Where it lives</strong> - members read and sign the text in Echo while it gathers; once adopted the text is frozen, kept here as the record, and exported to the chapter's resolutions repo.</li>
+    <li><strong>Vote threshold</strong> - bylaws amendments and candidate endorsements need a two-thirds vote; everything else a simple majority of those voting.</li>
+  </ul>
+</div>
+{% endblock page_content %}

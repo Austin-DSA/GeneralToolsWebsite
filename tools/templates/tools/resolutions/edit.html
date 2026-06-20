@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block title %}Edit Resolution - Echo{% endblock title %}
+{% block breadcrumbs %}{% url 'resolution-detail' pk=resolution.pk as parentUrl %}{% breadcrumbs parentLabel=resolution.title parentUrl=parentUrl currentLabel="Edit" %}{% endblock breadcrumbs %}
+{% block page_content %}
+{% include "tools/resolutions/_editorAssets.html" %}
+
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Edit: {{ resolution.title }}</h1>
+  <p class="page-subtitle">Edit the resolution text. If you change a resolution that members have already signed, every sign-on resets and members will need to sign again.</p>
+
+  {% if needsResetConfirm %}
+  <div class="alert alert-error">
+    <strong>This change will reset {{ signatureCount }} sign-on{{ signatureCount|pluralize }}.</strong>
+    The text is locked because members have signed it. To apply this edit, check the box below to confirm, then save again.
+  </div>
+  {% endif %}
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-error">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <form action="" method="post">
+    {% csrf_token %}
+    <div class="form-row" data-field="text">
+      <label for="{{ form.text.id_for_label }}">Resolution text</label>
+      {{ form.text }}
+      {% if form.text.errors %}<div class="form-errors">{{ form.text.errors }}</div>{% endif %}
+    </div>
+
+    {% if resolution.locked %}
+    <div class="form-row form-row-checkbox" data-field="confirmReset">
+      <label for="{{ form.confirmReset.id_for_label }}">{{ form.confirmReset }}<span>Yes, reset the {{ signatureCount }} existing sign-on{{ signatureCount|pluralize }} if this changes the text.</span></label>
+    </div>
+    {% endif %}
+
+    <div class="pt-2 flex gap-3 flex-wrap">
+      <input type="submit" name="save" value="Save changes" class="btn btn-primary" />
+      <a class="btn btn-secondary" href="{% url 'resolution-detail' pk=resolution.pk %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock page_content %}

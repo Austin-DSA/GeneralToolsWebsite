@@ -74,6 +74,8 @@ NAV_DOMAINS = [
               description="The chapter's link pages, QR codes, and click analytics."),
     NavDomain(slug="access", title="Access", icon="key",
               description="Your groups and permissions, access requests, and member management."),
+    NavDomain(slug="resolutions", title="Resolutions", icon="edit",
+              description="Submit a resolution, gather member sign-ons, and let the Secretary track the bylaws checks."),
 ]
 
 # Order within a domain is the order of its landing-page tiles.
@@ -120,6 +122,24 @@ NAV_TOOLS = [
     NavTool(routeName="manage-groups", title="Manage Groups", permission=permissions.APPROVE_ACCESS_REQUEST,
             icon="users", domainSlug="access",
             description="Create groups and decide what they grant and who belongs to them."),
+    # Resolutions - submit, sign-on, and the public record are open to every
+    # logged-in member (permission=None); the Secretary's On Deck dashboard is
+    # gated on administerResolutions.
+    NavTool(routeName="submit-resolution", title="Submit a Resolution", permission=None,
+            icon="edit", domainSlug="resolutions",
+            description="Draft a resolution or bylaws amendment on the standard form and pick the meeting it targets."),
+    NavTool(routeName="sign-resolution", title="Sign On to a Resolution", permission=None,
+            icon="user-check", domainSlug="resolutions",
+            description="Add your member sign-on toward the threshold a resolution needs to make the agenda."),
+    NavTool(routeName="resolutions-in-effect", title="Resolutions in Effect", permission=None,
+            icon="lock", domainSlug="resolutions", breadcrumbLabel="In Effect",
+            description="The resolutions the membership has adopted and that currently govern the chapter."),
+    NavTool(routeName="resolutions-archive", title="All Resolutions", permission=None,
+            icon="archive", domainSlug="resolutions",
+            description="Browse, filter, and sort every resolution: gathering, adopted, rejected, withdrawn, or superseded."),
+    NavTool(routeName="resolution-status", title="On Deck", permission=permissions.ADMINISTER_RESOLUTIONS,
+            icon="inbox", domainSlug="resolutions", breadcrumbLabel="On Deck",
+            description="The Secretary's view: everything in flight, with sign-on counts, deadlines, and the actions that drive each to a vote."),
 ]
 
 # Which domain owns each gated route, by URL name - this is what lights up the
@@ -175,6 +195,22 @@ ROUTE_NAME_TO_DOMAIN_SLUG = {
     "manage-group": "access",
     "manage-group-member-search": "access",  # fragment endpoint - active-state only, no breadcrumbs
     "manage-group-delete": "access",
+    # Resolutions
+    "submit-resolution": "resolutions",
+    "sign-resolution": "resolutions",
+    "resolutions-in-effect": "resolutions",
+    "resolutions-archive": "resolutions",
+    "resolution-status": "resolutions",
+    # Resolutions: detail/sub pages (no tile of their own)
+    "resolution-detail": "resolutions",
+    "resolution-edit": "resolutions",
+    # Resolutions: Secretary lifecycle actions (POST-only) + repo export
+    "resolution-schedule": "resolutions",
+    "resolution-send-back": "resolutions",
+    "resolution-record-vote": "resolutions",
+    "resolution-withdraw": "resolutions",
+    "resolution-supersede": "resolutions",
+    "resolution-export": "resolutions",
 }
 
 

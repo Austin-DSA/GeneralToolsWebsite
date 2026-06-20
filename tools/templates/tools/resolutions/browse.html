@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Sign On to a Resolution - Echo{% endblock title %}
+{% block page_content %}
+<h1 class="page-title">Sign On to a Resolution</h1>
+<p class="page-subtitle">Resolutions currently gathering member sign-ons. Open one to read it and add your sign-on.</p>
+
+<div class="page-card">
+  <h2 class="section-title pt-0">Open ({{ resolutions|length }})</h2>
+  {% if resolutions %}
+  <table class="data-table">
+    <tr>
+      <th>Resolution</th>
+      <th>Type</th>
+      <th>Sign-ons</th>
+    </tr>
+    {% for r in resolutions %}
+    <tr>
+      <td>
+        <a href="{% url 'resolution-detail' pk=r.pk %}"><strong>{{ r.title }}</strong></a><br />
+        <span class="text-dark/60">by {{ r.proponent.getDisplayName }}</span><br />
+        {% if r.signedByMe %}
+        <span class="badge badge-approved">You signed on</span>
+        {% else %}
+        <span class="text-dark/60">You have not signed on yet</span>
+        {% endif %}
+      </td>
+      <td data-label="Type">{{ r.getKindDisplay }}</td>
+      <td data-label="Sign-ons">
+        {% if r.threshold %}
+          {% if r.meetsThreshold %}
+          <span class="badge badge-approved">{{ r.signatureCount }}/{{ r.threshold }}</span>
+          {% else %}
+          <span class="badge badge-requested">{{ r.signatureCount }}/{{ r.threshold }}</span>
+          {% endif %}
+        {% else %}
+        <span class="text-dark/60">n/a</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="text-dark/70">No resolutions are gathering sign-ons right now. <a href="{% url 'submit-resolution' %}">Submit one</a>.</p>
+  {% endif %}
+</div>
+{% endblock page_content %}

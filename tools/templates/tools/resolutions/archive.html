@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}All Resolutions - Echo{% endblock title %}
+{% block page_content %}
+<style>
+  /* Filter row: plain CSS (brand-token fallbacks) so it needs no output.css rebuild. */
+  .filter-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin-bottom: 1.25rem; }
+  .filter-row label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--color-secondary, #605c5c); margin-bottom: 0.2rem; }
+  .filter-row .form-field { width: auto; min-width: 9rem; }
+  .filter-row input[type="number"] { min-width: 0; width: 7rem; }
+</style>
+<h1 class="page-title">All Resolutions</h1>
+<p class="page-subtitle">Every resolution the chapter has considered. Filter and sort to find one.</p>
+
+<div class="page-card">
+  <form method="get" class="filter-row">
+    <div>
+      <label for="f-kind">Type</label>
+      <select id="f-kind" name="kind" class="form-field">
+        <option value="">All types</option>
+        {% for key, label in kinds %}<option value="{{ key }}" {% if kind == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="f-status">Status</label>
+      <select id="f-status" name="status" class="form-field">
+        <option value="">Any status</option>
+        {% for key, label in statuses %}<option value="{{ key }}" {% if status == key %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="f-year">Year</label>
+      <input id="f-year" type="number" name="year" value="{{ year }}" placeholder="e.g. 2026" class="form-field" />
+    </div>
+    <div>
+      <label for="f-sort">Sort</label>
+      <select id="f-sort" name="sort" class="form-field">
+        <option value="newest" {% if sort == "newest" %}selected{% endif %}>Newest</option>
+        <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>Oldest</option>
+        <option value="title" {% if sort == "title" %}selected{% endif %}>Title</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary">Apply</button>
+    <a class="btn btn-small btn-secondary" href="{% url 'resolutions-archive' %}">Clear</a>
+  </form>
+
+  {% if resolutions %}
+  <table class="data-table">
+    <tr>
+      <th>Resolution</th>
+      <th>Type</th>
+      <th>Status</th>
+      <th>Submitted</th>
+    </tr>
+    {% for r in resolutions %}
+    <tr>
+      <td>
+        <a href="{% url 'resolution-detail' pk=r.pk %}"><strong>{{ r.title }}</strong></a><br />
+        <span class="text-dark/60">by {{ r.proponent.getDisplayName }}</span>
+      </td>
+      <td data-label="Type">{{ r.getKindDisplay }}</td>
+      <td data-label="Status">{% include "tools/resolutions/_statusBadge.html" with r=r %}</td>
+      <td data-label="Submitted" class="md:whitespace-nowrap">{{ r.createdAt|date:"M j, Y" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% include "tools/resolutions/_pagination.html" %}
+  {% else %}
+  <p class="text-dark/70">No resolutions match those filters.</p>
+  {% endif %}
+</div>
+{% endblock page_content %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Resolutions in Effect - Echo{% endblock title %}
+{% block page_content %}
+<h1 class="page-title">Resolutions in Effect</h1>
+<p class="page-subtitle">Adopted by the membership and currently governing the chapter.</p>
+
+<div class="page-card">
+  <div class="flex gap-3 flex-wrap" style="margin-bottom:1rem;">
+    <a class="btn btn-small {% if not kind %}btn-primary{% else %}btn-secondary{% endif %}" href="{% url 'resolutions-in-effect' %}">All types</a>
+    {% for key, label in kinds %}
+    <a class="btn btn-small {% if kind == key %}btn-primary{% else %}btn-secondary{% endif %}" href="?kind={{ key }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+
+  {% if resolutions %}
+  <table class="data-table">
+    <tr>
+      <th>Resolution</th>
+      <th>Type</th>
+      <th>Adopted</th>
+      <th>Vote</th>
+    </tr>
+    {% for r in resolutions %}
+    <tr>
+      <td><a href="{% url 'resolution-detail' pk=r.pk %}"><strong>{{ r.title }}</strong></a></td>
+      <td data-label="Type">{{ r.getKindDisplay }}</td>
+      <td data-label="Adopted" class="md:whitespace-nowrap">{% if r.effectiveDate %}{{ r.effectiveDate|date:"M j, Y" }}{% elif r.decidedAt %}{{ r.decidedAt|date:"M j, Y" }}{% else %}-{% endif %}</td>
+      <td data-label="Vote">{% if r.voteTallyStr %}{{ r.voteTallyStr }}{% else %}<span class="text-dark/60">recorded</span>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% include "tools/resolutions/_pagination.html" %}
+  {% else %}
+  <p class="text-dark/70">No resolutions are in effect{% if kind %} of this type{% endif %} yet.</p>
+  {% endif %}
+</div>
+{% endblock page_content %}

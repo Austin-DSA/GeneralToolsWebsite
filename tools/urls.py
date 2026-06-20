@@ -7,6 +7,7 @@ from . import accessViews
 from . import eventViews
 from . import linkTreeViews
 from . import ownerViews
+from . import resolutionViews
 from .navigation import NAV_DOMAINS
 
 urlpatterns = [
@@ -42,6 +43,22 @@ urlpatterns = [
     path("manage-event-owners/<int:ownerId>", ownerViews.manage_event_owner, name="manage-event-owner"),
     path("manage-event-owners/<int:ownerId>/authorizer-search", ownerViews.manage_event_owner_authorizer_search, name="manage-event-owner-authorizer-search"),
     path("manage-event-owners/<int:ownerId>/cancel-stuck-event/<int:eventId>", ownerViews.cancel_stuck_delegated_event, name="cancel-stuck-delegated-event"),
+
+    # --- Resolutions (submit, browse-to-sign, public record, detail + sign-on, edit) ---
+    path("submit-resolution", resolutionViews.submit_resolution, name="submit-resolution"),
+    path("sign-resolution", resolutionViews.sign_resolution, name="sign-resolution"),
+    path("resolutions-in-effect", resolutionViews.resolutions_in_effect, name="resolutions-in-effect"),
+    path("resolutions-all", resolutionViews.resolutions_archive, name="resolutions-archive"),
+    path("resolution-status", resolutionViews.on_deck, name="resolution-status"),
+    path("resolution/<int:pk>", resolutionViews.resolution_detail, name="resolution-detail"),
+    path("resolution/<int:pk>/edit", resolutionViews.resolution_edit, name="resolution-edit"),
+    # --- Resolutions: Secretary lifecycle actions (POST-only) + repo export ---
+    path("resolution/<int:pk>/schedule", resolutionViews.resolution_schedule, name="resolution-schedule"),
+    path("resolution/<int:pk>/send-back", resolutionViews.resolution_send_back, name="resolution-send-back"),
+    path("resolution/<int:pk>/record-vote", resolutionViews.resolution_record_vote, name="resolution-record-vote"),
+    path("resolution/<int:pk>/withdraw", resolutionViews.resolution_withdraw, name="resolution-withdraw"),
+    path("resolution/<int:pk>/supersede", resolutionViews.resolution_supersede, name="resolution-supersede"),
+    path("resolution/<int:pk>/export.md", resolutionViews.resolution_export, name="resolution-export"),
 
     # --- Link Tree (public: tree page + tracked click/scan redirects) ---
     path("t/<slug:slug>/", linkTreeViews.public_tree, name="link-tree"),
