@@ -11,4 +11,4 @@ then
     python3 /app/manage.py createsuperuser --noinput --username $DJANGO_SUPERUSER_USERNAME --email $DJANGO_SUPERUSER_EMAIL
 fi
 
-gunicorn -b 0.0.0.0:8000 --workers 2 --timeout 120 wsgi 
+gunicorn -b 0.0.0.0:8000 --workers 2 --timeout 300 wsgi 
