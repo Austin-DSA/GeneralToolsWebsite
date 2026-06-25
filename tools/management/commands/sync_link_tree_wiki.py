@@ -11,8 +11,11 @@ Runs under the dedicated Outline service-account token
 link to the document's *published share URL* (get-or-create, auto-published) so
 readers never need a wiki login, falling back to the direct URL if sharing fails.
 
-Schedule via host cron / Windows Task Scheduler — there is no in-process
-scheduler. A daily run is plenty; agendas don't change minute to minute.
+Scheduled daily by Huey (tools/tasks.py syncLinkTreeWiki, run by the
+`worker` service); a daily run is plenty — agendas don't change minute to
+minute. This command remains the imperative core for manual runs and
+--dry-run (and is the only way to run it in dev, where Huey's immediate
+mode doesn't fire periodic schedules).
 
 Run from the repo root:
     python manage.py sync_link_tree_wiki [--dry-run] [--quiet]
