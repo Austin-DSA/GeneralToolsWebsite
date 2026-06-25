@@ -1,10 +1,15 @@
 {% extends "base.html" %}
 {% load navigation_tags %}
+{% load static %}
 {% block breadcrumbs %}{% breadcrumbs currentLabel="Publishing" %}{% endblock breadcrumbs %}
 {% block page_content %}
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Publishing your event</h1>
   <p class="page-subtitle">Publishing to Zoom, Action Network, and Google Calendar...</p>
+  <div style="display:flex; justify-content:center; margin:1.5rem 0;">
+    <img src="{% static 'images/bat-rose-loader.gif' %}" alt="Publishing in progress"
+         width="180" height="180" style="width:180px; height:auto;" />
+  </div>
   <p>This usually takes under a minute. This page checks automatically and will show the result when publishing finishes - no need to refresh.</p>
   <p id="stale-note" class="alert alert-warning" hidden>
     This is taking longer than expected. Check the <a href="{% url 'event-list' %}">published events list</a> before retrying.
