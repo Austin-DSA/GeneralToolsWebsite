@@ -265,6 +265,115 @@ class DelegatedEvents(models.Model):
                          zoomRequired=self.zoomRequired)
 
 
+# One background publish run (tools/tasks.py publishEventJob). The row carries
+# the serialized form input out to the Huey worker and the outcome back to the
+# polling status page - it is the ONLY source of truth for the run (Huey's
+# result store is off). PostedEvents stays the truth of what was published;
+# this is the truth of what was attempted.
+class PublishJob(models.Model):
+    class Status:
+        PENDING = 0
+        RUNNING = 1
+        PUBLISHED = 2
+        # A gCal conflict the user may force past (direct flow only)
+        CONFLICT = 3
+        # A Zoom conflict - no free account, nothing to force
+        UNRESOLVEABLE = 4
+        FAILED = 5
+
+    TERMINAL_STATUSES = (Status.PUBLISHED, Status.CONFLICT, Status.UNRESOLVEABLE, Status.FAILED)
+
+    class Kind:
+        DIRECT = 0
+        DELEGATED = 1
+
+    # Schema version stamped into every payload; publishEventJob refuses any
+    # other version so a future schema change fails loudly instead of
+    # publishing garbage from a stale queued job.
+    PAYLOAD_VERSION = 1
+
+    kind = models.IntegerField()
+    status = models.IntegerField(default=Status.PENDING)
+    # The serialized EventInfo + flags (see eventViews._buildEventPayload)
+    payload = models.JSONField()
+    # Conflict dicts written by the task (see tasks._serializeConflicts);
+    # datetimes stored as NAIVE ISO strings already localized to the payload
+    # timezone, mirroring the localize-then-strip the views used to do inline.
+    conflicts = models.JSONField(default=list, blank=True)
+    errorMessage = models.TextField(blank=True)
+
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True, related_name="publishJobsCreated")
+    owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True, related_name="publishJobs")
+    postedEvent = models.ForeignKey(PostedEvents, on_delete=models.SET_NULL, blank=True, null=True, related_name="publishJobs")
+    delegatedEvent = models.ForeignKey(DelegatedEvents, on_delete=models.SET_NULL, blank=True, null=True, related_name="publishJobs")
+
+    createdAt = models.DateTimeField(auto_now_add=True)
+    startedAt = models.DateTimeField(null=True, blank=True, default=None)
+    finishedAt = models.DateTimeField(null=True, blank=True, default=None)
+
+    def getStatusAsString(self) -> str:
+        if self.status == PublishJob.Status.PENDING:
+            return "Pending"
+        elif self.status == PublishJob.Status.RUNNING:
+            return "Running"
+        elif self.status == PublishJob.Status.PUBLISHED:
+            return "Published"
+        elif self.status == PublishJob.Status.CONFLICT:
+            return "Conflict"
+        elif self.status == PublishJob.Status.UNRESOLVEABLE:
+            return "Unresolveable Conflict"
+        elif self.status == PublishJob.Status.FAILED:
+            return "Failed"
+        else:
+            return f"Unknown {self.status}"
+
+    def getKindAsString(self) -> str:
+        if self.kind == PublishJob.Kind.DIRECT:
+            return "Direct"
+        elif self.kind == PublishJob.Kind.DELEGATED:
+            return "Delegated"
+        else:
+            return f"Unknown {self.kind}"
+
+    def isTerminal(self) -> bool:
+        return self.status in PublishJob.TERMINAL_STATUSES
+
+    def getStatusUrl(self) -> str:
+        return reverse("publish-status", kwargs={"jobId": self.id})
+
+    def getResultContext(self) -> dict:
+        """The template context for this job's terminal status - a thin,
+        single-purpose status->context map (the QRCode.resolveTarget rationale:
+        one source of truth the view and tests both consume; split it if it
+        grows). The view picks the template per (status x kind); this only
+        shapes the data those existing templates already expect."""
+        if self.status == PublishJob.Status.PUBLISHED:
+            event = self.postedEvent
+            return {
+                "anShareLink": event.anShareLink if event else "",
+                "anManageLink": event.anManageLink if event else "",
+                "gCalLink": event.gCalLink if event else "",
+                "zoomLink": event.zoomLink if event else "",
+                "zoomAccount": event.zoomAccount if event else "",
+            }
+        if self.status in (PublishJob.Status.CONFLICT, PublishJob.Status.UNRESOLVEABLE):
+            # Reconstruct naive datetimes so conflictList.html renders through
+            # Django's default formatting exactly as the inline views did.
+            return {"conflicts": [
+                {
+                    "type": conflict["type"],
+                    "title": conflict["title"],
+                    "zoomUser": conflict["zoomUser"],
+                    "start": datetime.datetime.fromisoformat(conflict["startIso"]),
+                    "end": datetime.datetime.fromisoformat(conflict["endIso"]),
+                }
+                for conflict in self.conflicts
+            ]}
+        if self.status == PublishJob.Status.FAILED:
+            return {"errorStr": self.errorMessage}
+        return {}
+
+
 # A member's request to join an event owner (committee), be added to a group,
 # or be granted one of the custom tools.* permissions. Mirrors the
 # DelegatedEvents request/approve pattern: the row is the request/audit record,

@@ -27,6 +27,10 @@ urlpatterns = [
     path("new-event", eventViews.new_event, name="new-event"),
     path("new-delegated-event", eventViews.new_delegated_event, name="new-delegated-event"),
     path("approve-delegated-event/<int:id>", eventViews.approve_delegated_event, name="approve-delegated-event"),
+    # --- Publish jobs (spinner page + poll endpoint + force-publish) ---
+    path("publish-status/<int:jobId>", eventViews.publish_status, name="publish-status"),
+    path("publish-status/<int:jobId>.json", eventViews.publish_status_json, name="publish-status-json"),
+    path("publish-status/<int:jobId>/publish-anyway", eventViews.publish_anyway, name="publish-publish-anyway"),
     path("delegated-event/<pk>/", eventViews.DelegatedEventDetailView.as_view(), name="delegated-event-detail"),
     path("delegated-events", eventViews.DelegatedEventListView.as_view(), name="delegated-event-list"),
     path("event/<pk>/", eventViews.PostedEventDetailView.as_view(), name="event-detail"),

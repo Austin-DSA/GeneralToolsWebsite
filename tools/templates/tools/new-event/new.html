@@ -14,13 +14,13 @@ window.addEventListener("load", () => {
       }
     };
 
-    // Publishing runs Zoom, Action Network, and Google Calendar in series on a
-    // plain synchronous POST and can take up to a minute - surface that as a
-    // loading state and guard against a double-submit.
+    // The POST enqueues a background publish job and redirects to its status
+    // page (which owns the publishing copy). Still guard against a
+    // double-submit - two POSTs would mean two jobs.
     const form = document.querySelector("form");
     const submitButton = form.querySelector('[type="submit"]');
     form.addEventListener("submit", () => {
-      submitButton.value = "Publishing to Zoom, Action Network, and Google Calendar...";
+      submitButton.value = "Submitting...";
       // Disable on the next tick so the button's value still posts with the form.
       setTimeout(() => { submitButton.disabled = true; }, 0);
     });

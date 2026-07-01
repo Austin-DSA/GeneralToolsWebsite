@@ -145,6 +145,9 @@ ROUTE_NAME_TO_DOMAIN_SLUG = {
     "create-event-owner": "events",
     "manage-event-owner-authorizer-search": "events",  # fragment endpoint - active-state only, no breadcrumbs
     "cancel-stuck-delegated-event": "events",
+    "publish-status": "events",
+    "publish-status-json": "events",       # JSON poll endpoint - mapped for completeness
+    "publish-publish-anyway": "events",    # POST-only action - mapped for completeness
     # Link Trees: tools
     "manage-link-tree-new": "link-trees",
     "manage-link-tree-list": "link-trees",

@@ -1,25 +1,24 @@
 import datetime
-import time
 import logging
 import dataclasses
 import pytz
 
-from django.shortcuts import render, redirect
-from django.http import HttpResponseRedirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponseForbidden, HttpResponseBadRequest, JsonResponse
 from django.contrib.auth.decorators import permission_required, login_required
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.views.decorators.http import require_POST
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-
-import settings
 
 from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
 from .forms import NewEventForm, ApproveDelegatedEventForm
 from .EmailApi import EmailApi
 from .permissions import *
+from .tasks import publishEventJob
 import dataclasses
 from .models import *
 
@@ -59,6 +58,31 @@ class PostedEventListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
 
 # MARK: Publish New Event
 
+def _buildEventPayload(eventInfo, timezoneStr, ignoreResolveableConflicts) -> dict:
+    """Serialize an EventInfo into the PublishJob payload (schema
+    PublishJob.PAYLOAD_VERSION). start/end are already localized (by
+    convertToEventInfo / getEventInfo), so their tz-aware isoformat round-trips
+    through tasks._rehydrateEventInfo without re-localizing."""
+    return {
+        "payloadVersion": PublishJob.PAYLOAD_VERSION,
+        "title": eventInfo.title,
+        "eventType": eventInfo.eventType,
+        "timezone": timezoneStr,
+        "startIso": eventInfo.start.isoformat(),
+        "endIso": eventInfo.end.isoformat(),
+        "locationName": eventInfo.locationName,
+        "streetAddress": eventInfo.streetAddress,
+        "city": eventInfo.city,
+        "state": eventInfo.state,
+        "zip": str(eventInfo.zip),
+        "country": eventInfo.country,
+        "description": eventInfo.description,
+        "instructions": eventInfo.instructions,
+        "zoomRequired": eventInfo.zoomRequired,
+        "ignoreResolveableConflicts": ignoreResolveableConflicts,
+    }
+
+
 @login_required
 @permission_required(PUBLISH_EVENT)
 def new_event(request):
@@ -91,161 +115,28 @@ def new_event(request):
             return render(request, "tools/new-event/unknown.html", {"errorStr": f"You are not an authorizer for owner {owner.name}"})
         
         logger.info("PublishEvent: Got and validated event owner %s", owner.name)
-        
-        logger.info("PublishEvent: Getting configuration")
-        zoomConfig = SecretManager.getZoomConfig()
-        anConfig = SecretManager.getANAutomatorConfig()
-        gCalConfig = SecretManager.getGCalConfig()
 
         ignoreResolveableConflicts = form.cleaned_data[
             NewEventForm.Keys.IGNORE_RESOLVEABLE_CONFLICTS
         ]
 
-        logger.info("PublishEvent: Attempting to publish event")
-        if settings.DEMO_MODE:
-            # The demo box has stubbed Zoom / Action Network / Google credentials
-            # and no Selenium container, so a real publish can only fail. Skip it
-            # and return a placeholder PUBLISHED result so the demo walks the full
-            # happy path (loading -> success page with links) without contacting
-            # any external service or creating a real meeting. The short sleep
-            # makes the loading state visible; the real pipeline takes 15-30s.
-            logger.info("PublishEvent: DEMO_MODE is on, returning a stubbed result without publishing")
-            time.sleep(2)
-            result = EventAutomationDriver.Result(
-                type=EventAutomationDriver.Result.ResultType.PUBLISHED,
-                zoomAccount="events@austindsa.org (demo)" if eventInfo.zoomRequired else "",
-                zoomLink="https://us02web.zoom.us/j/0000000000" if eventInfo.zoomRequired else "",
-                anManageLink="https://actionnetwork.org/events/demo-event/manage",
-                anShareLink="https://actionnetwork.org/events/demo-event",
-                gCalLink="https://calendar.google.com/calendar/u/0/r/eventedit",
-            )
-        else:
-            result = EventAutomationDriver.publishEvent(
-                eventInfo=eventInfo,
-                config=EventAutomationDriver.Config(
-                    zoomConfig=zoomConfig,
-                    anConfig=anConfig,
-                    gCalConfig=gCalConfig,
-                    ignoreResolveableConflicts=ignoreResolveableConflicts
-                )
-            )
-        if result.type == EventAutomationDriver.Result.ResultType.PUBLISHED:
-            # Return success and links back to user
-            logger.info(
-                "PublishEvent: Event Publish sucessfully with result %s", str(result)
-            )
-            logger.info(
-                "PublishEvent: Sending confirmation email to user %s",
-                str(request.user.email),
-            )
-            # Save event to database
-            # Convert event start and end dates to utc
-            utcStart = eventInfo.start.astimezone(pytz.utc)
-            utcEnd = eventInfo.end.astimezone(pytz.utc)
-            utcNow = datetime.datetime.now(datetime.UTC)
-            e = PostedEvents.objects.create(title = eventInfo.title,
-                                            start = utcStart,
-                                            end = utcEnd,
-                                            timezone = form.cleaned_data[NewEventForm.Keys.TIMEZONE],
-                                            locationName = eventInfo.locationName,
-                                            streetAddress = eventInfo.streetAddress,
-                                            city = eventInfo.city,
-                                            state = eventInfo.state,
-                                            zip = eventInfo.zip,
-                                            country = eventInfo.country,
-                                            description = eventInfo.description,
-                                            instructions = eventInfo.instructions,
-                                            dateCreated = utcNow,
-                                            datePublished = utcNow,
-                                            anManageLink = result.anManageLink if result.anManageLink is not None else "",
-                                            anShareLink = result.anShareLink if result.anShareLink is not None else "",
-                                            gCalLink = result.gCalLink if result.gCalLink is not None else "",
-                                            zoomLink = result.zoomLink if result.zoomLink is not None else "",
-                                            zoomAccount = result.zoomAccount if result.zoomAccount is not None else "",
-                                            zoomRequired = eventInfo.zoomRequired,
-                                            creator = request.user,
-                                            authorizer = request.user,
-                                            owner = owner,
-                                            reason = "Created by approved authorizer")
-            e.save()
-
-            # Send email
-            # TODO: SMTP email is broken
-            try:
-                # TODO: potentially replace with Django built in mail module
-                messageText = f""" Your event {eventInfo.title} was published successfully. Here are the links.
-                Zoom Link ({result.zoomAccount}): {result.zoomLink}
-                AN Share Link: {result.anShareLink}
-                AN Manage Link: {result.anManageLink}
-                Google Calendar Link: {result.gCalLink}"""
-                EmailApi.sendEmailFromWebsiteAccount(
-                    toAddress=request.user.email,
-                    subject=f"Published {eventInfo.title} event succesfully",
-                    messageText=messageText,
-                )
-            except Exception as err:
-                logger.error(
-                    "PublishEvent: Failed to send confrimation email due to exception"
-                )
-                logger.exception(err)
-            return render(
-                request, "tools/new-event/published.html", dataclasses.asdict(result)
-            )
-        elif (
-            result.type
-            == EventAutomationDriver.Result.ResultType.UNRESOLVEABLE_CONFLICT
-        ):
-            # Let the user know about the unresolveable conflict
-            logger.info(
-                "PublishEvent: Event Publish Failed with Unresolveable Conflict %s",
-                str(result),
-            )
-            # Convert conflict times to timezone specified in form, then make naiive
-            timezone = pytz.timezone(form.cleaned_data[NewEventForm.Keys.TIMEZONE])
-            for i in range(len(result.conflicts)):
-                result.conflicts[i].start = result.conflicts[i].start.astimezone(
-                    timezone
-                )
-                result.conflicts[i].start = result.conflicts[i].start.replace(
-                    tzinfo=None
-                )
-                result.conflicts[i].end = result.conflicts[i].end.astimezone(timezone)
-                result.conflicts[i].end = result.conflicts[i].end.replace(tzinfo=None)
-            return render(
-                request,
-                "tools/new-event/unresolveable.html",
-                dataclasses.asdict(result),
-            )
-        elif result.type == EventAutomationDriver.Result.ResultType.CONFLICT:
-            # Let the user know about the conflict and ask if they want to ignore it
-            logger.info(
-                "PublishEvent: Event Publish Failed with Unresolveable Conflict %s",
-                str(result),
-            )
-            # Convert conflict times to timezone specified in form, , then make naiive
-            timezone = pytz.timezone(form.cleaned_data[NewEventForm.Keys.TIMEZONE])
-            for i in range(len(result.conflicts)):
-                result.conflicts[i].start = result.conflicts[i].start.astimezone(
-                    timezone
-                )
-                result.conflicts[i].start = result.conflicts[i].start.replace(
-                    tzinfo=None
-                )
-                result.conflicts[i].end = result.conflicts[i].end.astimezone(timezone)
-                result.conflicts[i].end = result.conflicts[i].end.replace(tzinfo=None)
-            return render(
-                request, "tools/new-event/resolveable.html", dataclasses.asdict(result)
-            )
-        else:
-            # Some unkown error occured, show the user all informaiton we have
-            logger.error(
-                "PublishEvent: Unexpected error when publishing event %s", str(result)
-            )
-            return render(
-                request, "tools/new-event/unknown.html", dataclasses.asdict(result)
-            )
-
-        return HttpResponseRedirect("/")
+        # The publish itself runs in the Huey worker (it takes 15-30s and will
+        # drive Selenium); the POST just records a PublishJob and bounces to a
+        # polling status page. The result therefore lives at a GET-able URL -
+        # refresh and back-button safe, no form re-post.
+        job = PublishJob.objects.create(
+            kind=PublishJob.Kind.DIRECT,
+            payload=_buildEventPayload(
+                eventInfo,
+                form.cleaned_data[NewEventForm.Keys.TIMEZONE],
+                ignoreResolveableConflicts,
+            ),
+            creator=request.user,
+            owner=owner,
+        )
+        publishEventJob(job.id)
+        logger.info("PublishEvent: Enqueued publish job %s for event %s", job.id, eventInfo.title)
+        return redirect("publish-status", jobId=job.id)
     else:
         form = NewEventForm(
             initial={
@@ -460,124 +351,25 @@ def approve_delegated_event(request, id):
             if not eventInfo:
                 logger.error("ApprovedDelegateEvent: EventInfo for %d could not be created", id)
                 return render(request, "tools/approve-delegated-event/unknown.html", {"errorStr": "Could not create the event info for creation."}) 
-            logger.info("ApprovedDelegateEvent: Getting configuration")
-            zoomConfig = SecretManager.getZoomConfig()
-            anConfig = SecretManager.getANAutomatorConfig()
-            gCalConfig = SecretManager.getGCalConfig()
-            ignoreResolveableConflicts = True
-            logger.info("ApprovedDelegateEvent: Attempting to publish event")
-            result = EventAutomationDriver.publishEvent(
-                eventInfo=eventInfo,
-                config=EventAutomationDriver.Config(
-                    zoomConfig=zoomConfig,
-                    anConfig=anConfig,
-                    gCalConfig=gCalConfig,
-                    ignoreResolveableConflicts=ignoreResolveableConflicts
-                )
+            # The publish runs in the Huey worker, same as new_event. The
+            # request row only flips to APPROVED when the worker actually
+            # publishes (tasks._finishDelegatedPublish), so a failed publish
+            # leaves the request reviewable. The approve flow always forces
+            # ignoreResolveableConflicts - the requester's dry run already
+            # surfaced gCal conflicts at request time.
+            logger.info("ApprovedDelegateEvent: Enqueueing publish job for event %d", id)
+            payload = _buildEventPayload(eventInfo, event.timezone, ignoreResolveableConflicts=True)
+            payload["reason"] = formData[ApproveDelegatedEventForm.Keys.REASON]
+            payload["approverId"] = request.user.id
+            job = PublishJob.objects.create(
+                kind=PublishJob.Kind.DELEGATED,
+                payload=payload,
+                creator=request.user,
+                owner=event.owner,
+                delegatedEvent=event,
             )
-            # Left around for debugging, useful if you want to test thigns out without having to actuall publish a bunch of stuff
-            # result = EventAutomationDriver.Result(EventAutomationDriver.Result.ResultType.PUBLISHED, anManageLink="manageLink", anShareLink="shareLink", gCalLink="gCalLink", zoomAccount="Account", zoomLink="zoomLink")
-            if result.type == EventAutomationDriver.Result.ResultType.PUBLISHED:
-                # Return success and links back to user
-                logger.info(
-                    "ApprovedDelegateEvent: Event Publish sucessfully with result %s", str(result)
-                )
-                logger.info(
-                    "ApprovedDelegateEvent: Sending confirmation email to user %s and %s",
-                    str(request.user.email),
-                    str(event.creator.email)
-                )
-                # Save event to database
-                utcNow = datetime.datetime.now(datetime.UTC)
-                event.status = DelegatedEvents.Status.APPROVED
-                event.approver = request.user
-                event.dateReviewed = utcNow
-                event.reason = formData[ApproveDelegatedEventForm.Keys.REASON]
-                event.save()
-                e = PostedEvents.objects.create(title = eventInfo.title,
-                                                start = event.start,
-                                                end = event.end,
-                                                timezone = event.timezone,
-                                                locationName = event.locationName,
-                                                streetAddress = event.streetAddress,
-                                                city = event.city,
-                                                state = event.state,
-                                                zip = event.zip,
-                                                country = event.country,
-                                                description = event.description,
-                                                instructions = event.instructions,
-                                                dateCreated = utcNow,
-                                                datePublished = utcNow,
-                                                anManageLink = result.anManageLink if result.anManageLink is not None else "",
-                                                anShareLink = result.anShareLink if result.anShareLink is not None else "",
-                                                gCalLink = result.gCalLink if result.gCalLink is not None else "",
-                                                zoomLink = result.zoomLink if result.zoomLink is not None else "",
-                                                zoomAccount = result.zoomAccount if result.zoomAccount is not None else "",
-                                                zoomRequired = eventInfo.zoomRequired,
-                                                creator = event.creator,
-                                                authorizer = request.user,
-                                                owner = event.owner,
-                                                reason = formData[ApproveDelegatedEventForm.Keys.REASON])
-                e.save()
-
-                # Send email
-                try:
-                    # TODO: potentially replace with Django built in mail module
-                    messageText = f""" Your event {eventInfo.title} was approved by {request.user.getUserNameString()} published successfully. Here are the links.
-                    Zoom Link ({result.zoomAccount}): {result.zoomLink}
-                    AN Share Link: {result.anShareLink}
-                    AN Manage Link: {result.anManageLink}
-                    Google Calendar Link: {result.gCalLink}"""
-                    EmailApi.sendEmailFromWebsiteAccount(
-                        toAddress=request.user.email,
-                        subject=f"Published {eventInfo.title} event succesfully",
-                        messageText=messageText,
-                    )
-                    EmailApi.sendEmailFromWebsiteAccount(
-                        toAddress=event.creator.email,
-                        subject=f"Published {eventInfo.title} event succesfully",
-                        messageText=messageText,
-                    )
-                except Exception as err:
-                    logger.error(
-                        "ApprovedDelegateEvent: Failed to send confrimation email due to exception"
-                    )
-                    logger.exception(err)
-                return redirect("delegated-event-detail", pk=id)
-            elif (
-                result.type
-                == EventAutomationDriver.Result.ResultType.UNRESOLVEABLE_CONFLICT
-            ):
-                # Let the user know about the unresolveable conflict
-                logger.info(
-                    "ApprovedDelegateEvent: Event Publish Failed with Unresolveable Conflict %s",
-                    str(result),
-                )
-                # Convert conflict times to timezone specified in form, then make naiive
-                timezone = pytz.timezone(event.timezone)
-                for i in range(len(result.conflicts)):
-                    result.conflicts[i].start = result.conflicts[i].start.astimezone(
-                        timezone
-                    )
-                    result.conflicts[i].start = result.conflicts[i].start.replace(
-                        tzinfo=None
-                    )
-                    result.conflicts[i].end = result.conflicts[i].end.astimezone(timezone)
-                    result.conflicts[i].end = result.conflicts[i].end.replace(tzinfo=None)
-                return render(
-                    request,
-                    "tools/approve-delegated-event/unresolveable.html",
-                    dataclasses.asdict(result),
-                )
-            else:
-                # Some unkown error occured, show the user all informaiton we have
-                logger.error(
-                    "ApprovedDelegateEvent: Unexpected error when publishing event %s", str(result)
-                )
-                return render(
-                    request, "tools/approve-delegated-event/unknown.html", dataclasses.asdict(result)
-                )
-
+            publishEventJob(job.id)
+            return redirect("publish-status", jobId=job.id)
         else:
             logger.info("ApprovedDelegatedEvent: Authorizer %s denied the event %d", request.user.getUserNameString(), id)
             event.status = DelegatedEvents.Status.DENIED
@@ -604,3 +396,119 @@ def approve_delegated_event(request, id):
     else:
         form = ApproveDelegatedEventForm()
         return render(request, "tools/approve-delegated-event/approve.html", {"form": form, "object":DelegatedEvents.objects.get(id=id)})
+
+# MARK: Publish Status
+
+def _canViewJob(user, job) -> bool:
+    # The job carries form input and result links for one person's publish -
+    # only its creator (or a superuser) gets to watch it.
+    return user.is_superuser or (job.creator_id is not None and job.creator_id == user.id)
+
+
+@login_required
+def publish_status(request, jobId):
+    """One URL for the whole publish: the spinner while the job is queued or
+    running, then (on reload, triggered by the poll script) the SAME existing
+    result template the inline flow used to render, fed from the job row."""
+    job = get_object_or_404(PublishJob, id=jobId)
+    if not _canViewJob(request.user, job):
+        return HttpResponseForbidden("You do not have access to this publish job.")
+    if not job.isTerminal():
+        return render(request, "tools/publish-status/status.html", {"job": job})
+    if job.status == PublishJob.Status.PUBLISHED:
+        if job.kind == PublishJob.Kind.DELEGATED:
+            # Land where the inline approve flow always landed.
+            return redirect("delegated-event-detail", pk=job.delegatedEvent_id)
+        return render(request, "tools/new-event/published.html", job.getResultContext())
+    if job.status == PublishJob.Status.CONFLICT:
+        if job.kind == PublishJob.Kind.DELEGATED:
+            # Unreachable: the approve flow forces ignoreResolveableConflicts,
+            # so the driver never returns CONFLICT for it. Defensive render.
+            return render(request, "tools/approve-delegated-event/unresolveable.html", job.getResultContext())
+        context = job.getResultContext()
+        context["job"] = job  # resolveable.html links the publish-anyway form to this job
+        return render(request, "tools/new-event/resolveable.html", context)
+    if job.status == PublishJob.Status.UNRESOLVEABLE:
+        template = ("tools/approve-delegated-event/unresolveable.html"
+                    if job.kind == PublishJob.Kind.DELEGATED
+                    else "tools/new-event/unresolveable.html")
+        return render(request, template, job.getResultContext())
+    # FAILED
+    template = ("tools/approve-delegated-event/unknown.html"
+                if job.kind == PublishJob.Kind.DELEGATED
+                else "tools/new-event/unknown.html")
+    return render(request, template, job.getResultContext())
+
+
+@login_required
+def publish_status_json(request, jobId):
+    """The poll endpoint behind the spinner page. The response shape
+    (status / statusLabel / isTerminal / createdAtIso) is the documented
+    contract for job-status polling - future polled jobs (e.g. vote
+    validation) should reuse the shape, not this code."""
+    job = get_object_or_404(PublishJob, id=jobId)
+    if not _canViewJob(request.user, job):
+        return HttpResponseForbidden("You do not have access to this publish job.")
+    return JsonResponse({
+        "status": job.status,
+        "statusLabel": job.getStatusAsString(),
+        "isTerminal": job.isTerminal(),
+        "createdAtIso": job.createdAt.isoformat(),
+    })
+
+
+def _findRecentSiblingJob(job):
+    """The server-side double-publish guard for publish_anyway (the JS
+    button-disable is best-effort only): another job by the same creator for
+    the same event identity (payload title + startIso), created in the last
+    10 minutes, that is pending, running, or already published. FAILED
+    siblings don't count - a legitimate retry after a failure must work."""
+    blockingStatuses = (
+        PublishJob.Status.PENDING,
+        PublishJob.Status.RUNNING,
+        PublishJob.Status.PUBLISHED,
+    )
+    windowStart = datetime.datetime.now(datetime.UTC) - datetime.timedelta(minutes=10)
+    recentJobs = (PublishJob.objects
+                  .filter(creator=job.creator, createdAt__gte=windowStart)
+                  .exclude(id=job.id))
+    # Python-side payload matching on purpose: JSONField path lookups are
+    # shaky on SQLite and the table is tiny.
+    for sibling in recentJobs:
+        if sibling.status not in blockingStatuses:
+            continue
+        siblingPayload = sibling.payload or {}
+        if (siblingPayload.get("title") == job.payload.get("title")
+                and siblingPayload.get("startIso") == job.payload.get("startIso")):
+            return sibling
+    return None
+
+
+@login_required
+@require_POST
+def publish_anyway(request, jobId):
+    """Force-publish past a resolveable (gCal) conflict: clone the CONFLICT
+    job with ignoreResolveableConflicts on and enqueue the clone. Direct
+    publishes only - the approve flow already forces the flag."""
+    job = get_object_or_404(PublishJob, id=jobId)
+    if not _canViewJob(request.user, job):
+        return HttpResponseForbidden("You do not have access to this publish job.")
+    if job.kind != PublishJob.Kind.DIRECT or job.status != PublishJob.Status.CONFLICT:
+        return HttpResponseBadRequest(
+            "Only a direct publish stopped by a calendar conflict can be published anyway."
+        )
+    sibling = _findRecentSiblingJob(job)
+    if sibling is not None:
+        # A same-event job is already in flight (or just published) - don't
+        # start another; show the user the one that exists.
+        logger.info("PublishAnyway: Rejected duplicate publish of job %s, sibling job %s exists", job.id, sibling.id)
+        return redirect("publish-status", jobId=sibling.id)
+    newJob = PublishJob.objects.create(
+        kind=job.kind,
+        payload={**job.payload, "ignoreResolveableConflicts": True},
+        creator=job.creator,
+        owner=job.owner,
+    )
+    publishEventJob(newJob.id)
+    logger.info("PublishAnyway: Cloned conflict job %s into job %s with ignoreResolveableConflicts on", job.id, newJob.id)
+    return redirect("publish-status", jobId=newJob.id)
