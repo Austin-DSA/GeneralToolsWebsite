@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Submit a Resolution - Echo{% endblock title %}
+{% block page_content %}
+{% comment %}Scoped, runtime CSS for the type cards. Plain CSS (not Tailwind source), so it needs no output.css rebuild; colors come from the brand tokens.{% endcomment %}
+<style>
+  .res-type-field { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .res-type-label { display: block; font-size: 0.875rem; font-weight: 500; color: var(--color-secondary, #52525b); padding-bottom: 0.375rem; }
+  .res-type-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .res-type-card { display: flex; align-items: flex-start; gap: 0.75rem; border: 1px solid #d4d4d8; border-radius: 0.5rem; padding: 0.75rem 0.9rem; cursor: pointer; transition: border-color .12s ease, background-color .12s ease, box-shadow .12s ease; }
+  .res-type-card:hover { border-color: var(--color-primary, #ec1f27); }
+  .res-type-card:has(input:checked) { border-color: var(--color-primary, #ec1f27); background: rgba(236, 31, 39, 0.04); box-shadow: 0 0 0 1px var(--color-primary, #ec1f27); }
+  .res-type-card input[type="radio"] { margin-top: 0.2rem; width: 1.05rem; height: 1.05rem; accent-color: var(--color-primary, #ec1f27); flex: none; cursor: pointer; }
+  .res-type-body { display: flex; flex-direction: column; gap: 0.15rem; }
+  .res-type-title { font-weight: 600; color: var(--color-dark, #231f20); }
+  .res-type-coverage { font-size: 0.875rem; color: var(--color-dark, #231f20); opacity: 0.72; }
+  .res-type-meta { font-size: 0.8125rem; color: var(--color-dark, #231f20); opacity: 0.62; }
+  .res-type-meta a { color: var(--color-primary, #ec1f27); }
+</style>
+{% include "tools/resolutions/_editorAssets.html" %}
+
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">Submit a Resolution</h1>
+  <p class="page-subtitle">Draft a resolution and pick the meeting it targets. Echo holds the text as the source of truth and locks it when the first member signs on.</p>
+
+  {% if form.non_field_errors %}
+  <div class="alert alert-error">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <form action="" method="post">
+    {% csrf_token %}
+    <div class="form-row" data-field="title">
+      <label for="{{ form.title.id_for_label }}">Title</label>
+      {{ form.title }}
+      {% if form.title.errors %}<div class="form-errors">{{ form.title.errors }}</div>{% endif %}
+    </div>
+
+    <div class="res-type-field" data-field="kind">
+      <span class="res-type-label">Type</span>
+      <div class="res-type-list">
+        {% for t in types %}
+        <label class="res-type-card">
+          <input type="radio" name="kind" value="{{ t.key }}" {% if form.kind.value == t.key %}checked{% elif not form.kind.value and forloop.first %}checked{% endif %} />
+          <span class="res-type-body">
+            <span class="res-type-title">{{ t.title }}</span>
+            <span class="res-type-coverage">{{ t.coverage }}</span>
+            <span class="res-type-meta">{{ t.thresholdLabel }} &middot; {{ t.deadlineLabel }}{% if t.section %} &middot; <a href="{{ t.sectionUrl }}" target="_blank" rel="noopener">{{ t.section }} &#8599;</a>{% endif %}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% if form.kind.errors %}<div class="form-errors">{{ form.kind.errors }}</div>{% endif %}
+    </div>
+
+    <div class="form-row" data-field="targetMeeting">
+      <label for="{{ form.targetMeeting.id_for_label }}">Target meeting</label>
+      {{ form.targetMeeting }}
+      {% if form.targetMeeting.errors %}<div class="form-errors">{{ form.targetMeeting.errors }}</div>{% endif %}
+    </div>
+
+    <div class="form-row" data-field="text">
+      <label for="{{ form.text.id_for_label }}">Resolution text</label>
+      {{ form.text }}
+      {% if form.text.errors %}<div class="form-errors">{{ form.text.errors }}</div>{% endif %}
+      <p class="form-help">This is the official copy, written in Markdown. Echo holds it as the source of truth and locks it when the first member signs on. Members read it here while it gathers sign-ons; once adopted it is archived with the chapter's passed resolutions.</p>
+    </div>
+
+    <input type="submit" name="submit-resolution" value="Submit resolution" class="btn btn-primary my-3" />
+  </form>
+</div>
+{% endblock page_content %}

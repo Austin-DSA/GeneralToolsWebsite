@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block title %}{{ resolution.title }} - Echo{% endblock title %}
+{% block breadcrumbs %}{% breadcrumbs currentLabel=resolution.title %}{% endblock breadcrumbs %}
+{% block page_content %}
+{% include "tools/resolutions/_editorAssets.html" %}
+<style>
+  /* Sign-on action panel: groups the affirmation, the standing-check note, and
+     the submit button into one bordered card so the call-to-action reads as a
+     single unit, distinct from the resolution text above and the nav below.
+     Plain CSS (brand tokens with fallbacks) so it needs no output.css rebuild. */
+  .signon { margin: 1.5rem 0; padding: 1.1rem 1.2rem; border: 1px solid #e4e4e7; border-radius: 0.75rem; background: var(--color-paper, #f6f4f3); }
+  .signon-affirm { display: flex; align-items: flex-start; gap: 0.6rem; margin: 0; font-weight: 600; color: var(--color-dark, #231f20); line-height: 1.45; cursor: pointer; }
+  .signon-affirm input[type="checkbox"] { flex: none; width: 1.2rem; height: 1.2rem; margin: 0.1rem 0 0; accent-color: var(--color-primary, #ec1f27); cursor: pointer; }
+  .signon-note { margin: 0.6rem 0 0; padding-left: 1.8rem; font-size: 0.85rem; line-height: 1.45; color: var(--color-secondary, #605c5c); }
+  .signon-actions { margin: 1rem 0 0; padding-left: 1.8rem; }
+  .signon-actions .btn { margin: 0; }
+
+  /* Outcome of a decided resolution. */
+  .outcome-box { margin: 1.25rem 0; padding: 1rem 1.2rem; border: 1px solid #e4e4e7; border-radius: 0.75rem; background: #fff; }
+  .outcome-box p { margin: 0; }
+  .outcome-tally { font-size: 1.5rem; font-weight: 800; color: var(--color-dark, #231f20); line-height: 1.2; }
+  .outcome-tally-label { font-size: 0.78rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-secondary, #605c5c); }
+
+  /* Secretary lifecycle panel. */
+  .sec-action { margin: 0 0 1rem; padding: 1rem 1.1rem; border: 1px solid #e4e4e7; border-radius: 0.6rem; background: var(--color-paper, #f6f4f3); }
+  .sec-action:last-of-type { margin-bottom: 0; }
+  .sec-action h3 { margin: 0 0 0.35rem; font-size: 0.95rem; font-weight: 700; color: var(--color-dark, #231f20); }
+  .sec-action p.hint { margin: 0 0 0.7rem; font-size: 0.82rem; color: var(--color-secondary, #605c5c); }
+  .sec-inline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: flex-end; }
+  .sec-inline .form-field { width: auto; min-width: 12rem; }
+  .vote-grid { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end; }
+  .vote-grid label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--color-secondary, #605c5c); margin-bottom: 0.2rem; }
+  .vote-grid .form-field { width: 5rem; }
+  .audit { margin: 0.4rem 0 0; padding: 0; list-style: none; font-size: 0.82rem; }
+  .audit li { padding: 0.35rem 0; border-top: 1px solid #ececec; color: var(--color-secondary, #605c5c); }
+  .audit li:first-child { border-top: 0; }
+</style>
+
+<div class="page-card max-w-2xl">
+  <h1 class="page-title">{{ resolution.title }}</h1>
+  <p class="pb-1">
+    <span class="badge badge-active">{{ resolution.getKindDisplay }}</span>
+    {% include "tools/resolutions/_statusBadge.html" with r=resolution %}
+    &nbsp;Proposed by <strong>{{ resolution.proponent.getDisplayName }}</strong>
+  </p>
+  <p class="page-subtitle">
+    {% if resolution.threshold %}
+      <strong>{{ resolution.signatureCount }} of {{ resolution.threshold }}</strong> sign-ons gathered
+    {% else %}
+      <strong>No sign-on threshold</strong> (the Leadership Committee sets the agenda)
+    {% endif %}
+    {% if resolution.targetMeeting %}
+      &middot; for {{ resolution.targetMeeting.title }}{% if resolution.isInFlight %} &middot; file by {{ resolution.getDeadlineStr }}{% endif %}
+    {% endif %}
+  </p>
+
+  {% if signOutcome %}
+  <div class="alert {% if signOutcome.ok %}alert-success{% else %}alert-error{% endif %}">{{ signOutcome.message }}</div>
+  {% endif %}
+
+  {% if resolution.isDecided %}
+  <div class="outcome-box">
+    {% if resolution.status == "ADOPTED" %}
+    <p style="margin-bottom:0.5rem;"><strong>Adopted</strong>{% if resolution.effectiveDate %}, in effect {{ resolution.effectiveDate|date:"M j, Y" }}{% endif %}. The text below is frozen as the chapter's record.</p>
+    {% else %}
+    <p style="margin-bottom:0.5rem;"><strong>This resolution did not pass.</strong></p>
+    {% endif %}
+    {% if resolution.voteTallyStr %}
+    <p class="outcome-tally">{{ resolution.voteTallyStr }}</p>
+    <p class="outcome-tally-label">Yes - No - Abstain</p>
+    {% endif %}
+    {% if resolution.supersededBy %}
+    <p style="margin-top:0.5rem;font-size:0.85rem;color:var(--color-secondary,#605c5c);">Superseded by <a href="{% url 'resolution-detail' pk=resolution.supersededBy.pk %}">{{ resolution.supersededBy.title }}</a>.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if resolution.locked and resolution.isInFlight %}
+  <div class="alert alert-info">The text is <strong>locked</strong> as signed. If the proponent edits it, every sign-on resets.</div>
+  {% endif %}
+
+  <div class="resolution-body my-3">{{ renderedText }}</div>
+
+  {% if canSign %}
+  <form action="" method="post" class="signon" data-field="affirm">
+    {% csrf_token %}
+    <label class="signon-affirm" for="sign-affirm">
+      <input type="checkbox" id="sign-affirm" name="affirm" checked />
+      <span>I am a member in good standing and I support this resolution.</span>
+    </label>
+    <p class="signon-note">When you sign on, we check your standing with Action Network using this account's email ({{ request.user.email }}).</p>
+    <div class="signon-actions">
+      <input type="submit" name="sign-on" value="Add my sign-on" class="btn btn-primary" />
+    </div>
+  </form>
+  {% elif alreadySigned %}
+  <div class="alert alert-info">You have signed on to this resolution.</div>
+  {% elif deadlinePassed and resolution.isOpenForSignOn %}
+  <div class="alert alert-warning">The filing deadline has passed, so this resolution is closed to new sign-ons.</div>
+  {% elif not resolution.isOpenForSignOn %}
+  <div class="alert alert-info">This resolution is not open for sign-ons.</div>
+  {% endif %}
+
+  <div class="pt-2 flex gap-3 flex-wrap">
+    <a class="btn btn-secondary" href="{% url 'sign-resolution' %}">Back to open resolutions</a>
+    {% if isProponent and resolution.isOpenForSignOn %}
+    <a class="btn btn-secondary" href="{% url 'resolution-edit' pk=resolution.pk %}">Edit text</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if canManage %}
+<div class="page-card max-w-2xl">
+  <h2 class="section-title pt-0">Secretary actions</h2>
+
+  {% if resolution.status == "GATHERING" %}
+  <div class="sec-action">
+    <h3>Schedule for a meeting</h3>
+    <p class="hint">Places it on the agenda and closes it to new sign-ons.</p>
+    <form method="post" action="{% url 'resolution-schedule' pk=resolution.pk %}" class="sec-inline">
+      {% csrf_token %}
+      {{ scheduleForm.targetMeeting }}
+      <button type="submit" class="btn btn-primary">Schedule</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if resolution.isInFlight %}
+  <div class="sec-action">
+    <h3>Record the vote</h3>
+    <p class="hint">Adopts on a {{ resolution.getVoteThresholdDisplay }} of those voting (abstentions do not count), otherwise marks it as not passed.</p>
+    <form method="post" action="{% url 'resolution-record-vote' pk=resolution.pk %}">
+      {% csrf_token %}
+      <div class="vote-grid">
+        <div><label for="id_votesYes">Yes</label>{{ voteForm.votesYes }}</div>
+        <div><label for="id_votesNo">No</label>{{ voteForm.votesNo }}</div>
+        <div><label for="id_votesAbstain">Abstain</label>{{ voteForm.votesAbstain }}</div>
+        <button type="submit" class="btn btn-primary">Record vote</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if resolution.status == "SCHEDULED" %}
+  <div class="sec-action">
+    <h3>Send back to gathering</h3>
+    <p class="hint">Undo the schedule and reopen sign-ons.</p>
+    <form method="post" action="{% url 'resolution-send-back' pk=resolution.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary">Send back</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if resolution.isInFlight %}
+  <div class="sec-action">
+    <h3>Withdraw</h3>
+    <p class="hint">Pulls the resolution before a vote.</p>
+    <form method="post" action="{% url 'resolution-withdraw' pk=resolution.pk %}" class="sec-inline">
+      {% csrf_token %}
+      {{ withdrawForm.note }}
+      <button type="submit" class="btn btn-danger">Withdraw</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if resolution.status == "ADOPTED" %}
+  <div class="sec-action">
+    <h3>Export to the repo</h3>
+    <p class="hint">Download <code>{{ repoExportName }}</code> in the Bylaws-Resolutions format, then commit it to keep the public archive mirrored.</p>
+    <a class="btn btn-secondary" href="{% url 'resolution-export' pk=resolution.pk %}">Download Markdown</a>
+  </div>
+  <div class="sec-action">
+    <h3>Repeal or supersede</h3>
+    <p class="hint">Marks this adopted resolution as no longer in effect. Optionally point at the resolution that replaced it.</p>
+    <form method="post" action="{% url 'resolution-supersede' pk=resolution.pk %}" class="sec-inline">
+      {% csrf_token %}
+      {{ supersedeForm.replacement }}
+      <button type="submit" class="btn btn-danger">Supersede</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if events %}
+  <h3 style="font-size:0.95rem;font-weight:700;margin:1.3rem 0 0.2rem;">History</h3>
+  <ul class="audit">
+    {% for e in events %}
+    <li>{{ e.getFromDisplay }} &rarr; <strong>{{ e.getToDisplay }}</strong> &middot; {{ e.at|date:"M j, Y, P" }}{% if e.actor %} &middot; {{ e.actor.getDisplayName }}{% endif %}{% if e.note %} &middot; {{ e.note }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock page_content %}

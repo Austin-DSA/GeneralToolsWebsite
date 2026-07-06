@@ -25,6 +25,17 @@ VIEW_LINK_METRICS = _publicPermissionName(_VIEW_LINK_METRICS)
 _APPROVE_ACCESS_REQUEST = "approveAccessRequest"
 APPROVE_ACCESS_REQUEST = _publicPermissionName(_APPROVE_ACCESS_REQUEST)
 
+# Resolutions: the Secretary's administer-dashboard permission. NOTE: submitting
+# and signing on are deliberately NOT permissions - they are login_required for
+# every member (the design's "no per-person admin for the Secretary"). A
+# submitResolution permission is intentionally omitted in slice 1: every
+# permission registered on PermissionRights becomes member-requestable on the
+# access-request page (getRequestablePermissions filters by content type, not by
+# PERMISSION_CATEGORIES), so a no-op gate would only confuse members. Introduce
+# it when email-confirmation makes submit meaningfully restrictive.
+_ADMINISTER_RESOLUTIONS = "administerResolutions"
+ADMINISTER_RESOLUTIONS = _publicPermissionName(_ADMINISTER_RESOLUTIONS)
+
 
 # Display taxonomy for the access pages - mirrors the home-menu categories.
 # A permission missing from every tuple lands in "Other", so new permissions
@@ -34,6 +45,7 @@ PERMISSION_CATEGORIES = (
                 _APPROVE_DELEGATED_EVENT, _VIEW_DELEGATED_EVENTS, _MANAGE_EVENT_OWNERS)),
     ("Link Trees", (_MANAGE_LINK_TREE, _VIEW_LINK_METRICS)),
     ("Access", (_APPROVE_ACCESS_REQUEST,)),
+    ("Resolutions", (_ADMINISTER_RESOLUTIONS,)),
 )
 
 
@@ -85,4 +97,5 @@ class PermissionRights(models.Model):
             (_MANAGE_LINK_TREE, 'Allowed to manage link trees, items, and QR codes'),
             (_VIEW_LINK_METRICS, 'Allowed to view link tree click/scan metrics'),
             (_APPROVE_ACCESS_REQUEST, 'Allowed to approve or deny any access request'),
+            (_ADMINISTER_RESOLUTIONS, 'Allowed to administer resolutions (Secretary dashboard)'),
         )

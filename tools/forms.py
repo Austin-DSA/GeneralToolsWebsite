@@ -14,7 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from .EventAutomation import EventAutomationDriver, ActionNetworkAutomation
 
 from . import permissions
-from .models import User, EventOwners, AccessRequests, LinkTree, LinkTreeItem, QRCode
+from .models import User, EventOwners, AccessRequests, LinkTree, LinkTreeItem, QRCode, Resolution, PostedEvents
 
 STATES = [
     "AL",
@@ -917,3 +917,134 @@ class QRCodeForm(forms.Form):
                 "A QR code must point at exactly one target: a link tree, a link tree item, or a raw URL."
             )
         return cleaned
+
+
+class ResolutionForm(forms.Form):
+    """Submit a new resolution. Hand-rolled forms.Form (house style); the view
+    calls Resolution.objects.create() directly. The ``kind`` radios are
+    hand-rendered as type cards in the template, but the field validates the
+    posted value against Kind.CHOICES."""
+
+    title = forms.CharField(
+        label="Title", max_length=200,
+        widget=forms.TextInput(attrs={
+            "class": "form-field w-full",
+            "placeholder": "e.g. Endorse the Eastside BRT Plan",
+        }),
+    )
+    kind = forms.ChoiceField(
+        label="Type", choices=Resolution.Kind.CHOICES, widget=forms.RadioSelect,
+    )
+    # Restricted to upcoming meetings in __init__ (runtime ``now`` comparison
+    # must not be frozen at import). Optional so a draft can exist before a
+    # meeting is chosen.
+    targetMeeting = forms.ModelChoiceField(
+        label="Target meeting", queryset=PostedEvents.objects.none(), required=False,
+        empty_label="Select a meeting (you can add one later)",
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    text = forms.CharField(
+        label="Resolution text",
+        widget=forms.Textarea(attrs={
+            "class": "form-field w-full", "rows": "12", "data-markdown-editor": "1",
+            "placeholder": "Whereas...\n\nTherefore, be it resolved...",
+        }),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        now = datetime.datetime.now(datetime.UTC)
+        self.fields["targetMeeting"].queryset = (
+            PostedEvents.objects.filter(start__gt=now).order_by("start")
+        )
+
+
+class ResolutionEditForm(forms.Form):
+    """Edit a resolution's text. A change to a locked resolution resets its
+    sign-ons (Resolution.replaceText); the view requires confirmReset before
+    applying such a change."""
+
+    text = forms.CharField(
+        label="Resolution text",
+        widget=forms.Textarea(attrs={
+            "class": "form-field w-full", "rows": "12", "data-markdown-editor": "1",
+        }),
+    )
+    confirmReset = forms.BooleanField(required=False)
+
+
+class ScheduleForm(forms.Form):
+    """Place a resolution on an upcoming meeting agenda (GATHERING -> SCHEDULED)."""
+
+    targetMeeting = forms.ModelChoiceField(
+        label="Meeting", queryset=PostedEvents.objects.none(),
+        empty_label="Select a meeting",
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        now = datetime.datetime.now(datetime.UTC)
+        self.fields["targetMeeting"].queryset = (
+            PostedEvents.objects.filter(start__gt=now).order_by("start")
+        )
+
+
+class RecordVoteForm(forms.Form):
+    """Record the membership's Yes / No / Abstain tally. The view applies
+    Resolution.recordVote, which decides adopted vs rejected by the kind's vote
+    threshold (two-thirds for amendments and endorsements, otherwise majority)."""
+
+    votesYes = forms.IntegerField(
+        label="Yes", min_value=0,
+        widget=forms.NumberInput(attrs={"class": "form-field", "min": "0"}),
+    )
+    votesNo = forms.IntegerField(
+        label="No", min_value=0,
+        widget=forms.NumberInput(attrs={"class": "form-field", "min": "0"}),
+    )
+    votesAbstain = forms.IntegerField(
+        label="Abstain", min_value=0, initial=0,
+        widget=forms.NumberInput(attrs={"class": "form-field", "min": "0"}),
+    )
+
+    def clean(self):
+        cleaned = super().clean()
+        yes = cleaned.get("votesYes") or 0
+        no = cleaned.get("votesNo") or 0
+        if yes + no <= 0:
+            raise ValidationError("Record at least one Yes or No vote.")
+        return cleaned
+
+
+class WithdrawForm(forms.Form):
+    """Pull an in-flight resolution before it is voted on."""
+
+    note = forms.CharField(
+        label="Reason (optional)", required=False,
+        widget=forms.TextInput(attrs={
+            "class": "form-field w-full", "placeholder": "e.g. duplicate of an earlier resolution",
+        }),
+    )
+
+
+class SupersedeForm(forms.Form):
+    """Mark an adopted resolution as repealed, optionally pointing at the later
+    resolution that replaced it."""
+
+    replacement = forms.ModelChoiceField(
+        label="Replaced by (optional)", queryset=Resolution.objects.none(), required=False,
+        empty_label="Repealed (no replacement)",
+        widget=forms.Select(attrs={"class": "form-field w-full"}),
+    )
+    note = forms.CharField(
+        label="Note (optional)", required=False,
+        widget=forms.TextInput(attrs={"class": "form-field w-full"}),
+    )
+
+    def __init__(self, *args, excludePk=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        qs = Resolution.objects.filter(status=Resolution.Status.ADOPTED)
+        if excludePk is not None:
+            qs = qs.exclude(pk=excludePk)
+        self.fields["replacement"].queryset = qs.order_by("-decidedAt")

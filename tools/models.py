@@ -7,6 +7,8 @@ import pytz
 from django.urls import reverse
 from . import permissions
 from . import utils
+from .resolutionText import normalizedTextHash
+from .ActionNetworkAPI.migValidator import MIGStatus
 
 # Approving a committee (EventOwner) join grants the full event-lead capability
 # through this managed role group. The EventOwner's authorizer list scopes which
@@ -85,6 +87,9 @@ class PostedEvents(models.Model):
     reason = models.TextField()
 
     owner = models.ForeignKey(EventOwners, on_delete=models.SET_NULL, blank=True, null=True)
+
+    def __str__(self) -> str:
+        return f"{self.title} ({self.getStartLocalizedStr()})"
 
     def getCreatorName(self) -> str:
         if self.creator is None:
@@ -870,3 +875,439 @@ class LinkEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_source_display()} @ {self.occurredAt:%Y-%m-%d %H:%M}"
+
+
+# ---------------------------------------------------------------------------
+# Resolutions
+#
+# A member-submitted resolution gathering signature "sign-ons" to make a meeting
+# agenda. Echo owns the canonical text and enforces the integrity guarantee: the
+# text locks when the first member signs on, and any later edit resets the
+# sign-ons (see replaceText). Each signer is validated live as a Member in Good
+# Standing against Action Network at sign-on time (see ActionNetworkAPI/).
+#
+# The bylaws set the rules by kind: a general resolution needs no sign-ons (the
+# Leadership Committee sets the agenda); a project committee needs 25 sign-ons
+# filed 10 days out (Section 7.1.5); a bylaws amendment needs proponent + 35
+# filed 21 days out (Section 10.1). Kind is the single source of that truth.
+# ---------------------------------------------------------------------------
+
+
+class Resolution(models.Model):
+    class Kind:
+        GENERAL = "GENERAL"
+        PROJECT_COMMITTEE = "PROJECT_COMMITTEE"
+        BYLAWS_AMENDMENT = "BYLAWS_AMENDMENT"
+        CANDIDATE_ENDORSEMENT = "CANDIDATE_ENDORSEMENT"
+
+        CHOICES = (
+            (GENERAL, "General resolution"),
+            (PROJECT_COMMITTEE, "Project committee or campaign"),
+            (BYLAWS_AMENDMENT, "Bylaws amendment"),
+            (CANDIDATE_ENDORSEMENT, "Candidate endorsement"),
+        )
+
+        # The single source of threshold / lead-day truth. None threshold means
+        # no sign-on requirement (the Leadership Committee or a direct vote sets
+        # the agenda). Lead days are how far ahead of the meeting it must be filed.
+        THRESHOLDS = {GENERAL: None, PROJECT_COMMITTEE: 25, BYLAWS_AMENDMENT: 35, CANDIDATE_ENDORSEMENT: None}
+        LEAD_DAYS = {GENERAL: 0, PROJECT_COMMITTEE: 10, BYLAWS_AMENDMENT: 21, CANDIDATE_ENDORSEMENT: 0}
+
+        # The vote it takes to adopt at the meeting. Bylaws amendments and
+        # candidate endorsements need two-thirds; everything else a simple
+        # majority of those voting (abstentions never count). Section 9.2 / 10.1.
+        VOTE_MAJORITY = "MAJORITY"
+        VOTE_TWO_THIRDS = "TWO_THIRDS"
+        VOTE_THRESHOLDS = {
+            GENERAL: VOTE_MAJORITY,
+            PROJECT_COMMITTEE: VOTE_MAJORITY,
+            BYLAWS_AMENDMENT: VOTE_TWO_THIRDS,
+            CANDIDATE_ENDORSEMENT: VOTE_TWO_THIRDS,
+        }
+
+        # Self-documenting metadata for the submit-form type cards.
+        COVERAGE = {
+            GENERAL: "An endorsement, a political position, or a statement of the chapter.",
+            PROJECT_COMMITTEE: "Create or dissolve a campaign, working group, or other project committee.",
+            BYLAWS_AMENDMENT: "Change the text of the bylaws themselves.",
+            CANDIDATE_ENDORSEMENT: "Endorse a candidate for elected office (a two-thirds vote).",
+        }
+        SECTION = {GENERAL: "", PROJECT_COMMITTEE: "Section 7.1", BYLAWS_AMENDMENT: "Section 10.1", CANDIDATE_ENDORSEMENT: "Section 9.2"}
+
+    class Status:
+        GATHERING = "GATHERING"
+        SCHEDULED = "SCHEDULED"
+        ADOPTED = "ADOPTED"
+        REJECTED = "REJECTED"
+        WITHDRAWN = "WITHDRAWN"
+        SUPERSEDED = "SUPERSEDED"
+
+        CHOICES = (
+            (GATHERING, "Gathering sign-ons"),
+            (SCHEDULED, "On the agenda"),
+            (ADOPTED, "Adopted"),
+            (REJECTED, "Did not pass"),
+            (WITHDRAWN, "Withdrawn"),
+            (SUPERSEDED, "Superseded"),
+        )
+
+        # The two "in flight" states the Secretary actively manages; the rest
+        # are terminal outcomes.
+        IN_FLIGHT = (GATHERING, SCHEDULED)
+
+    title = models.CharField(max_length=200)
+    kind = models.CharField(max_length=32, choices=Kind.CHOICES)
+    # The canonical markdown copy. Echo is the source of truth while gathering.
+    text = models.TextField()
+    proponent = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="resolutionsProposed",
+    )
+    # The meeting it is filed for, read from the events domain. Nullable so a
+    # draft can exist before a meeting is chosen; SET_NULL mirrors the event
+    # owner FKs - any code reading targetMeeting must null-guard.
+    targetMeeting = models.ForeignKey(
+        PostedEvents, on_delete=models.SET_NULL, blank=True, null=True,
+        related_name="resolutions",
+    )
+    status = models.CharField(max_length=16, choices=Status.CHOICES, default=Status.GATHERING)
+
+    # Integrity lock: set on the first verified sign-on; cleared by replaceText
+    # when the text changes.
+    locked = models.BooleanField(default=False)
+    lockedTextHash = models.CharField(max_length=64, blank=True)
+    lockedAt = models.DateTimeField(null=True, blank=True)
+
+    # --- lifecycle outcome (set by the Secretary transitions below) ------
+    # A stable archive slug, set on adoption; also the <year>/<slug>.md repo
+    # filename for the export handoff.
+    slug = models.SlugField(max_length=120, blank=True)
+    # When the membership voted, and the recorded Yes / No / Abstain tally.
+    decidedAt = models.DateTimeField(null=True, blank=True)
+    votesYes = models.PositiveIntegerField(null=True, blank=True)
+    votesNo = models.PositiveIntegerField(null=True, blank=True)
+    votesAbstain = models.PositiveIntegerField(null=True, blank=True)
+    # The date an adopted resolution takes effect (immediately per the bylaws,
+    # unless the resolution itself specifies otherwise).
+    effectiveDate = models.DateField(null=True, blank=True)
+    # Set when a later adopted resolution repeals or replaces this one.
+    supersededBy = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="supersedes",
+    )
+    # When the repo-format markdown was last exported (the Echo -> repo handoff).
+    exportedAt = models.DateTimeField(null=True, blank=True)
+
+    createdAt = models.DateTimeField(auto_now_add=True)
+    updatedAt = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-createdAt"]
+
+    def __str__(self) -> str:
+        return self.title
+
+    # --- kind-derived rules (read from Kind, never duplicated) ----------
+
+    @property
+    def threshold(self) -> int | None:
+        return Resolution.Kind.THRESHOLDS.get(self.kind)
+
+    @property
+    def leadDays(self) -> int:
+        return Resolution.Kind.LEAD_DAYS.get(self.kind, 0)
+
+    def getKindDisplay(self) -> str:
+        return dict(Resolution.Kind.CHOICES).get(self.kind, self.kind)
+
+    def getBylawsSection(self) -> str:
+        return Resolution.Kind.SECTION.get(self.kind, "")
+
+    def getStatusDisplay(self) -> str:
+        return dict(Resolution.Status.CHOICES).get(self.status, self.status)
+
+    @property
+    def voteThreshold(self) -> str:
+        return Resolution.Kind.VOTE_THRESHOLDS.get(self.kind, Resolution.Kind.VOTE_MAJORITY)
+
+    def getVoteThresholdDisplay(self) -> str:
+        if self.voteThreshold == Resolution.Kind.VOTE_TWO_THIRDS:
+            return "two-thirds"
+        return "simple majority"
+
+    # --- lifecycle state helpers (read-only) -----------------------------
+
+    @property
+    def isInFlight(self) -> bool:
+        return self.status in Resolution.Status.IN_FLIGHT
+
+    @property
+    def isInEffect(self) -> bool:
+        """Adopted and not since superseded, i.e. currently governing."""
+        return self.status == Resolution.Status.ADOPTED and self.supersededBy_id is None
+
+    @property
+    def isDecided(self) -> bool:
+        return self.status in (Resolution.Status.ADOPTED, Resolution.Status.REJECTED)
+
+    def voteTallyStr(self) -> str:
+        """The recorded tally as 'Yes-No-Abstain', or '' when unrecorded."""
+        if self.votesYes is None:
+            return ""
+        return f"{self.votesYes}-{self.votesNo}-{self.votesAbstain}"
+
+    def votePasses(self, yes: int, no: int) -> bool:
+        """Whether a Yes / No tally clears this resolution's vote threshold.
+        Abstentions never count toward the threshold."""
+        total = yes + no
+        if total <= 0:
+            return False
+        if self.voteThreshold == Resolution.Kind.VOTE_TWO_THIRDS:
+            return 3 * yes >= 2 * total  # yes >= two-thirds of (yes + no)
+        return yes > no                  # simple majority of those voting
+
+    # --- sign-on counting ------------------------------------------------
+
+    @property
+    def signatureCount(self) -> int:
+        return self.signatures.filter(verified=True).count()
+
+    @property
+    def meetsThreshold(self) -> bool:
+        return self.threshold is None or self.signatureCount >= self.threshold
+
+    # --- deadline (null-guards a missing/orphaned meeting) ---------------
+
+    def deadline(self) -> datetime.datetime | None:
+        if self.targetMeeting is None:
+            return None
+        return self.targetMeeting.start - datetime.timedelta(days=self.leadDays)
+
+    def deadlineMet(self) -> bool | None:
+        """Whether it was filed in time (createdAt at or before the deadline).
+        None when there is no meeting to measure against."""
+        deadline = self.deadline()
+        if deadline is None:
+            return None
+        createdAt = self.createdAt
+        if createdAt is None:
+            return None
+        if createdAt.tzinfo is None:
+            createdAt = pytz.utc.localize(createdAt)
+        cutoff = deadline
+        if cutoff.tzinfo is None:
+            cutoff = pytz.utc.localize(cutoff)
+        return createdAt <= cutoff
+
+    def localTimeZone(self):
+        """The timezone chapter-facing dates render in: the target meeting's own
+        zone when there is one, else the chapter default. Datetimes are stored UTC
+        (settings.TIME_ZONE = "UTC"), so a naive strftime would mislabel them by
+        the UTC offset - mirrors PostedEvents.getStartLocalized."""
+        if self.targetMeeting is not None and self.targetMeeting.timezone:
+            return pytz.timezone(self.targetMeeting.timezone)
+        return pytz.timezone(utils.CHAPTER_TIME_ZONE)
+
+    def decidedDateLocal(self) -> datetime.date | None:
+        """The decision date in chapter-local time. ``decidedAt`` is stored UTC,
+        so a late-evening Central adoption would otherwise roll onto the next UTC
+        day - wrong for the effective date and the permanent archive record."""
+        if self.decidedAt is None:
+            return None
+        decided = self.decidedAt
+        if decided.tzinfo is None:
+            decided = pytz.utc.localize(decided)
+        return decided.astimezone(self.localTimeZone()).date()
+
+    def getDeadlineStr(self) -> str:
+        deadline = self.deadline()
+        if deadline is None:
+            return "no meeting selected"
+        if deadline.tzinfo is None:
+            deadline = pytz.utc.localize(deadline)
+        return deadline.astimezone(self.localTimeZone()).strftime(utils.DATE_TIME_FORMAT)
+
+    def signOnDeadlinePassed(self) -> bool:
+        """True only when a filing deadline exists and is now in the past, so a
+        late sign-on can no longer help the resolution make the agenda."""
+        deadline = self.deadline()
+        if deadline is None:
+            return False
+        if deadline.tzinfo is None:
+            deadline = pytz.utc.localize(deadline)
+        return datetime.datetime.now(datetime.UTC) > deadline
+
+    # --- integrity lock --------------------------------------------------
+
+    def isOpenForSignOn(self) -> bool:
+        return self.status == Resolution.Status.GATHERING
+
+    def lockText(self) -> None:
+        """Lock the text on the first sign-on. Idempotent."""
+        if not self.locked:
+            self.locked = True
+            self.lockedTextHash = normalizedTextHash(self.text)
+            self.lockedAt = datetime.datetime.now(datetime.UTC)
+            self.save()
+
+    def replaceText(self, newText: str) -> bool:
+        """Replace the resolution text. Returns True if this reset sign-ons.
+
+        A cosmetically-identical resave (same normalized hash) is a no-op and
+        preserves sign-ons. A real change to a locked resolution deletes every
+        sign-on and re-opens gathering - the integrity guarantee. The reset
+        logic lives only here so the edit view and any future admin path share
+        it."""
+        if self.locked and normalizedTextHash(newText) == self.lockedTextHash:
+            if newText != self.text:
+                self.text = newText
+                self.save()
+            return False
+
+        wasLocked = self.locked
+        self.text = newText
+        if wasLocked:
+            self.signatures.all().delete()
+            self.locked = False
+            self.lockedTextHash = ""
+            self.lockedAt = None
+        self.save()
+        return wasLocked
+
+    # --- lifecycle transitions (Secretary-driven) ------------------------
+    # Each transition validates it is legal from the current status (defense in
+    # depth; the templates also hide illegal actions) and records a
+    # ResolutionEvent for the audit trail. ``actor`` is the acting user, or None
+    # for a system / seed action.
+
+    def _recordEvent(self, actor, fromStatus: str, note: str = "") -> None:
+        ResolutionEvent.objects.create(
+            resolution=self, actor=actor,
+            fromStatus=fromStatus, toStatus=self.status, note=note,
+        )
+
+    def _generateSlug(self) -> str:
+        from django.utils.text import slugify
+        return slugify(self.title)[:110] or f"resolution-{self.pk}"
+
+    def schedule(self, meeting=None, actor=None, note: str = "") -> None:
+        """Place a gathering resolution on a meeting agenda."""
+        if self.status != Resolution.Status.GATHERING:
+            raise ValueError(f"Cannot schedule a {self.status} resolution")
+        fromStatus = self.status
+        if meeting is not None:
+            self.targetMeeting = meeting
+        self.status = Resolution.Status.SCHEDULED
+        self.save()
+        self._recordEvent(actor, fromStatus, note)
+
+    def sendBackToGathering(self, actor=None, note: str = "") -> None:
+        """Undo a schedule, returning the resolution to gathering sign-ons."""
+        if self.status != Resolution.Status.SCHEDULED:
+            raise ValueError(f"Cannot send a {self.status} resolution back to gathering")
+        fromStatus = self.status
+        self.status = Resolution.Status.GATHERING
+        self.save()
+        self._recordEvent(actor, fromStatus, note)
+
+    def recordVote(self, yes: int, no: int, abstain: int, actor=None, note: str = "") -> None:
+        """Record the membership vote and decide the outcome. Adopts when the
+        tally clears the kind's vote threshold, otherwise marks it rejected.
+        Adoption freezes the text and stamps the effective date and archive slug."""
+        if self.status not in Resolution.Status.IN_FLIGHT:
+            raise ValueError(f"Cannot record a vote on a {self.status} resolution")
+        fromStatus = self.status
+        self.votesYes, self.votesNo, self.votesAbstain = yes, no, abstain
+        self.decidedAt = datetime.datetime.now(datetime.UTC)
+        if self.votePasses(yes, no):
+            self.status = Resolution.Status.ADOPTED
+            self.effectiveDate = self.decidedDateLocal()
+            if not self.slug:
+                self.slug = self._generateSlug()
+            self.save()
+            self.lockText()  # freeze the adopted text (idempotent)
+        else:
+            self.status = Resolution.Status.REJECTED
+            self.save()
+        self._recordEvent(actor, fromStatus, note)
+
+    def withdraw(self, actor=None, note: str = "") -> None:
+        """Pull an in-flight resolution before it is voted on."""
+        if self.status not in Resolution.Status.IN_FLIGHT:
+            raise ValueError(f"Cannot withdraw a {self.status} resolution")
+        fromStatus = self.status
+        self.status = Resolution.Status.WITHDRAWN
+        self.save()
+        self._recordEvent(actor, fromStatus, note)
+
+    def supersede(self, actor=None, replacement=None, note: str = "") -> None:
+        """Mark an adopted resolution as repealed or replaced by a later one."""
+        if self.status != Resolution.Status.ADOPTED:
+            raise ValueError(f"Cannot supersede a {self.status} resolution")
+        fromStatus = self.status
+        self.status = Resolution.Status.SUPERSEDED
+        if replacement is not None:
+            self.supersededBy = replacement
+        self.save()
+        self._recordEvent(actor, fromStatus, note)
+
+    def getUrl(self) -> str:
+        return reverse("resolution-detail", kwargs={"pk": self.id})
+
+
+class ResolutionSignature(models.Model):
+    # Verification outcome codes live in ActionNetworkAPI.migValidator (the
+    # validator and this model share them, so they never drift).
+    VerificationStatus = MIGStatus
+
+    resolution = models.ForeignKey(
+        Resolution, on_delete=models.CASCADE, related_name="signatures",
+    )
+    member = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="resolutionSignatures",
+    )
+    signedAt = models.DateTimeField(auto_now_add=True)
+    # The normalized hash of the text the member actually signed (defense in
+    # depth: a counted signature can be proven to match the locked text).
+    textHashAtSigning = models.CharField(max_length=64)
+    verified = models.BooleanField(default=False)
+    verificationStatus = models.CharField(max_length=20, choices=MIGStatus.CHOICES)
+    checkedAt = models.DateTimeField()
+
+    class Meta:
+        unique_together = (("resolution", "member"),)
+
+    def __str__(self) -> str:
+        return f"{self.member.getDisplayName()} -> {self.resolution.title}"
+
+    def getStatusDisplay(self) -> str:
+        return dict(MIGStatus.CHOICES).get(self.verificationStatus, self.verificationStatus)
+
+
+class ResolutionEvent(models.Model):
+    """An audit-trail entry: one row per lifecycle transition, so the Secretary
+    (and the bylaws record) can see who moved a resolution and when."""
+
+    resolution = models.ForeignKey(
+        Resolution, on_delete=models.CASCADE, related_name="events",
+    )
+    # The acting user, or null for a system / seed action.
+    actor = models.ForeignKey(
+        User, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="resolutionEvents",
+    )
+    fromStatus = models.CharField(max_length=16, blank=True)
+    toStatus = models.CharField(max_length=16)
+    note = models.TextField(blank=True)
+    at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-at"]
+
+    def __str__(self) -> str:
+        return f"{self.resolution_id}: {self.fromStatus} -> {self.toStatus}"
+
+    def getFromDisplay(self) -> str:
+        return dict(Resolution.Status.CHOICES).get(self.fromStatus, self.fromStatus or "created")
+
+    def getToDisplay(self) -> str:
+        return dict(Resolution.Status.CHOICES).get(self.toStatus, self.toStatus)
