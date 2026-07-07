@@ -5,8 +5,12 @@
 <div class="page-card max-w-2xl">
   <h1 class="page-title">Schedule conflicts found</h1>
   <div class="alert alert-warning">Your event could not be published due to the following <b>resolveable</b> conflicts.
-    If you still want this event published go back to the new event form, re-enter the details, and check "Ignore Resolveable Conflicts".</div>
+    If you still want this event published, use the "Publish anyway" button below.</div>
   {% include "tools/common/conflictList.html" %}
-  <p class="py-3"><a class="btn btn-primary" href="{% url 'new-event' %}">Back to the event form</a></p>
+  <form action="{% url 'publish-publish-anyway' jobId=job.id %}" method="post">
+    {% csrf_token %}
+    <input type="submit" value="Publish anyway" class="btn btn-primary my-3" />
+  </form>
+  <p class="py-3"><a class="btn btn-secondary" href="{% url 'new-event' %}">Back to the event form</a></p>
 </div>
 {% endblock page_content %}

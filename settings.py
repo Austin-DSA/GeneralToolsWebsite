@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import sys
 from pathlib import Path
 import environ
 
@@ -52,8 +53,26 @@ LINK_TRACKING_SALT = env("LINK_TRACKING_SALT", default=SECRET_KEY)
 DEBUG = env("DEBUG")
 
 # When on, event publishing is stubbed (no external services contacted) - see
-# the env() default above and tools/eventViews.py new_event.
+# the env() default above and tools/tasks.py publishEventJob.
 DEMO_MODE = env("DEMO_MODE")
+
+# Background tasks (Huey). The queue lives in its own SQLite file - deliberately
+# NOT the Django DB file - so the consumer's queue polling never contends with
+# Django's writes. In dev and under tests, "immediate" mode runs tasks inline in
+# the calling process (no worker needed; periodic schedules don't fire - run the
+# underlying management commands manually). Production (docker-compose) sets
+# HUEY_IMMEDIATE=False and runs the `worker` service (`manage.py run_huey`).
+HUEY = {
+    "huey_class": "huey.SqliteHuey",
+    "name": "echo",
+    "filename": env("HUEY_DB_PATH", default=str(BASE_DIR / "huey.sqlite3")),
+    "immediate": env.bool("HUEY_IMMEDIATE", default=(DEBUG or "test" in sys.argv)),
+    # Task state belongs in Django models, not Huey's result store.
+    "results": False,
+    # One worker on purpose: it serializes future Selenium-driven publishes
+    # (one Chrome session at a time) and keeps the box's memory footprint flat.
+    "consumer": {"workers": 1},
+}
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
@@ -80,6 +99,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "huey.contrib.djhuey",
     "tools"
 ]
 

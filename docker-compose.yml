@@ -47,11 +47,40 @@ services:
       ALLOWED_HOSTS : ${ALLOWED_HOSTS}
       CSRF_TRUSTED_ORIGINS : ${CSRF_TRUSTED_ORIGINS}
       LINK_TRACKING_SALT : ${LINK_TRACKING_SALT}
+      # Web process enqueues onto the shared queue file; the worker service consumes it
+      HUEY_IMMEDIATE: 'False'
+      HUEY_DB_PATH: /data/huey.sqlite3
     depends_on:
       - chrome
     #   db:
     #     condition: service_healthy
-  
+
+  # Huey consumer: runs background/periodic tasks (tools/tasks.py). Shares the
+  # app bind-mount (so secrets.json/serviceKey.json resolve) and the /data
+  # volume (its queue file sits next to the Django sqlite DB, in a separate
+  # file). The web container's entrypoint owns collectstatic/migrate; this one
+  # only runs the consumer (worker count comes from HUEY['consumer'] in
+  # settings.py).
+  worker:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python3 /app/manage.py run_huey
+    volumes:
+      - ./:/app
+      - website_data:/data
+    environment:
+      DEBUG : 'False'
+      SECRET_KEY : ${SECRET_KEY}
+      DATABASE_URL: sqlite:////data/db.sqlite3
+      DJANGO_SETTINGS_MODULE: settings
+      HUEY_IMMEDIATE: 'False'
+      HUEY_DB_PATH: /data/huey.sqlite3
+    depends_on:
+      - tools-site # the web entrypoint runs migrations; start after it
+      - chrome # event publishes drive Selenium through the chrome sidecar
+
   webserver:
     image: nginx:latest
     container_name: webserver
