@@ -19,6 +19,7 @@ from .forms import NewEventForm, ApproveDelegatedEventForm
 from .EmailApi import EmailApi
 from .permissions import *
 from .tasks import publishEventJob
+from .timezones import DateTimeWithAcceptedTimeZone
 import dataclasses
 from .models import *
 
@@ -60,16 +61,25 @@ class PostedEventListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
 
 def _buildEventPayload(eventInfo, timezoneStr, ignoreResolveableConflicts) -> dict:
     """Serialize an EventInfo into the PublishJob payload (schema
-    PublishJob.PAYLOAD_VERSION). start/end are already localized (by
-    convertToEventInfo / getEventInfo), so their tz-aware isoformat round-trips
-    through tasks._rehydrateEventInfo without re-localizing."""
+    PublishJob.PAYLOAD_VERSION).
+
+    start/end are stored as NAIVE-UTC ISO strings, with the accepted IANA zone
+    carried once in "timezone". The datetime's own tzinfo is deliberately NOT
+    used to convey the zone: isoformat() would preserve only the offset, and
+    tasks._rehydrateEventInfo would get back a fixed-offset tzinfo with no zone
+    name (the issue #26 regression). DateTimeWithAcceptedTimeZone keeps the
+    instant and the zone name as the two explicit facts they are, so the round
+    trip is lossless. start/end are already localized here (by
+    convertToEventInfo / getEventInfo)."""
+    startDt = DateTimeWithAcceptedTimeZone.fromLocalized(eventInfo.start, timezoneStr)
+    endDt = DateTimeWithAcceptedTimeZone.fromLocalized(eventInfo.end, timezoneStr)
     return {
         "payloadVersion": PublishJob.PAYLOAD_VERSION,
         "title": eventInfo.title,
         "eventType": eventInfo.eventType,
         "timezone": timezoneStr,
-        "startIso": eventInfo.start.isoformat(),
-        "endIso": eventInfo.end.isoformat(),
+        "startIso": startDt.utcNaiveIso(),
+        "endIso": endDt.utcNaiveIso(),
         "locationName": eventInfo.locationName,
         "streetAddress": eventInfo.streetAddress,
         "city": eventInfo.city,

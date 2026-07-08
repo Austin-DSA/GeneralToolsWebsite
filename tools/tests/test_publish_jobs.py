@@ -70,16 +70,24 @@ class PayloadRoundTripTests(TestCase):
         self.assertEqual(payload["timezone"], "America/Chicago")
         self.assertFalse(payload["ignoreResolveableConflicts"])
 
+        # startIso/endIso are serialized as naive-UTC strings; the zone name
+        # rides separately in "timezone".
+        self.assertIsNone(datetime.datetime.fromisoformat(payload["startIso"]).tzinfo)
+
         rehydrated = tasks._rehydrateEventInfo(payload)
         self.assertEqual(rehydrated.title, eventInfo.title)
         self.assertEqual(rehydrated.eventType, eventInfo.eventType)
-        # fromisoformat yields a fixed-offset tzinfo, not pytz - equality is
-        # by instant (==), never by tzinfo identity.
+        # Equality is by instant (==), never by tzinfo identity.
         self.assertEqual(rehydrated.start, eventInfo.start)
         self.assertEqual(rehydrated.end, eventInfo.end)
         # The driver rejects naive datetimes; the round trip must stay aware.
         self.assertIsNotNone(rehydrated.start.utcoffset())
         self.assertIsNotNone(rehydrated.end.utcoffset())
+        # The NAMED pytz zone must survive - this is the issue #26 regression
+        # guard. GoogleCalendarAPI and ActionNetworkAutomation read .tzinfo.zone,
+        # which a bare fixed-offset tzinfo (fromisoformat's result) does not have.
+        self.assertEqual(rehydrated.start.tzinfo.zone, "America/Chicago")
+        self.assertEqual(rehydrated.end.tzinfo.zone, "America/Chicago")
         self.assertEqual(rehydrated.locationName, eventInfo.locationName)
         self.assertEqual(rehydrated.streetAddress, eventInfo.streetAddress)
         self.assertEqual(rehydrated.city, eventInfo.city)
@@ -89,6 +97,28 @@ class PayloadRoundTripTests(TestCase):
         self.assertEqual(rehydrated.description, eventInfo.description)
         self.assertEqual(rehydrated.instructions, eventInfo.instructions)
         self.assertTrue(rehydrated.zoomRequired)
+
+    def test_round_trip_selects_the_right_dst_offset(self):
+        # A zone-name (.zone) assertion is DST-blind: "America/Chicago" is
+        # constant year round. Pin the actual offset at a summer (CDT, -05:00)
+        # and a winter (CST, -06:00) instant so a wrong DST selection fails.
+        summer = makeEventInfo(
+            start=CHICAGO.localize(datetime.datetime(2030, 7, 1, 18, 0)),
+            end=CHICAGO.localize(datetime.datetime(2030, 7, 1, 19, 0)),
+        )
+        winter = makeEventInfo(
+            start=CHICAGO.localize(datetime.datetime(2030, 1, 15, 18, 0)),
+            end=CHICAGO.localize(datetime.datetime(2030, 1, 15, 19, 0)),
+        )
+        summerStart = tasks._rehydrateEventInfo(
+            _buildEventPayload(summer, "America/Chicago", False)).start
+        winterStart = tasks._rehydrateEventInfo(
+            _buildEventPayload(winter, "America/Chicago", False)).start
+
+        self.assertEqual(summerStart.tzname(), "CDT")
+        self.assertEqual(summerStart.utcoffset(), datetime.timedelta(hours=-5))
+        self.assertEqual(winterStart.tzname(), "CST")
+        self.assertEqual(winterStart.utcoffset(), datetime.timedelta(hours=-6))
 
     def test_payload_carries_the_ignore_flag(self):
         payload = _buildEventPayload(makeEventInfo(), "America/Chicago", ignoreResolveableConflicts=True)
