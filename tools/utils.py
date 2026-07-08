@@ -1,4 +1,4 @@
-import zoneinfo
+import pytz
 import datetime
 from .EventAutomation import ActionNetworkAutomation
 
@@ -19,7 +19,7 @@ def getTimeZoneNameFromDatetime(d) -> str:
     utc_instant = d.astimezone(datetime.timezone.utc)
 
     for zone in acceptedTimeZones:
-        zi = zoneinfo.ZoneInfo(zone)
+        zi = pytz.timezone(zone)
         if utc_instant.astimezone(zi).utcoffset() == target_offset:
             return zone
     
