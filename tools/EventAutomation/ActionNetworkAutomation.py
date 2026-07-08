@@ -14,6 +14,7 @@ import pytz
 import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
+from ..utils import getTimeZoneNameFromDatetime
 
 logger = logging.getLogger(__name__)
 
@@ -735,7 +736,8 @@ class ANAutomator:
         # Save the given datetime timezone
         # This gives use +-HHMM and we want (GMT+-HH:SS)
         utcOffsetStr = eventInfo.startTime.strftime('%z')
-        eventInfo.timeZone = TimeZone(timezone=eventInfo.startTime.tzinfo.zone, hourOffsetStr=utcOffsetStr[1:3])
+        timezoneName = getTimeZoneNameFromDatetime(eventInfo.startTime)
+        eventInfo.timeZone = TimeZone(timezone=timezoneName, hourOffsetStr=utcOffsetStr[1:3])
         logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
         # make naiive since we will be generating many datetimes for comparison later and we can't compare tz aware vs non-aware objects
         noTzStart = eventInfo.startTime.replace(tzinfo=None)

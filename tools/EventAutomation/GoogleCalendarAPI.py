@@ -9,6 +9,7 @@ import dataclasses
 import typing
 import pytz
 import os
+from ..utils import getTimeZoneNameFromDatetime
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class Event:
             )
         # Through painful expirmentation I discovered if you use the iso format with the timezone aware object it returns the wrong time, like an hour ahead
         # So I found out you can delete the timezone and then pass it as the timezone argument and that works
-        timezone = date.tzinfo.zone
+        timezone = getTimeZoneNameFromDatetime(date)
         date = date.replace(tzinfo=None)
         return {
             Constants.EventKeys.Date.TIME: date.isoformat(),
