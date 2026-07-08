@@ -15,7 +15,7 @@ def getTimeZoneNameFromDatetime(d) -> str:
     # Ugly hack but will work for now have issue to fix this whole timezone debacle better https://github.com/Austin-DSA/GeneralToolsWebsite/issues/26
     acceptedTimeZones = ActionNetworkAutomation.TimeZone.TZ_TO_AN_TZ.keys()
 
-    target_offset = info.utcoffset()
+    target_offset = d.utcoffset()
     utc_instant = d.astimezone(datetime.timezone.utc)
 
     for zone in acceptedTimeZones:
