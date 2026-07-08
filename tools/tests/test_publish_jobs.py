@@ -70,8 +70,9 @@ class PayloadRoundTripTests(TestCase):
         self.assertEqual(payload["timezone"], "America/Chicago")
         self.assertFalse(payload["ignoreResolveableConflicts"])
 
-        # startIso/endIso are serialized as naive-UTC strings; the zone name
-        # rides separately in "timezone".
+        # startIso/endIso are serialized as the literal local wall time (naive,
+        # exactly what the user entered); the zone rides separately in "timezone".
+        self.assertEqual(payload["startIso"], "2030-07-01T18:00:00")
         self.assertIsNone(datetime.datetime.fromisoformat(payload["startIso"]).tzinfo)
 
         rehydrated = tasks._rehydrateEventInfo(payload)

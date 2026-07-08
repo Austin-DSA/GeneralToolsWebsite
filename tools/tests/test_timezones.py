@@ -21,16 +21,23 @@ WINTER = CHICAGO.localize(datetime.datetime(2030, 1, 15, 18, 0))  # CST, -06:00
 
 
 class ValueObjectTests(TestCase):
-    def test_serialized_form_is_naive_utc(self):
+    def test_serialized_form_is_the_literal_wall_time(self):
         dt = DateTimeWithAcceptedTimeZone.fromLocalized(SUMMER, "America/Chicago")
-        # 18:00 CDT == 23:00 UTC, stored naive (no offset suffix).
-        self.assertEqual(dt.utcNaiveIso(), "2030-07-01T23:00:00")
-        self.assertNotIn("+", dt.utcNaiveIso())
+        # Stored exactly as the user entered it (18:00), naive, not converted.
+        self.assertEqual(dt.wallIso(), "2030-07-01T18:00:00")
+        self.assertNotIn("+", dt.wallIso())
 
-    def test_round_trip_preserves_instant_and_zone(self):
+    def test_utc_is_derived_on_demand(self):
+        dt = DateTimeWithAcceptedTimeZone.fromLocalized(SUMMER, "America/Chicago")
+        # 18:00 CDT == 23:00 UTC.
+        self.assertEqual(
+            dt.utc(), datetime.datetime(2030, 7, 1, 23, 0, tzinfo=datetime.timezone.utc)
+        )
+
+    def test_round_trip_preserves_wall_time_and_zone(self):
         original = DateTimeWithAcceptedTimeZone.fromLocalized(WINTER, "America/Chicago")
-        restored = DateTimeWithAcceptedTimeZone.fromUtcNaiveIso(
-            original.utcNaiveIso(), "America/Chicago"
+        restored = DateTimeWithAcceptedTimeZone.fromWallIso(
+            original.wallIso(), "America/Chicago"
         )
         self.assertEqual(restored, original)
         self.assertEqual(restored.localized(), WINTER)
@@ -43,9 +50,13 @@ class ValueObjectTests(TestCase):
         with self.assertRaises(ValueError):
             DateTimeWithAcceptedTimeZone.fromLocalized(SUMMER, "Mars/Olympus_Mons")
 
-    def test_naive_instant_is_treated_as_utc(self):
-        dt = DateTimeWithAcceptedTimeZone.fromUtcNaiveIso(
-            "2030-07-01T23:00:00", "America/Chicago"
+    def test_aware_tzinfo_is_rejected_by_the_wall_time_constructor(self):
+        with self.assertRaises(ValueError):
+            DateTimeWithAcceptedTimeZone(SUMMER, "America/Chicago")
+
+    def test_wall_time_round_trips_literally(self):
+        dt = DateTimeWithAcceptedTimeZone.fromWallIso(
+            "2030-07-01T18:00:00", "America/Chicago"
         )
         self.assertEqual(dt.localized(), SUMMER)
 

@@ -290,9 +290,10 @@ class PublishJob(models.Model):
     # Schema version stamped into every payload; publishEventJob refuses any
     # other version so a future schema change fails loudly instead of
     # publishing garbage from a stale queued job.
-    # v2 (issue #26): startIso/endIso changed from tz-aware local ISO to
-    # naive-UTC ISO, with the zone carried in "timezone" and reapplied on
-    # rehydrate. Any v1 job still queued is rejected rather than misread.
+    # v2 (issue #26): startIso/endIso changed from tz-aware local ISO to the
+    # literal local WALL time (naive ISO), with the zone carried in "timezone"
+    # and reapplied on rehydrate. Any v1 job still queued is rejected rather
+    # than misread.
     PAYLOAD_VERSION = 2
 
     kind = models.IntegerField()
