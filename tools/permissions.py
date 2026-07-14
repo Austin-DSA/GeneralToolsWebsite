@@ -25,6 +25,9 @@ VIEW_LINK_METRICS = _publicPermissionName(_VIEW_LINK_METRICS)
 _APPROVE_ACCESS_REQUEST = "approveAccessRequest"
 APPROVE_ACCESS_REQUEST = _publicPermissionName(_APPROVE_ACCESS_REQUEST)
 
+_VIEW_MEMBERSHIP_METRICS = "viewMembershipMetrics"
+VIEW_MEMBERSHIP_METRICS = _publicPermissionName(_VIEW_MEMBERSHIP_METRICS)
+
 
 # Display taxonomy for the access pages - mirrors the home-menu categories.
 # A permission missing from every tuple lands in "Other", so new permissions
@@ -33,6 +36,7 @@ PERMISSION_CATEGORIES = (
     ("Events", (_PUBLISH_EVENT, _VIEW_PUBLISHED_EVENTS, _REQUEST_DELEGATED_EVENT,
                 _APPROVE_DELEGATED_EVENT, _VIEW_DELEGATED_EVENTS, _MANAGE_EVENT_OWNERS)),
     ("Link Trees", (_MANAGE_LINK_TREE, _VIEW_LINK_METRICS)),
+    ("Membership", (_VIEW_MEMBERSHIP_METRICS,)),
     ("Access", (_APPROVE_ACCESS_REQUEST,)),
 )
 
@@ -85,4 +89,5 @@ class PermissionRights(models.Model):
             (_MANAGE_LINK_TREE, 'Allowed to manage link trees, items, and QR codes'),
             (_VIEW_LINK_METRICS, 'Allowed to view link tree click/scan metrics'),
             (_APPROVE_ACCESS_REQUEST, 'Allowed to approve or deny any access request'),
+            (_VIEW_MEMBERSHIP_METRICS, 'Allowed to view membership retention metrics'),
         )
