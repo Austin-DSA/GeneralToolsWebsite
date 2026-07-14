@@ -1683,6 +1683,87 @@
     height: 100%;
     background-color: var(--color-primary);
   }
+  .curve-chart {
+    display: block;
+    height: auto;
+    width: 100%;
+    padding-block: calc(var(--spacing) * 2);
+  }
+  .curve-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .curve-line-total {
+    stroke: var(--color-dark);
+  }
+  .curve-line-good {
+    stroke: var(--color-success);
+  }
+  .curve-line-member {
+    stroke: var(--color-primary);
+  }
+  .curve-line-lapsed {
+    stroke: var(--color-gray-med);
+  }
+  .curve-grid {
+    stroke: var(--color-gray-med);
+    stroke-opacity: 0.35;
+    stroke-width: 1;
+  }
+  .curve-axis-label {
+    font-size: var(--text-xs);
+    line-height: var(--tw-leading, var(--text-xs--line-height));
+    fill: var(--color-secondary);
+  }
+  .curve-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--spacing) * 4);
+    padding-top: calc(var(--spacing) * 1);
+    font-size: var(--text-sm);
+    line-height: var(--tw-leading, var(--text-sm--line-height));
+    color: var(--color-secondary);
+  }
+  .curve-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--spacing) * 1.5);
+  }
+  .curve-swatch {
+    display: inline-block;
+    border-radius: calc(infinity * 1px);
+    width: 10px;
+    height: 10px;
+  }
+  .curve-swatch-total {
+    background-color: var(--color-dark);
+  }
+  .curve-swatch-good {
+    background-color: var(--color-success);
+  }
+  .curve-swatch-member {
+    background-color: var(--color-primary);
+  }
+  .curve-swatch-lapsed {
+    background-color: var(--color-gray-med);
+  }
+  .curve-delta {
+    display: block;
+    padding-top: calc(var(--spacing) * 1);
+    font-size: var(--text-xs);
+    line-height: var(--tw-leading, var(--text-xs--line-height));
+    --tw-font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-secondary);
+  }
+  .curve-delta-down {
+    color: var(--color-danger);
+  }
+  .curve-delta-up {
+    color: var(--color-success);
+  }
   .tool-directory {
     margin-top: calc(var(--spacing) * 4);
     display: grid;

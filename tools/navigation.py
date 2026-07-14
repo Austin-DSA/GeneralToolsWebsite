@@ -72,6 +72,8 @@ NAV_DOMAINS = [
               description="Publish chapter events to Zoom, Action Network, and Google Calendar, directly or through delegated review."),
     NavDomain(slug="link-trees", title="Link Trees", icon="link",
               description="The chapter's link pages, QR codes, and click analytics."),
+    NavDomain(slug="membership", title="Membership", icon="users",
+              description="Retention analytics computed from national's monthly membership lists."),
     NavDomain(slug="access", title="Access", icon="key",
               description="Your groups and permissions, access requests, and member management."),
 ]
@@ -105,6 +107,9 @@ NAV_TOOLS = [
     NavTool(routeName="link-metrics", title="Link Tree Metrics", permission=permissions.VIEW_LINK_METRICS,
             icon="bar-chart", domainSlug="link-trees",
             description="Click and scan analytics for every link tree."),
+    NavTool(routeName="membership-metrics", title="Membership Metrics", permission=permissions.VIEW_MEMBERSHIP_METRICS,
+            icon="bar-chart", domainSlug="membership",
+            description="The membership curve: totals and the good standing / member / lapsed split over time."),
     NavTool(routeName="my-access", title="My Access", permission=None,
             icon="user", domainSlug="access", hideForSuperusers=True,
             description="The groups you belong to and the permissions you currently have."),
@@ -163,6 +168,8 @@ ROUTE_NAME_TO_DOMAIN_SLUG = {
     "link-metrics-tree": "link-trees",
     "link-metrics-csv": "link-trees",   # non-HTML response - mapped for completeness
     "qr-image": "link-trees",           # non-HTML response - mapped for completeness
+    # Membership: tools
+    "membership-metrics": "membership",
     # Access: tools
     "my-access": "access",
     "request-access": "access",

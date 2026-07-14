@@ -6,6 +6,7 @@ from . import views
 from . import accessViews
 from . import eventViews
 from . import linkTreeViews
+from . import membershipViews
 from . import ownerViews
 from .navigation import NAV_DOMAINS
 
@@ -52,6 +53,9 @@ urlpatterns = [
     path("link-metrics", linkTreeViews.link_metrics, name="link-metrics"),
     path("link-metrics/<slug:slug>", linkTreeViews.link_metrics, name="link-metrics-tree"),
     path("link-metrics/<slug:slug>.csv", linkTreeViews.link_metrics_csv, name="link-metrics-csv"),
+
+    # --- Membership (gated: retention metrics) ---
+    path("membership-metrics", membershipViews.membership_metrics, name="membership-metrics"),
     # --- Link Tree (gated: in-app management UI) ---
     path("manage-link-trees", linkTreeViews.manage_link_tree_list, name="manage-link-tree-list"),
     path("manage-link-trees/new", linkTreeViews.manage_link_tree_create, name="manage-link-tree-new"),
