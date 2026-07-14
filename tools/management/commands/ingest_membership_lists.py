@@ -8,7 +8,7 @@ runs IS the "bleeding curve".
 
 Two sources of zips:
 
-- ``--from-dir <folder>`` — read every ``*.zip`` in a local folder instead of
+- ``--from-dir <folder>`` - read every ``*.zip`` in a local folder instead of
   email. This is both the offline test path (synthetic zips) and the path
   Garrigan uses for the one-time historical backfill if he exports the inbox
   to a folder instead of letting this command pull it live.
@@ -20,7 +20,7 @@ Two sources of zips:
 
 PII posture: raw list rows are only ever read into memory / a temp working
 dir to compute counts. Only the aggregate counts are persisted
-(MembershipSnapshot has no PII columns) — see tools/MembershipList/README.md.
+(MembershipSnapshot has no PII columns) - see tools/MembershipList/README.md.
 
 Idempotency: MembershipSnapshot.listDate is unique, and this command always
 update_or_create()s on it, so re-running (the whole backfill, or a single
@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 class Constants:
-    # Mirrors ListManagement/processNewMembers.py Constants — copied, not
+    # Mirrors ListManagement/processNewMembers.py Constants - copied, not
     # imported (that repo is independent; see its CLAUDE.md).
     EXPECTED_EMAIL_SUBJECT = "Austin Membership List"
     MEMBERSHIP_LIST_DOWNLOAD_EMAIL = "no-reply@actionkit.com"

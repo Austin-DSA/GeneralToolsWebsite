@@ -1,7 +1,7 @@
 """Obfuscate + count a national membership-list CSV.
 
 Copied and adapted from ``Membership-Engagment-Tools/ListManagement/processNewMembers.py``
-and ``Utils.py`` (a sibling, independent repo — copied per that repo's house
+and ``Utils.py`` (a sibling, independent repo - copied per that repo's house
 rule, never imported; see ``Membership-Engagment-Tools/CLAUDE.md``).
 
 Two changes from the original single-list pipeline, both required to run this
@@ -10,13 +10,13 @@ over 5-6 years of historical lists in one backfill instead of one list a week:
 1. ``checkForNewCols`` no longer raises on an unknown column. National has
    added/renamed columns over the years; aborting the whole list would mean
    losing that list's data point in the bleeding curve. Policy: **log-and-skip
-   unknown columns** — they are simply excluded from the obfuscated archive
+   unknown columns** - they are simply excluded from the obfuscated archive
    (``archiveAndObfuscate`` already only keeps columns explicitly mapped
    ``True``), and the caller gets back the list of unrecognized columns so it
    can surface a summary at the end of a run. See the package README for the
    full rationale.
 2. ``processRetentionData`` returns a ``RetentionCounts`` dataclass instead of
-   appending a row to a local CSV file — the caller (the Django management
+   appending a row to a local CSV file - the caller (the Django management
    command) decides how to persist it (``MembershipSnapshot.update_or_create``).
 """
 
@@ -51,7 +51,7 @@ class Constants:
     # ListManagement/processNewMembers.py Constants.COLS_TO_KEEP_FOR_ARCHIVE.
     # True = safe to keep in the obfuscated archive/DB (non-identifying).
     # False = PII, drop it. This dict IS the definition of "obfuscated" for
-    # this pipeline — do not add a column mapped True unless it is genuinely
+    # this pipeline - do not add a column mapped True unless it is genuinely
     # non-identifying.
     COLS_TO_KEEP_FOR_ARCHIVE = {
         "prefix": False,
@@ -112,7 +112,7 @@ class Constants:
 
 @dataclasses.dataclass
 class RetentionCounts:
-    """One data point in the bleeding curve — mirrors MembershipSnapshot's
+    """One data point in the bleeding curve - mirrors MembershipSnapshot's
     non-key fields plus the list's own date."""
 
     listDate: datetime.date
@@ -165,7 +165,7 @@ def archiveAndObfuscate(cols: list, rows: list):
     """Filter rows down to only the non-PII (True) columns.
 
     Copied from ListManagement/processNewMembers.py archiveAndObfuscate, minus
-    the Google Drive / local-CSV upload paths — callers decide what to do with
+    the Google Drive / local-CSV upload paths - callers decide what to do with
     the returned (newCols, archiveRows).
     """
     colIndexes = []
@@ -186,7 +186,7 @@ def processRetentionData(
 ) -> RetentionCounts:
     """Tally good-standing / member / lapsed counts and return them as a
     RetentionCounts dataclass, dated by ``listDate`` (the caller determines
-    the list's date — see determineListDate — since it isn't reliably a
+    the list's date - see determineListDate - since it isn't reliably a
     per-row value we should trust blindly).
 
     Copied from ListManagement/processNewMembers.py processRetentionData,
@@ -255,7 +255,7 @@ def extractListDateFromRows(
 ) -> typing.Optional[datetime.date]:
     """Best-effort: read the list's own ``list_date`` column (present on most
     modern exports) off the first row. Returns None if the column is absent,
-    empty, or unparseable — callers should fall back to another signal (the
+    empty, or unparseable - callers should fall back to another signal (the
     source zip filename / email date)."""
     try:
         dateIndex = cols.index(Constants.LIST_DATE_COL)
