@@ -57,3 +57,19 @@ def getOutlineReadConfig() -> OutlineConfig | None:
     if not baseUrl or not apiToken:
         return None
     return OutlineConfig(baseUrl=baseUrl, apiToken=apiToken)
+
+
+def getMembershipBotEmailConfig() -> tuple[str, str] | None:
+    """Credentials for the austindsalistbot Gmail inbox (the membership-list
+    ingest's source of national's monthly rosters).
+
+    Returns (username, password) or None when unconfigured, so
+    ingest_membership_lists can boot and take its --from-dir path (or warn
+    and exit 0 for the live-email path) before Garrigan fills these in. The
+    password must be a Gmail app password, never the raw account password.
+    """
+    username = MembershipBotEmailUsername()
+    password = MembershipBotEmailPassword()
+    if not username or not password:
+        return None
+    return (username, password)

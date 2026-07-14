@@ -870,3 +870,36 @@ class LinkEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_source_display()} @ {self.occurredAt:%Y-%m-%d %H:%M}"
+
+
+class MembershipSnapshot(models.Model):
+    """One data point in the membership "bleeding curve" - the retention
+    counts computed from a single historical national membership list.
+
+    Deliberately has NO PII columns. Raw names/addresses/emails/phones live
+    only in a temp working dir during ingest (tools/MembershipList/
+    RetentionCounter.py) and are never written here - only the aggregate
+    counts. This is load-bearing for the whole initiative's PII posture; do
+    not add a raw-PII column to this model.
+
+    listDate is unique so re-ingesting the same list (a resend, or a re-run of
+    the backfill) is a safe update_or_create rather than a duplicate row.
+    """
+
+    listDate = models.DateField(
+        unique=True,
+        help_text="The date of the national list this snapshot summarizes (not the date it was ingested).",
+    )
+    goodStanding = models.IntegerField()
+    member = models.IntegerField()
+    lapsed = models.IntegerField()
+    total = models.IntegerField()
+    sourceEmailDate = models.DateTimeField(null=True, blank=True)
+    ingestedAt = models.DateTimeField(default=djangoTimezone.now)
+
+    class Meta:
+        verbose_name = "Membership Snapshot"
+        ordering = ["listDate"]
+
+    def __str__(self) -> str:
+        return f"MembershipSnapshot({self.listDate.isoformat()}: total={self.total})"

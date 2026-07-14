@@ -53,6 +53,31 @@ def syncLinkTreeWiki():
             )
 
 
+# National sends the membership list monthly, but a daily poll is cheap and
+# fully idempotent (MembershipSnapshot.listDate is unique; the email fetch
+# never marks anything read) - daily means a fresh list shows up in the
+# bleeding curve within a day of arriving instead of waiting on a weekly/
+# monthly schedule, with no real cost since most days it just finds nothing
+# new. 12:00 UTC (staggered an hour after syncLinkTreeWiki's 11:00) is 6/7am
+# Central - well before the workday.
+@db_periodic_task(crontab(hour="12", minute="0"))
+def ingestMembershipLists():
+    """Daily poll of the austindsalistbot inbox for new membership lists.
+
+    The management command stays the imperative core (manual runs, --dry-run,
+    and the --from-dir backfill path all keep working); this is just its
+    schedule. Gracefully no-ops (exit 0) until the inbox credentials are
+    configured (SecretManager.getMembershipBotEmailConfig()).
+    """
+    try:
+        call_command("ingest_membership_lists", quiet=True)
+    except SystemExit as e:
+        if e.code:
+            logger.error(
+                "ingest_membership_lists reported errors (exit code %s)", e.code
+            )
+
+
 # --- Event publishing (PublishJob) ------------------------------------------
 #
 # The two real-publish flows in eventViews.py (new_event and the
