@@ -216,8 +216,8 @@ def new_delegated_event(request):
         if result.type == EventAutomationDriver.Result.ResultType.NO_CONFLICTS:
             logger.info("PublishDelegatedEvent: Event Request has no conflicts. Creating request for %s", eventInfo.title)
             # Convert event start and end dates to utc
-            utcStart = eventInfo.start.astimezone(pytz.utc)
-            utcEnd = eventInfo.end.astimezone(pytz.utc)
+            utcStart = eventInfo.start.utc()
+            utcEnd = eventInfo.end.utc()
             utcNow = datetime.datetime.now(datetime.UTC)
             e = DelegatedEvents.objects.create(title = eventInfo.title,
                                                start = utcStart,
@@ -272,16 +272,6 @@ def new_delegated_event(request):
                 str(result),
             )
             # Convert conflict times to timezone specified in form, then make naiive
-            timezone = pytz.timezone(form.cleaned_data[NewEventForm.Keys.TIMEZONE])
-            for i in range(len(result.conflicts)):
-                result.conflicts[i].start = result.conflicts[i].start.astimezone(
-                    timezone
-                )
-                result.conflicts[i].start = result.conflicts[i].start.replace(
-                    tzinfo=None
-                )
-                result.conflicts[i].end = result.conflicts[i].end.astimezone(timezone)
-                result.conflicts[i].end = result.conflicts[i].end.replace(tzinfo=None)
             return render(
                 request,
                 "tools/new-delegated-event/unresolveable.html",
@@ -293,17 +283,6 @@ def new_delegated_event(request):
                 "PublishDelegatedEvent: Event Request Failed with Unresolveable Conflict %s",
                 str(result),
             )
-            # Convert conflict times to timezone specified in form, , then make naiive
-            timezone = pytz.timezone(form.cleaned_data[NewEventForm.Keys.TIMEZONE])
-            for i in range(len(result.conflicts)):
-                result.conflicts[i].start = result.conflicts[i].start.astimezone(
-                    timezone
-                )
-                result.conflicts[i].start = result.conflicts[i].start.replace(
-                    tzinfo=None
-                )
-                result.conflicts[i].end = result.conflicts[i].end.astimezone(timezone)
-                result.conflicts[i].end = result.conflicts[i].end.replace(tzinfo=None)
             return render(
                 request, "tools/new-delegated-event/resolveable.html", dataclasses.asdict(result)
             )

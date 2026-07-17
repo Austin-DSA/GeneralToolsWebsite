@@ -165,7 +165,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
             zoomLink, meetingId = zoomApi.createMeeting(
                 title=eventInfo.title,
                 start=eventInfo.start,
-                duration=eventInfo.end - eventInfo.start,
+                duration=eventInfo.end.utc() - eventInfo.start.utc(),
                 user=zoomAccount,
             )
             result.zoomLink = zoomLink

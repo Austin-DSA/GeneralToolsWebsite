@@ -91,21 +91,15 @@ def _rehydrateEventInfo(payload: dict) -> EventAutomationDriver.EventInfo:
     )
 
 
-def _serializeConflicts(conflicts) -> list:
-    """Conflict times go into the job row as NAIVE ISO strings localized to the
-    payload timezone - exactly the localize-then-strip the views used to do
-    inline before rendering, so getResultContext() can hand conflictList.html
-    the same naive datetimes it has always rendered."""
+def _serializeConflicts(conflicts : list[EventAutomationDriver.Conflict]) -> list:
     serialized = []
     for conflict in conflicts:
-        start = conflict.start.localized().replace(tzinfo=None)
-        end = conflict.end.localized().replace(tzinfo=None)
         serialized.append({
             "type": conflict.type,
             "title": conflict.title,
             "zoomUser": conflict.zoomUser,
-            "startIso": start.isoformat(),
-            "endIso": end.isoformat(),
+            "start": conflict.start.toDict(),
+            "end": conflict.end.toDict()
         })
     return serialized
 

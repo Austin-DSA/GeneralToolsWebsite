@@ -88,8 +88,8 @@ def serializedGCalConflict(title="Tenant union mixer"):
         "type": EventAutomationDriver.Conflict.ConflictType.GCAL,
         "title": title,
         "zoomUser": None,
-        "startIso": "2030-07-01T18:00:00",
-        "endIso": "2030-07-01T19:30:00",
+        "start": DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030,7,1,18,0,0), zoneName="UTC").toDict(),
+        "end": DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030,7,1,19,30,0), zoneName="UTC").toDict(),
     }
 
 

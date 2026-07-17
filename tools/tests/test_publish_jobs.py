@@ -190,10 +190,8 @@ class ResultContextTests(TestCase):
             payload={}, conflicts=tasks._serializeConflicts([conflict]),
         )
         rendered = job.getResultContext()["conflicts"][0]
-        self.assertEqual(rendered["start"], conflictStart.localized().replace(tzinfo=None))
-        self.assertEqual(rendered["end"], conflictEnd.localized().replace(tzinfo=None))
-        self.assertIsNone(rendered["start"].tzinfo)
-        self.assertIsNone(rendered["end"].tzinfo)
+        self.assertEqual(rendered["start"], conflictStart)
+        self.assertEqual(rendered["end"], conflictEnd)
         self.assertEqual(rendered["type"], EventAutomationDriver.Conflict.ConflictType.GCAL)
         self.assertEqual(rendered["title"], "Tenant union mixer")
         self.assertIsNone(rendered["zoomUser"])

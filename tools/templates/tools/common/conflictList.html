@@ -7,7 +7,7 @@
     {% else %}
         <b>Google Calendar:</b>
     {% endif %}
-    {{ conflict.title }}, {{ conflict.start }} to {{ conflict.end }}
+    {{ conflict.title }}, {{ conflict.start.prettyString }} to {{ conflict.end.prettyString }}.
 </li>
 {% endfor %}
 </ul>

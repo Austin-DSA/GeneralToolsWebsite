@@ -115,3 +115,16 @@ class DateTimeWithAcceptedTimeZone:
             f"DateTimeWithAcceptedTimeZone("
             f"{self._wall.isoformat()}, {self._zoneName!r})"
         )
+    
+    def toDict(self) -> dict[str,str]:
+        return {
+            "wall" : self._wall.isoformat(),
+            "zoneName" : self._zoneName
+        }
+    
+    @classmethod
+    def fromDict(cls, d: dict) -> "DateTimeWithAcceptedTimeZone":
+        return cls.fromWallIso(wallIso=d["wall"], zoneName=d["zoneName"])
+
+    def prettyString(self) -> str:
+        return f'{self._wall.strftime("%Y-%m-%d %H:%M")} ({self._zoneName})'

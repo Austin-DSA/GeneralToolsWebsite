@@ -160,13 +160,12 @@ class PublishEventJobDirectTests(TestCase):
         self.assertEqual(PostedEvents.objects.count(), 0)
         self.assertIsNone(job.postedEvent)
         sendEmail.assert_not_called()
-        expectedStartIso = (gCalConflict().start.localized().replace(tzinfo=None).isoformat())
         self.assertEqual(job.conflicts, [{
             "type": EventAutomationDriver.Conflict.ConflictType.GCAL,
             "title": "Tenant union mixer",
             "zoomUser": None,
-            "startIso": expectedStartIso,
-            "endIso": (gCalConflict().end.localized().replace(tzinfo=None).isoformat()),
+            "start": gCalConflict().start.toDict(),
+            "end": gCalConflict().end.toDict(),
         }])
 
     def test_unresolveable_result_populates_conflicts(self):

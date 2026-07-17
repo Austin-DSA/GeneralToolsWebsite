@@ -368,8 +368,8 @@ class PublishJob(models.Model):
                     "type": conflict["type"],
                     "title": conflict["title"],
                     "zoomUser": conflict["zoomUser"],
-                    "start": datetime.datetime.fromisoformat(conflict["startIso"]),
-                    "end": datetime.datetime.fromisoformat(conflict["endIso"]),
+                    "start": DateTimeWithAcceptedTimeZone.fromDict(conflict["start"]),
+                    "end": DateTimeWithAcceptedTimeZone.fromDict(conflict["end"]),
                 }
                 for conflict in self.conflicts
             ]}

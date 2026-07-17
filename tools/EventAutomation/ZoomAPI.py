@@ -321,9 +321,12 @@ class ZoomAPI:
                     meeting[Constants.Meetings.RESPONSE_START_TIME_KEY]
                 )
 
+                zoneName = meeting[Constants.Meetings.RESPONSE_TIMEZONE_KEY]
+                if zoneName is None or zoneName == "":
+                    zoneName = "UTC"
                 newMeeting = ZoomMeeting(
                     id=meeting[Constants.Meetings.RESPONSE_ID_KEY],
-                    startTime=DateTimeWithAcceptedTimeZone.fromLocalized(localizedDateTime=startTime, zoneName=meeting[Constants.Meetings.RESPONSE_TIMEZONE_KEY]),
+                    startTime=DateTimeWithAcceptedTimeZone.fromLocalized(localizedDateTime=startTime, zoneName=zoneName),
                     duration=datetime.timedelta(
                         minutes=meeting[Constants.Meetings.RESPONSE_DURATION_KEY]
                     ),
