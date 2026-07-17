@@ -22,8 +22,8 @@ class Conflict:
 
     type: int
     title: str
-    start: datetime.datetime
-    end: datetime.datetime
+    start: DateTimeWithAcceptedTimeZone
+    end: DateTimeWithAcceptedTimeZone
     zoomUser: str | None
 
 
@@ -117,7 +117,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
                             type=Conflict.ConflictType.ZOOM,
                             title=c.topic,
                             start=c.startTime,
-                            end=c.startTime + c.duration,
+                            end=DateTimeWithAcceptedTimeZone(wallTime=c.startTime.wallTime+c.duration, zoneName=c.startTime.zoneName),
                             zoomUser=account.email,
                         )
                         for c in conflicts
