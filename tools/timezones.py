@@ -78,6 +78,11 @@ class DateTimeWithAcceptedTimeZone:
     def zoneName(self) -> str:
         return self._zoneName
 
+    @property
+    def wallTime(self) -> datetime.datetime:
+        """Returns the naiive walltime"""
+        return self._wall
+
     def localized(self) -> datetime.datetime:
         """The wall time as an aware, pytz-localized datetime.
 

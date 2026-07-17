@@ -9,6 +9,8 @@ from . import ActionNetworkAutomation
 from . import GoogleCalendarAPI
 from . import ZoomAPI
 
+from ..timezones import DateTimeWithAcceptedTimeZone
+
 logger = logging.getLogger(__name__)
 
 
@@ -56,8 +58,8 @@ class Result:
 class EventInfo:
     title: str
     eventType : int
-    start: datetime.datetime
-    end: datetime.datetime
+    start: DateTimeWithAcceptedTimeZone
+    end: DateTimeWithAcceptedTimeZone
 
     locationName: str
     streetAddress: str
@@ -87,27 +89,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
     cleanUpOnError = []
     try:
         # Guards
-        if (
-            eventInfo.start.tzinfo is None
-            or eventInfo.start.tzinfo.utcoffset(eventInfo.start) is None
-        ):
-            logger.error(
-                "EventPublisher: The argument for the eventInfo.start  must be timezone aware. Passed in unaware object."
-            )
-            raise Exception(
-                "EventPublisher: The argument for the  eventInfo.start must be timezone aware. Passed in unaware object."
-            )
-        if (
-            eventInfo.end.tzinfo is None
-            or eventInfo.end.tzinfo.utcoffset(eventInfo.end) is None
-        ):
-            logger.error(
-                "EventPublisher: The argument for the eventInfo.end  must be timezone aware. Passed in unaware object."
-            )
-            raise Exception(
-                "EventPublisher: The argument for the  eventInfo.end must be timezone aware. Passed in unaware object."
-            )
-        if eventInfo.end < eventInfo.start:
+        if eventInfo.end.utc() < eventInfo.start.utc():
             logger.error("EventPublisher: eventInfo.end must be after eventInfo.start")
             raise Exception(
                 "EventPublisher: eventInfo.end must be after eventInfo.start"
@@ -118,7 +100,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
             # Check for conflicts on Zoom
             zoomApi = ZoomAPI.ZoomAPI(config.zoomConfig)
             availablility = zoomApi.getAccountsAndAvailablilityForTime(
-                eventInfo.start, eventInfo.end - eventInfo.start
+                eventInfo.start, eventInfo.end.utc() - eventInfo.start.utc()
             )
             zoomAccount = None
             
@@ -145,7 +127,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
         # Check for conflicts on Google
         gCalAPI = GoogleCalendarAPI.GoogleCalendarAPI(config.gCalConfig)
         conflicts = gCalAPI.findConflicts(
-            eventInfo.start, eventInfo.end - eventInfo.start
+            eventInfo.start, eventInfo.end.utc() - eventInfo.start.utc()
         )
         gCalConflicts = [
             Conflict(
@@ -221,7 +203,7 @@ def publishEvent(eventInfo: EventInfo, config: Config) -> Result:
                 title=eventInfo.title,
                 start=eventInfo.start,
                 end=eventInfo.end,
-                description=f"RSVP: {anEventConfirmInfo.directLink} \n\n {eventInfo.description}",
+                description=f'RSVP: <a href="{anEventConfirmInfo.directLink}">{anEventConfirmInfo.directLink}</a> \n\n {eventInfo.description}',
                 location=f"{eventInfo.streetAddress}, {eventInfo.city}, {eventInfo.state} {eventInfo.zip}",
             )
         )

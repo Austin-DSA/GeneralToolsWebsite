@@ -10,6 +10,7 @@ from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.utils.translation import gettext_lazy as _
+from django.utils.safestring import mark_safe
 
 from .EventAutomation import EventAutomationDriver, ActionNetworkAutomation
 
@@ -98,6 +99,11 @@ def _activeOwnerQueryset():
             .filter(Q(isPermanent=True) | Q(expiration__gt=now)))
 
 
+class StaticTextWidget(forms.Widget):
+    def render(self, name, value, attrs=None, renderer=None):
+        value = value if value is not None else ""
+        return mark_safe(f'<span class="static-form-text form-field w-full" name="{name}">{value}</span>')
+
 class NewEventForm(forms.Form):
     class Keys:
         TITLE = "title"
@@ -143,6 +149,14 @@ class NewEventForm(forms.Form):
         choices=EventTypes.TYPES,
         coerce=int,
         empty_value=0
+    )
+    timezoneWarning = forms.CharField(
+        initial="""
+        When creating an In Person event, Action Network will deduce the timezone by the physical location you enter. 
+        So you will need to make sure the timezone field matches the physical location or else the calendar won't be correct. 
+        If you are doing an in person event where the location is secret and will be sent by email to RSVPs, you can put '-' in the Location name and address and then fill out the city and zip code.
+        """,
+        widget=StaticTextWidget()
     )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),

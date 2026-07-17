@@ -15,6 +15,8 @@ import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
 
+from ..timezones import DateTimeWithAcceptedTimeZone
+
 logger = logging.getLogger(__name__)
 
 class ANTypes:
@@ -45,7 +47,7 @@ class TimeZone:
 class EventInfo:
     title: str
     # isVirual : bool # Don't need right now since we put zoom in instructions
-    startTime: datetime.datetime
+    startTime: DateTimeWithAcceptedTimeZone
     locationName: str
     address: str
     city: str
@@ -55,9 +57,8 @@ class EventInfo:
     anEventType: int
     state: str = "TX"
     country: str = "US"
-    endTime: datetime.datetime | None = None
+    endTime: DateTimeWithAcceptedTimeZone | None = None
     zoomLink: str | None = None
-    timeZone: TimeZone | None = None # Don't need to set if the start time has a timezone
 
 
 @dataclasses.dataclass
@@ -401,7 +402,7 @@ class EditEventScreen(Screen):
             logger.info("EditEventScreen: Does not exist %s", str(e))
             return False
 
-    def _fillOutDatePicker(self, time: datetime.datetime, dateTimePicker):
+    def _fillOutDatePicker(self, time: DateTimeWithAcceptedTimeZone, dateTimePicker):
         inCorrectMonthYear = False
         wantedMonthYearText = time.strftime("%B %Y")
         while not inCorrectMonthYear:
@@ -412,15 +413,15 @@ class EditEventScreen(Screen):
                 currentMonthYearElem.text, "%B %Y"
             )
             if (
-                currentMonthYear.month == time.month
-                and currentMonthYear.year == time.year
+                currentMonthYear.month == time.wallTime.month
+                and currentMonthYear.year == time.wallTime.year
             ):
                 logger.info(
                     "EditEventScreen: Date Picker is in correct month-year %s",
                     currentMonthYearElem.text,
                 )
                 inCorrectMonthYear = True
-            elif currentMonthYear < time:
+            elif currentMonthYear < time.wallTime:
                 logger.info(
                     "EditEventScreen: Date Picker is in %s which is BEFORE %s, going forwards",
                     currentMonthYearElem.text,
@@ -439,9 +440,9 @@ class EditEventScreen(Screen):
                     By.CLASS_NAME, EditEventScreen.Classes.DATETIME_PICKER_PREV
                 ).click()
 
-        logger.info("EditEventScren: Picking day %d from year month", time.day)
+        logger.info("EditEventScren: Picking day %d from year month", time.wallTime.day)
         tdElements = dateTimePicker.find_elements(By.TAG_NAME, "td")
-        dayString = str(time.day)
+        dayString = str(time.wallTime.day)
         potentialDays = []
         for tdElem in tdElements:
             if tdElem.text == dayString:
@@ -453,14 +454,14 @@ class EditEventScreen(Screen):
         # The wrap will be at most 7 days on each side
         # So the fix is if the day > 15 choose the last one, if day < 15 choose the first
         # In the case where there is only one possible element [0] == [-1]
-        if time.day <= 15:
+        if time.wallTime.day <= 15:
             potentialDays[0].click()
         else:
             potentialDays[-1].click()
 
         logger.info("EditEventScreen: Setting hour to %s", str(time.hour))
-        isAM = time.hour < 12
-        hourStr = time.strftime("%I")
+        isAM = time.wallTime.hour < 12
+        hourStr = time.wallTime.strftime("%I")
         # Get rid of leading 0
         if hourStr[0] == "0":
             hourStr = hourStr[1:]
@@ -481,11 +482,11 @@ class EditEventScreen(Screen):
 
         # TODO: Start time should be before, end time should be after
         hourAndMinStr = hourStr
-        if time.minute < 15:
+        if time.wallTime.minute < 15:
             hourAndMinStr += ":00"
-        elif time.minute < 30:
+        elif time.wallTime.minute < 30:
             hourAndMinStr += ":15"
-        elif time.minute < 45:
+        elif time.wallTime.minute < 45:
             hourAndMinStr += ":30"
         else:
             hourAndMinStr += ":45"
@@ -545,9 +546,15 @@ class EditEventScreen(Screen):
 
         # Only set time zone and virtual link if hybrid or 
         if eventInfo.anEventType == ANTypes.HYBRID or eventInfo.anEventType == ANTypes.VIRTUAL:
-            if eventInfo.timeZone is None:
-                logger.error("EditEventScreen: No timezone info for virtual or hybrid event")
-                raise Exception("EditEventScreen: No timezone info for virtual or hybrid event")
+            # Action network uses the physical location for in person events 
+            # For virtual/hybrid events it uses a timezone field
+            # Save the given datetime timezone
+            # This gives use +-HHMM and we want (GMT+-HH:SS)
+            # Use the localized so we get the hour offset
+            utcOffsetStr = eventInfo.startTime.localized().strftime('%z')
+            timezone = TimeZone(timezone=eventInfo.startTime.zoneName, hourOffsetStr=utcOffsetStr[1:3])
+            logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
+
             
             # The timezones are full readable names so just choose the first one that has the correct timezone offset
             timezoneSelectDropdown = selenium.webdriver.support.select.Select(self._timezoneDropdown())
@@ -730,18 +737,7 @@ class ANAutomator:
     def createEvent(
         self, eventInfo: EventInfo, config: ANAutomatorConfig
     ) -> EventConfirmationInfo:
-        # Action network uses the physical location for in person events 
-        # For virtual/hybrid events it uses a timezone field
-        # Save the given datetime timezone
-        # This gives use +-HHMM and we want (GMT+-HH:SS)
-        utcOffsetStr = eventInfo.startTime.strftime('%z')
-        eventInfo.timeZone = TimeZone(timezone=eventInfo.startTime.tzinfo.zone, hourOffsetStr=utcOffsetStr[1:3])
-        logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
-        # make naiive since we will be generating many datetimes for comparison later and we can't compare tz aware vs non-aware objects
-        noTzStart = eventInfo.startTime.replace(tzinfo=None)
-        noTzEnd = eventInfo.endTime.replace(tzinfo=None)
-        eventInfo.startTime = noTzStart
-        eventInfo.endTime = noTzEnd
+        
 
         logger.info("ANAutomator: Starting Driver")
         # options = selenium.webdriver.ChromeOptions()
