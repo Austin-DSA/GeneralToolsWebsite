@@ -553,6 +553,7 @@ class EditEventScreen(Screen):
             # Use the localized so we get the hour offset
             utcOffsetStr = eventInfo.startTime.localized().strftime('%z')
             timezone = TimeZone(timezone=eventInfo.startTime.zoneName, hourOffsetStr=utcOffsetStr[1:3])
+
             logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
 
             
@@ -561,7 +562,7 @@ class EditEventScreen(Screen):
             found = False
             for potentialTz in timezoneSelectDropdown.options:
                 tzValue = potentialTz.get_attribute("value")
-                if eventInfo.timeZone.matches(tzValue):
+                if timezone.matches(tzValue):
                     logger.info("EditEventTimeZone: Setting timezone to %s", tzValue)
                     found = True
                     timezoneSelectDropdown.select_by_value(tzValue)
