@@ -16,7 +16,7 @@ from tools.EventAutomation import EventAutomationDriver
 from tools.eventViews import _buildEventPayload
 from tools.models import DelegatedEvents, EventOwners, PostedEvents, PublishJob
 from tools.tests.support import UserFactory, fastHashing
-
+from tools.timezones import DateTimeWithAcceptedTimeZone
 
 FUTURE = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
 CHICAGO = pytz.timezone("America/Chicago")
@@ -26,8 +26,8 @@ def makeEventInfo(**overrides):
     fields = dict(
         title="Reading Group",
         eventType=2,  # HYBRID
-        start=CHICAGO.localize(datetime.datetime(2030, 7, 1, 18, 0)),
-        end=CHICAGO.localize(datetime.datetime(2030, 7, 1, 19, 0)),
+        start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 18, 0), zoneName="America/Chicago"),
+        end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 19, 0), zoneName="America/Chicago"),
         locationName="Little Walnut Creek Library",
         streetAddress="835 W Rundberg Ln",
         city="Austin",
@@ -59,8 +59,8 @@ def gCalConflict():
     return EventAutomationDriver.Conflict(
         type=EventAutomationDriver.Conflict.ConflictType.GCAL,
         title="Tenant union mixer",
-        start=datetime.datetime(2030, 7, 1, 23, 0, tzinfo=datetime.UTC),
-        end=datetime.datetime(2030, 7, 2, 0, 30, tzinfo=datetime.UTC),
+        start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 23, 0), zoneName="UTC"),
+        end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 2, 0, 30), zoneName="UTC"),
         zoomUser=None,
     )
 
@@ -69,8 +69,8 @@ def zoomConflict():
     return EventAutomationDriver.Conflict(
         type=EventAutomationDriver.Conflict.ConflictType.ZOOM,
         title="Standing meeting",
-        start=datetime.datetime(2030, 7, 1, 23, 0, tzinfo=datetime.UTC),
-        end=datetime.datetime(2030, 7, 2, 0, 0, tzinfo=datetime.UTC),
+        start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 23, 0), zoneName="UTC"),
+        end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 2, 0, 0), zoneName="UTC"),
         zoomUser="busy@austindsa.org",
     )
 
@@ -85,7 +85,7 @@ class PublishEventJobDirectTests(TestCase):
 
     def makeDirectJob(self, ignoreResolveableConflicts=False, **infoOverrides):
         eventInfo = makeEventInfo(**infoOverrides)
-        payload = _buildEventPayload(eventInfo, "America/Chicago", ignoreResolveableConflicts)
+        payload = _buildEventPayload(eventInfo, ignoreResolveableConflicts)
         job = PublishJob.objects.create(
             kind=PublishJob.Kind.DIRECT, payload=payload,
             creator=self.creator, owner=self.owner,
@@ -118,8 +118,8 @@ class PublishEventJobDirectTests(TestCase):
         event = job.postedEvent
         self.assertIsNotNone(event)
         self.assertEqual(event.title, "Reading Group")
-        self.assertEqual(event.start, eventInfo.start.astimezone(pytz.utc))
-        self.assertEqual(event.end, eventInfo.end.astimezone(pytz.utc))
+        self.assertEqual(event.start.isoformat(), eventInfo.start.utc().isoformat())
+        self.assertEqual(event.end.isoformat(), eventInfo.end.utc().isoformat())
         self.assertEqual(event.timezone, "America/Chicago")
         self.assertEqual(event.creator, self.creator)
         self.assertEqual(event.authorizer, self.creator)
@@ -160,15 +160,13 @@ class PublishEventJobDirectTests(TestCase):
         self.assertEqual(PostedEvents.objects.count(), 0)
         self.assertIsNone(job.postedEvent)
         sendEmail.assert_not_called()
-        expectedStartIso = (gCalConflict().start.astimezone(CHICAGO)
-                            .replace(tzinfo=None).isoformat())
+        expectedStartIso = (gCalConflict().start.localized().replace(tzinfo=None).isoformat())
         self.assertEqual(job.conflicts, [{
             "type": EventAutomationDriver.Conflict.ConflictType.GCAL,
             "title": "Tenant union mixer",
             "zoomUser": None,
             "startIso": expectedStartIso,
-            "endIso": (gCalConflict().end.astimezone(CHICAGO)
-                       .replace(tzinfo=None).isoformat()),
+            "endIso": (gCalConflict().end.localized().replace(tzinfo=None).isoformat()),
         }])
 
     def test_unresolveable_result_populates_conflicts(self):
@@ -241,7 +239,7 @@ class PublishEventJobDelegatedTests(TestCase):
 
     def makeDelegatedJob(self, reason="Looks good"):
         eventInfo = self.event.getEventInfo()
-        payload = _buildEventPayload(eventInfo, self.event.timezone, ignoreResolveableConflicts=True)
+        payload = _buildEventPayload(eventInfo, ignoreResolveableConflicts=True)
         payload["reason"] = reason
         payload["approverId"] = self.approver.id
         return PublishJob.objects.create(
@@ -350,7 +348,7 @@ class PublishEventJobDemoModeTests(TestCase):
         )
 
     def makeDirectJob(self, **infoOverrides):
-        payload = _buildEventPayload(makeEventInfo(**infoOverrides), "America/Chicago", False)
+        payload = _buildEventPayload(makeEventInfo(**infoOverrides), False)
         return PublishJob.objects.create(
             kind=PublishJob.Kind.DIRECT, payload=payload,
             creator=self.creator, owner=self.owner,
@@ -400,7 +398,7 @@ class PublishEventJobDemoModeTests(TestCase):
             creator=self.requester, owner=self.owner,
             status=DelegatedEvents.Status.REQUESTED,
         )
-        payload = _buildEventPayload(event.getEventInfo(), event.timezone, ignoreResolveableConflicts=True)
+        payload = _buildEventPayload(event.getEventInfo(), ignoreResolveableConflicts=True)
         payload["reason"] = "Demo approve"
         payload["approverId"] = self.approver.id
         job = PublishJob.objects.create(

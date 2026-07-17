@@ -59,7 +59,7 @@ class PostedEventListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
 
 # MARK: Publish New Event
 
-def _buildEventPayload(eventInfo, timezoneStr, ignoreResolveableConflicts) -> dict:
+def _buildEventPayload(eventInfo, ignoreResolveableConflicts) -> dict:
     """Serialize an EventInfo into the PublishJob payload (schema
     PublishJob.PAYLOAD_VERSION).
 
@@ -71,15 +71,13 @@ def _buildEventPayload(eventInfo, timezoneStr, ignoreResolveableConflicts) -> di
     keeps the wall time and the zone name as the two explicit facts they are, so
     the round trip is lossless and stores exactly what the user entered. start/end
     are already localized here (by convertToEventInfo / getEventInfo)."""
-    startDt = DateTimeWithAcceptedTimeZone.fromLocalized(eventInfo.start, timezoneStr)
-    endDt = DateTimeWithAcceptedTimeZone.fromLocalized(eventInfo.end, timezoneStr)
     return {
         "payloadVersion": PublishJob.PAYLOAD_VERSION,
         "title": eventInfo.title,
         "eventType": eventInfo.eventType,
-        "timezone": timezoneStr,
-        "startIso": startDt.wallIso(),
-        "endIso": endDt.wallIso(),
+        "timezone": eventInfo.start.zoneName,
+        "startIso": eventInfo.start.wallIso(),
+        "endIso": eventInfo.end.wallIso(),
         "locationName": eventInfo.locationName,
         "streetAddress": eventInfo.streetAddress,
         "city": eventInfo.city,
@@ -138,7 +136,6 @@ def new_event(request):
             kind=PublishJob.Kind.DIRECT,
             payload=_buildEventPayload(
                 eventInfo,
-                form.cleaned_data[NewEventForm.Keys.TIMEZONE],
                 ignoreResolveableConflicts,
             ),
             creator=request.user,
@@ -368,7 +365,7 @@ def approve_delegated_event(request, id):
             # ignoreResolveableConflicts - the requester's dry run already
             # surfaced gCal conflicts at request time.
             logger.info("ApprovedDelegateEvent: Enqueueing publish job for event %d", id)
-            payload = _buildEventPayload(eventInfo, event.timezone, ignoreResolveableConflicts=True)
+            payload = _buildEventPayload(eventInfo, ignoreResolveableConflicts=True)
             payload["reason"] = formData[ApproveDelegatedEventForm.Keys.REASON]
             payload["approverId"] = request.user.id
             job = PublishJob.objects.create(

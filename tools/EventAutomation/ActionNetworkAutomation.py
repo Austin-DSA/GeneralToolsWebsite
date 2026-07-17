@@ -404,7 +404,7 @@ class EditEventScreen(Screen):
 
     def _fillOutDatePicker(self, time: DateTimeWithAcceptedTimeZone, dateTimePicker):
         inCorrectMonthYear = False
-        wantedMonthYearText = time.strftime("%B %Y")
+        wantedMonthYearText = time.wallTime.strftime("%B %Y")
         while not inCorrectMonthYear:
             currentMonthYearElem = dateTimePicker.find_element(
                 By.CLASS_NAME, EditEventScreen.Classes.DATETIME_PICKER_SWITCH
@@ -459,7 +459,7 @@ class EditEventScreen(Screen):
         else:
             potentialDays[-1].click()
 
-        logger.info("EditEventScreen: Setting hour to %s", str(time.hour))
+        logger.info("EditEventScreen: Setting hour to %s", str(time.wallTime.hour))
         isAM = time.wallTime.hour < 12
         hourStr = time.wallTime.strftime("%I")
         # Get rid of leading 0
@@ -554,7 +554,7 @@ class EditEventScreen(Screen):
             utcOffsetStr = eventInfo.startTime.localized().strftime('%z')
             timezone = TimeZone(timezone=eventInfo.startTime.zoneName, hourOffsetStr=utcOffsetStr[1:3])
 
-            logging.info("ANAutomator: Extracted %s as timezone", eventInfo.timeZone)
+            logging.info("ANAutomator: Extracted %s as timezone", timezone)
 
             
             # The timezones are full readable names so just choose the first one that has the correct timezone offset
@@ -569,8 +569,8 @@ class EditEventScreen(Screen):
                     break
 
             if not found:
-                logger.error("EditEventScreen: Could not find timezone option for %s", eventInfo.timeZone)
-                raise Exception(f"EditEventScreen: Could not find timezone option for {eventInfo.timeZone}")
+                logger.error("EditEventScreen: Could not find timezone option for %s", timezone)
+                raise Exception(f"EditEventScreen: Could not find timezone option for {timezone}")
             
             if eventInfo.zoomLink is not None:
                 logger.info("EditEventScreen: Setting virtual link to %s", eventInfo.zoomLink)

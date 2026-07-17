@@ -96,11 +96,10 @@ def _serializeConflicts(conflicts) -> list:
     payload timezone - exactly the localize-then-strip the views used to do
     inline before rendering, so getResultContext() can hand conflictList.html
     the same naive datetimes it has always rendered."""
-    timezone = pytz.timezone(timezoneStr)
     serialized = []
     for conflict in conflicts:
-        start = conflict.start.localized()
-        end = conflict.end.localized()
+        start = conflict.start.localized().replace(tzinfo=None)
+        end = conflict.end.localized().replace(tzinfo=None)
         serialized.append({
             "type": conflict.type,
             "title": conflict.title,

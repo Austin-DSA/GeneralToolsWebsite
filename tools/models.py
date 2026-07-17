@@ -7,7 +7,7 @@ import pytz
 from django.urls import reverse
 from . import permissions
 from . import utils
-
+from .timezones import DateTimeWithAcceptedTimeZone
 # Approving a committee (EventOwner) join grants the full event-lead capability
 # through this managed role group. The EventOwner's authorizer list scopes which
 # owner the member may act for; this group carries the page-level event
@@ -132,8 +132,8 @@ class PostedEvents(models.Model):
     
     def getEventInfo(self) -> EventInfo:
         return EventInfo(title=self.title,
-                         start=self.getStartLocalized(),
-                         end=self.getEndLocalized(),
+                         start=DateTimeWithAcceptedTimeZone(wallTime=self.getStartLocalized().replace(tzinfo=None), zoneName=self.timezone),
+                         end=DateTimeWithAcceptedTimeZone(wallTime=self.getEndLocalized().replace(tzinfo=None), zoneName=self.timezone),
                          locationName=self.locationName,
                          streetAddress=self.streetAddress,
                          city=self.city,
@@ -251,8 +251,8 @@ class DelegatedEvents(models.Model):
 
     def getEventInfo(self) -> EventInfo:
         return EventInfo(title=self.title,
-                         start=self.getStartLocalized(),
-                         end=self.getEndLocalized(),
+                         start=DateTimeWithAcceptedTimeZone(wallTime=self.getStartLocalized().replace(tzinfo=None), zoneName=self.timezone),
+                         end=DateTimeWithAcceptedTimeZone(wallTime=self.getEndLocalized().replace(tzinfo=None), zoneName=self.timezone),
                          locationName=self.locationName,
                          streetAddress=self.streetAddress,
                          city=self.city,

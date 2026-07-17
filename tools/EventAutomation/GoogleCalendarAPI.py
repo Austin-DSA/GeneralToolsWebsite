@@ -47,7 +47,7 @@ class Event:
     @staticmethod
     def convertDatetimeToDict(date: DateTimeWithAcceptedTimeZone) -> dict:
         return {
-            Constants.EventKeys.Date.TIME: date.wallIso,
+            Constants.EventKeys.Date.TIME: date.wallIso(),
             Constants.EventKeys.Date.TIMEZONE: date.zoneName,
         }
 

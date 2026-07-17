@@ -392,7 +392,7 @@ class ZoomAPI:
     ) -> list[tuple[ZoomUser, list[ZoomMeeting]]]:
         # Can't check for conflicts in the past
         # Return false as if there is a conflict
-        if time.utc() < datetime.datetime.utcnow():
+        if time.utc() < datetime.datetime.now(pytz.utc):
             logger.error("ZoomAPI: Passed in time %s that is in the past", str(time))
             raise Exception(f"ZoomAPI: Passed in time {time} that is in the past")  # ??
 
@@ -462,7 +462,7 @@ class ZoomAPI:
             headers=self._headersForRequest(),
             json={
                 Constants.Meetings.CREATE_TOPIC: title,
-                Constants.Meetings.CREATE_START_TIME: start.wallIso,
+                Constants.Meetings.CREATE_START_TIME: start.wallIso(),
                 Constants.Meetings.CREATE_START_TIMEZONE: start.zoneName,
                 Constants.Meetings.CREATE_DURATION: duration.seconds // 60,
                 Constants.Meetings.CREATE_TYPE: Constants.Meetings.TYPE_SCHEDULED,
