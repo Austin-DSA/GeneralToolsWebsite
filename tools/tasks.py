@@ -26,6 +26,7 @@ from .EmailApi import EmailApi
 from .EventAutomation import EventAutomationDriver
 from .SecretManager import SecretManager
 from .models import DelegatedEvents, PostedEvents, PublishJob, User
+from .timezones import DateTimeWithAcceptedTimeZone
 
 logger = logging.getLogger(__name__)
 
@@ -65,15 +66,24 @@ def syncLinkTreeWiki():
 def _rehydrateEventInfo(payload: dict) -> EventAutomationDriver.EventInfo:
     """Rebuild the EventInfo serialized by eventViews._buildEventPayload.
 
-    startIso/endIso are tz-aware isoformat strings (already localized by the
-    form/model at enqueue time); fromisoformat() yields aware fixed-offset
-    datetimes, which satisfies the driver's aware-input guard without
-    re-localizing."""
+    startIso/endIso are the literal LOCAL WALL time (naive ISO) and "timezone"
+    is the accepted IANA zone name. DateTimeWithAcceptedTimeZone reattaches the
+    named zone and returns a pytz-aware localized datetime, so downstream
+    consumers that read the zone off the datetime keep working: GoogleCalendarAPI
+    and ActionNetworkAutomation read pytz's .tzinfo.zone, and ZoomAPI reads
+    .tzinfo.tzname(). Reconstructing from the offset alone (the removed issue
+    #26 code) could not recover a named zone at all."""
+    startDt = DateTimeWithAcceptedTimeZone.fromWallIso(
+        payload["startIso"], payload["timezone"]
+    )
+    endDt = DateTimeWithAcceptedTimeZone.fromWallIso(
+        payload["endIso"], payload["timezone"]
+    )
     return EventAutomationDriver.EventInfo(
         title=payload["title"],
         eventType=payload["eventType"],
-        start=datetime.datetime.fromisoformat(payload["startIso"]),
-        end=datetime.datetime.fromisoformat(payload["endIso"]),
+        start=startDt.localized(),
+        end=endDt.localized(),
         locationName=payload["locationName"],
         streetAddress=payload["streetAddress"],
         city=payload["city"],
