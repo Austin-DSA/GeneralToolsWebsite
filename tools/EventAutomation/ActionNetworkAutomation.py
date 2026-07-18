@@ -486,7 +486,7 @@ class EditEventScreen(Screen):
             hourAndMinStr += ":45"
         logger.info(
             "EditEventScreen: Selecting minute for %s, choosing closest 15min before which is %s",
-            str(time.minute),
+            str(time.wallTime.minute),
             hourAndMinStr,
         )
         spanElems = dateTimePicker.find_elements(
@@ -502,7 +502,7 @@ class EditEventScreen(Screen):
             logger.error("EditEventScreen: Couldn't find minute %s", hourAndMinStr)
             raise Exception("Couldn't find minute")
 
-        logger.info("EditEventScreen: Done filling out date picker for %s", str(time))
+        logger.info("EditEventScreen: Done filling out date picker for %s", str(time.wallTime))
 
     def fillOutEventInfo(self, eventInfo: EventInfo):
         logger.info("EditEventScreen: Setting title to %s", eventInfo.title)
