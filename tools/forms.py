@@ -10,7 +10,9 @@ from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.utils.translation import gettext_lazy as _
+from django.utils.safestring import mark_safe
 
+from .timezones import DateTimeWithAcceptedTimeZone, TZ_TO_AN_TZ
 from .EventAutomation import EventAutomationDriver, ActionNetworkAutomation
 
 from . import permissions
@@ -98,6 +100,11 @@ def _activeOwnerQueryset():
             .filter(Q(isPermanent=True) | Q(expiration__gt=now)))
 
 
+class StaticTextWidget(forms.Widget):
+    def render(self, name, value, attrs=None, renderer=None):
+        value = value if value is not None else ""
+        return mark_safe(f'<span class="static-form-text form-field w-full" name="{name}">{value}</span>')
+
 class NewEventForm(forms.Form):
     class Keys:
         TITLE = "title"
@@ -144,9 +151,18 @@ class NewEventForm(forms.Form):
         coerce=int,
         empty_value=0
     )
+    timezoneWarning = forms.CharField(
+        initial="""
+        When creating an In Person event, Action Network will deduce the timezone by the physical location you enter. 
+        So you will need to make sure the timezone field matches the physical location or else the calendar won't be correct. 
+        If you are doing an in person event where the location is secret and will be sent by email to RSVPs, you can put '-' in the Location name and address and then fill out the city and zip code.
+        """,
+        widget=StaticTextWidget(),
+        required=False
+    )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
-        choices={timezone: timezone for timezone in ActionNetworkAutomation.TimeZone.TZ_TO_AN_TZ.keys()},
+        choices={timezone: timezone for timezone in TZ_TO_AN_TZ.keys()},
         initial="America/Chicago",
     )
     # type="datetime-local" gives the native browser date/time picker; its
@@ -239,28 +255,21 @@ class NewEventForm(forms.Form):
             return None
         formData = self.cleaned_data
         timezoneStr = formData[NewEventForm.Keys.TIMEZONE]
-        timezone = pytz.timezone(timezoneStr)
         start: datetime.datetime = formData[NewEventForm.Keys.START_TIME]
         end: datetime.datetime = formData[NewEventForm.Keys.END_TIME]
         # The start and end dates in the form appear to assume UTC time zone
         # We need to force localize to the input timezone
         # BTW I hate timezones
-        if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
-            start = timezone.localize(start)
-        else:
+        if start.tzinfo is not None:
             start = start.replace(tzinfo=None)
-            start = timezone.localize(start)
-        if end.tzinfo is None or end.tzinfo.utcoffset(end) is None:
-            end = timezone.localize(end)
-        else:
+        if end.tzinfo is not None:
             end = end.replace(tzinfo=None)
-            end = timezone.localize(end)
         eventType = formData[NewEventForm.Keys.EVENT_TYPE]
         zoomRequired = eventType in [ActionNetworkAutomation.ANTypes.HYBRID, ActionNetworkAutomation.ANTypes.VIRTUAL]
         eventInfo = EventAutomationDriver.EventInfo(
             title=formData[NewEventForm.Keys.TITLE],
-            start=start,
-            end=end,
+            start=DateTimeWithAcceptedTimeZone(wallTime=start, zoneName=timezoneStr),
+            end=DateTimeWithAcceptedTimeZone(wallTime=end, zoneName=timezoneStr),
             locationName=formData[NewEventForm.Keys.LOCATION_NAME],
             streetAddress=formData[NewEventForm.Keys.ADDRESS],
             city=formData[NewEventForm.Keys.CITY],

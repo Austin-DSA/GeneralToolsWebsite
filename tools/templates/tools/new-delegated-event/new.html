@@ -3,6 +3,8 @@
 <script>
 window.addEventListener("load", () => {
     const locationFields = ["locationName", "address", "city", "state", "country", "zipcode"];
+    // Timezone fields - Technically just one element for now but might as well be consistent and overhead of iterating a singleton is minimal, plus can add more if needed
+    const fieldsToShowForPhysical = ["timezoneWarning"]
     document.querySelector('[name="eventType"]').onchange = function()
     {
       // 1 == virtual: location fields don't apply
@@ -11,6 +13,13 @@ window.addEventListener("load", () => {
       for (const name of locationFields) {
         const row = document.querySelector('[data-field="' + name + '"]');
         if (row) { row.style.display = display; }
+      }
+      // 0 == In Person: AN Does Timezone based off physical location, show warning so user selects correct Timezone
+      var warningDisplay = (newVal == "0" || newVal == 0) ? "block" : "none";
+      for (const name of fieldsToShowForPhysical)
+      {
+        const row = document.querySelector('[data-field="' + name + '"]');
+        if (row) { row.style.display = warningDisplay; }
       }
     };
   });

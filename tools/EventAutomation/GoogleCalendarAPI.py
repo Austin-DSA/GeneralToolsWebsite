@@ -10,6 +10,8 @@ import typing
 import pytz
 import os
 
+from ..timezones import DateTimeWithAcceptedTimeZone
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,8 +36,8 @@ class Constants:
 @dataclasses.dataclass
 class Event:
     title: str
-    start: datetime.datetime
-    end: datetime.datetime  # Technically end is optional but we will require all events have a specific end
+    start: DateTimeWithAcceptedTimeZone
+    end: DateTimeWithAcceptedTimeZone  # Technically end is optional but we will require all events have a specific end
     description: str
     location: str | None
     link: typing.Optional[
@@ -43,35 +45,24 @@ class Event:
     ] = None  # Not writeable so we don't need to serialize to the API just from
 
     @staticmethod
-    def convertDatetimeToDict(date: datetime.datetime) -> dict:
-        # Require timezone aware objects
-        if date.tzinfo is None or date.tzinfo.utcoffset(date) is None:
-            logger.error(
-                "GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
-            raise Exception(
-                "GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
-        # Through painful expirmentation I discovered if you use the iso format with the timezone aware object it returns the wrong time, like an hour ahead
-        # So I found out you can delete the timezone and then pass it as the timezone argument and that works
-        timezone = date.tzinfo.zone
-        date = date.replace(tzinfo=None)
+    def convertDatetimeToDict(date: DateTimeWithAcceptedTimeZone) -> dict:
         return {
-            Constants.EventKeys.Date.TIME: date.isoformat(),
-            Constants.EventKeys.Date.TIMEZONE: timezone,
+            Constants.EventKeys.Date.TIME: date.wallIso(),
+            Constants.EventKeys.Date.TIMEZONE: date.zoneName,
         }
 
     @staticmethod
-    def convertDictToDatetime(d: dict) -> datetime.datetime:
+    def convertDictToDatetime(d: dict) -> DateTimeWithAcceptedTimeZone:
         time = datetime.datetime.fromisoformat(d[Constants.EventKeys.Date.TIME])
         if Constants.EventKeys.Date.TIMEZONE in d:
             timezone = d[Constants.EventKeys.Date.TIMEZONE]
-            timezone = pytz.timezone(timezone)
-            time.replace(tzinfo=timezone)
-        return time
+        else:
+            # If no timezone given assume UTC
+            timezone = "UTC"
+        return DateTimeWithAcceptedTimeZone.fromLocalized(localizedDateTime=time, zoneName=timezone)
 
     @staticmethod
-    def fromApiDict(d: str):
+    def fromApiDict(d: dict):
         title = d[Constants.EventKeys.TITLE]
         description = d[Constants.EventKeys.DESCRIPTION]
         start = Event.convertDictToDatetime(d[Constants.EventKeys.START])
@@ -140,21 +131,14 @@ class GoogleCalendarAPI:
 
     # https://googleapis.github.io/google-api-python-client/docs/dyn/calendar_v3.events.html#list
     def findConflicts(
-        self, start: datetime.datetime, duration: datetime.timedelta
+        self, start: DateTimeWithAcceptedTimeZone, duration: datetime.timedelta
     ) -> list[Event]:
         # Require timezone aware objects
-        if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
-            logger.error(
-                "GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
-            raise Exception(
-                "GoogleCalendarAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
 
-        end = (
-            start + duration + datetime.timedelta(minutes=15)
-        )  # Give 15 min runway between events
-        start = start - datetime.timedelta(minutes=15)
+        # Give 15 min runway between events
+        # Construct end before start since end references start and the names are overloaded
+        end = DateTimeWithAcceptedTimeZone(wallTime=start.wallTime+duration+datetime.timedelta(minutes=15), zoneName=start.zoneName)
+        start = DateTimeWithAcceptedTimeZone(wallTime=start.wallTime-datetime.timedelta(minutes=15), zoneName=start.zoneName)
         logger.info(
             "GoogleCalendarAPI: Looking for conflicts from %s to %s",
             str(start),
@@ -168,12 +152,19 @@ class GoogleCalendarAPI:
             result = []
             pageToken = None
             while True:
+                # It isn't clear from the docs how the timezones work here
+                # It says the timeMin and timeMax need timezone offsets in their strings
+                # It thens says the timezone argument is used for the response
+                # I'm reading this as the timezones don't matter for what we send in as long as it is defined
+                # Then it will return localized times
+                # So I'm going to send in UTC since isoformat for localized times is janky, but request the return time to be whatever timezone was passed in
                 response = (
                     service.events()
                     .list(
                         calendarId=self.config.calendarId,
-                        timeMin=start.isoformat(),
-                        timeMax=end.isoformat(),
+                        timeMin=start.utc().isoformat(),
+                        timeMax=end.utc().isoformat(),
+                        timeZone=start.zoneName,
                         pageToken=pageToken,
                     )
                     .execute()

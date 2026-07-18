@@ -16,7 +16,7 @@ from tools import tasks
 from tools.EventAutomation import EventAutomationDriver
 from tools.eventViews import _buildEventPayload
 from tools.models import PostedEvents, PublishJob
-
+from tools.timezones import DateTimeWithAcceptedTimeZone
 
 CHICAGO = pytz.timezone("America/Chicago")
 
@@ -27,8 +27,8 @@ def makeEventInfo(**overrides):
     fields = dict(
         title="Reading Group",
         eventType=2,  # HYBRID
-        start=CHICAGO.localize(datetime.datetime(2030, 7, 1, 18, 0)),
-        end=CHICAGO.localize(datetime.datetime(2030, 7, 1, 19, 0)),
+        start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 18, 0), zoneName="America/Chicago"),
+        end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 19, 0), zoneName="America/Chicago"),
         locationName="Little Walnut Creek Library",
         streetAddress="835 W Rundberg Ln",
         city="Austin",
@@ -65,7 +65,7 @@ def makePostedEvent(**overrides):
 class PayloadRoundTripTests(TestCase):
     def test_payload_round_trips_field_by_field(self):
         eventInfo = makeEventInfo()
-        payload = _buildEventPayload(eventInfo, "America/Chicago", ignoreResolveableConflicts=False)
+        payload = _buildEventPayload(eventInfo, ignoreResolveableConflicts=False)
         self.assertEqual(payload["payloadVersion"], PublishJob.PAYLOAD_VERSION)
         self.assertEqual(payload["timezone"], "America/Chicago")
         self.assertFalse(payload["ignoreResolveableConflicts"])
@@ -81,14 +81,6 @@ class PayloadRoundTripTests(TestCase):
         # Equality is by instant (==), never by tzinfo identity.
         self.assertEqual(rehydrated.start, eventInfo.start)
         self.assertEqual(rehydrated.end, eventInfo.end)
-        # The driver rejects naive datetimes; the round trip must stay aware.
-        self.assertIsNotNone(rehydrated.start.utcoffset())
-        self.assertIsNotNone(rehydrated.end.utcoffset())
-        # The NAMED pytz zone must survive - this is the issue #26 regression
-        # guard. GoogleCalendarAPI and ActionNetworkAutomation read .tzinfo.zone,
-        # which a bare fixed-offset tzinfo (fromisoformat's result) does not have.
-        self.assertEqual(rehydrated.start.tzinfo.zone, "America/Chicago")
-        self.assertEqual(rehydrated.end.tzinfo.zone, "America/Chicago")
         self.assertEqual(rehydrated.locationName, eventInfo.locationName)
         self.assertEqual(rehydrated.streetAddress, eventInfo.streetAddress)
         self.assertEqual(rehydrated.city, eventInfo.city)
@@ -104,30 +96,30 @@ class PayloadRoundTripTests(TestCase):
         # constant year round. Pin the actual offset at a summer (CDT, -05:00)
         # and a winter (CST, -06:00) instant so a wrong DST selection fails.
         summer = makeEventInfo(
-            start=CHICAGO.localize(datetime.datetime(2030, 7, 1, 18, 0)),
-            end=CHICAGO.localize(datetime.datetime(2030, 7, 1, 19, 0)),
+            start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 18, 0), zoneName="America/Chicago"),
+            end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 19, 0), zoneName="America/Chicago"),
         )
         winter = makeEventInfo(
-            start=CHICAGO.localize(datetime.datetime(2030, 1, 15, 18, 0)),
-            end=CHICAGO.localize(datetime.datetime(2030, 1, 15, 19, 0)),
+            start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 1, 15, 18, 0),zoneName="America/Chicago"),
+            end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 1, 15, 19, 0), zoneName="America/Chicago"),
         )
         summerStart = tasks._rehydrateEventInfo(
-            _buildEventPayload(summer, "America/Chicago", False)).start
+            _buildEventPayload(summer, False)).start
         winterStart = tasks._rehydrateEventInfo(
-            _buildEventPayload(winter, "America/Chicago", False)).start
+            _buildEventPayload(winter, False)).start
 
-        self.assertEqual(summerStart.tzname(), "CDT")
-        self.assertEqual(summerStart.utcoffset(), datetime.timedelta(hours=-5))
-        self.assertEqual(winterStart.tzname(), "CST")
-        self.assertEqual(winterStart.utcoffset(), datetime.timedelta(hours=-6))
+        self.assertEqual(summerStart.localized().tzname(), "CDT")
+        self.assertEqual(summerStart.localized().utcoffset(), datetime.timedelta(hours=-5))
+        self.assertEqual(winterStart.localized().tzname(), "CST")
+        self.assertEqual(winterStart.localized().utcoffset(), datetime.timedelta(hours=-6))
 
     def test_payload_carries_the_ignore_flag(self):
-        payload = _buildEventPayload(makeEventInfo(), "America/Chicago", ignoreResolveableConflicts=True)
+        payload = _buildEventPayload(makeEventInfo(), ignoreResolveableConflicts=True)
         self.assertIs(payload["ignoreResolveableConflicts"], True)
 
     def test_empty_zip_serializes_to_empty_string(self):
         # clean_zipcode returns "" when the field is blank.
-        payload = _buildEventPayload(makeEventInfo(zip=""), "America/Chicago", False)
+        payload = _buildEventPayload(makeEventInfo(zip=""), False)
         self.assertEqual(payload["zip"], "")
 
 
@@ -186,8 +178,8 @@ class ResultContextTests(TestCase):
         # The serialized ISO strings must reconstruct exactly the naive,
         # payload-timezone datetimes the inline views used to hand the
         # conflictList template.
-        conflictStart = datetime.datetime(2030, 7, 1, 23, 0, tzinfo=datetime.UTC)
-        conflictEnd = datetime.datetime(2030, 7, 2, 0, 30, tzinfo=datetime.UTC)
+        conflictStart = DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 23, 0),zoneName="UTC")
+        conflictEnd = DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 2, 0, 30),zoneName="UTC")
         conflict = EventAutomationDriver.Conflict(
             type=EventAutomationDriver.Conflict.ConflictType.GCAL,
             title="Tenant union mixer",
@@ -195,13 +187,11 @@ class ResultContextTests(TestCase):
         )
         job = PublishJob(
             kind=PublishJob.Kind.DIRECT, status=PublishJob.Status.CONFLICT,
-            payload={}, conflicts=tasks._serializeConflicts([conflict], "America/Chicago"),
+            payload={}, conflicts=tasks._serializeConflicts([conflict]),
         )
         rendered = job.getResultContext()["conflicts"][0]
-        self.assertEqual(rendered["start"], conflictStart.astimezone(CHICAGO).replace(tzinfo=None))
-        self.assertEqual(rendered["end"], conflictEnd.astimezone(CHICAGO).replace(tzinfo=None))
-        self.assertIsNone(rendered["start"].tzinfo)
-        self.assertIsNone(rendered["end"].tzinfo)
+        self.assertEqual(rendered["start"], conflictStart)
+        self.assertEqual(rendered["end"], conflictEnd)
         self.assertEqual(rendered["type"], EventAutomationDriver.Conflict.ConflictType.GCAL)
         self.assertEqual(rendered["title"], "Tenant union mixer")
         self.assertIsNone(rendered["zoomUser"])
@@ -210,13 +200,13 @@ class ResultContextTests(TestCase):
         conflict = EventAutomationDriver.Conflict(
             type=EventAutomationDriver.Conflict.ConflictType.ZOOM,
             title="Standing meeting",
-            start=datetime.datetime(2030, 7, 1, 23, 0, tzinfo=datetime.UTC),
-            end=datetime.datetime(2030, 7, 2, 0, 0, tzinfo=datetime.UTC),
+            start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 23, 0),zoneName="UTC"),
+            end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 2, 0, 0),zoneName="UTC"),
             zoomUser="busy@austindsa.org",
         )
         job = PublishJob(
             kind=PublishJob.Kind.DIRECT, status=PublishJob.Status.UNRESOLVEABLE,
-            payload={}, conflicts=tasks._serializeConflicts([conflict], "America/Chicago"),
+            payload={}, conflicts=tasks._serializeConflicts([conflict]),
         )
         rendered = job.getResultContext()["conflicts"][0]
         self.assertEqual(rendered["type"], EventAutomationDriver.Conflict.ConflictType.ZOOM)

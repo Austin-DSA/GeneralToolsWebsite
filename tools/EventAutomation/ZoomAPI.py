@@ -8,6 +8,8 @@ import base64
 import pytz
 import requests.auth
 
+from ..timezones import DateTimeWithAcceptedTimeZone, TZ_TO_ZOOM_TZ
+
 logger = logging.getLogger(__name__)
 
 # MARK: Constants
@@ -43,6 +45,7 @@ class Constants:
         RESPONSE_USER_STATUS_ACTIVE = "active"
 
         class Features:
+            @staticmethod
             def SETTINGS_ENDPOINT(userId: str) -> str:
                 return f"https://api.zoom.us/v2/users/{userId}/settings"
 
@@ -122,7 +125,7 @@ class ZoomUser:
 @dataclasses.dataclass
 class ZoomMeeting:
     id: str
-    startTime: datetime.datetime  # Timezone aware
+    startTime: DateTimeWithAcceptedTimeZone
     duration: datetime.timedelta
     joinUrl: str
     ownerUserId: str
@@ -284,8 +287,15 @@ class ZoomAPI:
     # MARK: Meetings
     @_accessTokenRequired
     def _fetchMeetingsForAccountAndTime(
-        self, account: ZoomUser, fromDate: datetime.datetime, toDate: datetime.datetime
+        self, account: ZoomUser, fromDate: DateTimeWithAcceptedTimeZone, toDate: DateTimeWithAcceptedTimeZone
     ) -> list[ZoomMeeting]:
+        if fromDate.zoneName != toDate.zoneName:
+            logger.error(
+                "ZoomAPI: Asked to fetch meetings with fromDate with timezone %s and toDate timezone %s. Timezones must match.",
+                fromDate.zoneName,
+                toDate.zoneName
+                )
+            raise Exception(f"ZoomAPI: Asked to fetch meetings with fromDate with timezone {fromDate.zoneName} and toDate timezone {toDate.zoneName}. Timezones must match.")
         def processJsonResponIntoMeetings(responseDict: dict) -> list[ZoomMeeting]:
             if Constants.Meetings.RESPONSE_MEETING_LIST_KEY not in responseDict:
                 logger.error(
@@ -310,15 +320,13 @@ class ZoomAPI:
                 startTime = datetime.datetime.fromisoformat(
                     meeting[Constants.Meetings.RESPONSE_START_TIME_KEY]
                 )
-                startTime.replace(
-                    tzinfo=pytz.timezone(
-                        meeting[Constants.Meetings.RESPONSE_TIMEZONE_KEY]
-                    )
-                )
 
+                zoneName = meeting[Constants.Meetings.RESPONSE_TIMEZONE_KEY]
+                if zoneName is None or zoneName == "":
+                    zoneName = "UTC"
                 newMeeting = ZoomMeeting(
                     id=meeting[Constants.Meetings.RESPONSE_ID_KEY],
-                    startTime=startTime,
+                    startTime=DateTimeWithAcceptedTimeZone.fromLocalized(localizedDateTime=startTime, zoneName=zoneName),
                     duration=datetime.timedelta(
                         minutes=meeting[Constants.Meetings.RESPONSE_DURATION_KEY]
                     ),
@@ -343,9 +351,9 @@ class ZoomAPI:
         )
         meetings = []
         params = {
-            Constants.Meetings.QUERY_PARAM_FROM_DATE: fromDate.isoformat(),
-            Constants.Meetings.QUERY_PARAM_TO_DATE: toDate.isoformat(),
-            Constants.Meetings.QUERY_PARAM_TIMEZONE: fromDate.tzinfo.tzname(fromDate),
+            Constants.Meetings.QUERY_PARAM_FROM_DATE: fromDate.wallIso(),
+            Constants.Meetings.QUERY_PARAM_TO_DATE: toDate.wallIso(),
+            Constants.Meetings.QUERY_PARAM_TIMEZONE: TZ_TO_ZOOM_TZ[fromDate.zoneName],
             Constants.Meetings.QUERY_PARAM_TYPE: Constants.Meetings.QUERY_PARAM_TYPE_UPCOMING,
         }
         req = requests.get(
@@ -383,19 +391,11 @@ class ZoomAPI:
     # 0 - The account this record is for
     # 1 - List of conflicting meetings, if empty then account is available
     def getAccountsAndAvailablilityForTime(
-        self, time: datetime.datetime, duration: datetime.timedelta
+        self, time: DateTimeWithAcceptedTimeZone, duration: datetime.timedelta
     ) -> list[tuple[ZoomUser, list[ZoomMeeting]]]:
-        # Require timezone aware objects
-        if time.tzinfo is None or time.tzinfo.utcoffset(time) is None:
-            logger.error(
-                "ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
-            raise Exception(
-                "ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
         # Can't check for conflicts in the past
         # Return false as if there is a conflict
-        if time < datetime.datetime.now(tz=time.tzinfo):
+        if time.utc() < datetime.datetime.now(pytz.utc):
             logger.error("ZoomAPI: Passed in time %s that is in the past", str(time))
             raise Exception(f"ZoomAPI: Passed in time {time} that is in the past")  # ??
 
@@ -405,8 +405,10 @@ class ZoomAPI:
             time,
             duration,
         )
-        fromDate = time - datetime.timedelta(hours=3)
-        toDate = time + datetime.timedelta(hours=3) + duration
+
+        fromDate = DateTimeWithAcceptedTimeZone(wallTime=time.wallTime-datetime.timedelta(hours=3),zoneName=time.zoneName)
+        toDate = DateTimeWithAcceptedTimeZone(wallTime=time.wallTime+datetime.timedelta(hours=3)+duration, zoneName=time.zoneName)
+
         results = []
         for account in self._accounts():
             # Get potential conflicts
@@ -418,10 +420,10 @@ class ZoomAPI:
             logger.info("ZoomAPI: Checking conflicts for account %s", account.email)
             for potentialConflict in potentialConflicts:
                 # If the potential conflict ends before the meeting starts then there is no conflict
-                if potentialConflict.startTime + potentialConflict.duration < time:
+                if potentialConflict.startTime.utc() + potentialConflict.duration < time.utc():
                     continue
                 # If the potential conflict starts after the meeting ends then there is no conflict
-                if time + duration < potentialConflict.startTime:
+                if time.utc() + duration < potentialConflict.startTime.utc():
                     continue
                 # Otherwise there must be overlap and so we have a conflict
                 logger.info(
@@ -445,17 +447,10 @@ class ZoomAPI:
     def createMeeting(
         self,
         title: str,
-        start: datetime.datetime,
+        start: DateTimeWithAcceptedTimeZone,
         duration: datetime.timedelta,
         user: ZoomUser,
     ) -> typing.Tuple[str,int]:
-        if start.tzinfo is None or start.tzinfo.utcoffset(start) is None:
-            logger.error(
-                "ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
-            raise Exception(
-                "ZoomAPI: The argument for the start time must be timezone aware. Passed in unaware object."
-            )
         logger.info(
             "ZoomAPI: Creating meeting %s at %s that lasts %s for user %s",
             title,
@@ -470,8 +465,8 @@ class ZoomAPI:
             headers=self._headersForRequest(),
             json={
                 Constants.Meetings.CREATE_TOPIC: title,
-                Constants.Meetings.CREATE_START_TIME: start.isoformat(),
-                Constants.Meetings.CREATE_START_TIMEZONE: start.tzinfo.tzname(start),
+                Constants.Meetings.CREATE_START_TIME: start.wallIso(),
+                Constants.Meetings.CREATE_START_TIMEZONE: TZ_TO_ZOOM_TZ[start.zoneName],
                 Constants.Meetings.CREATE_DURATION: duration.seconds // 60,
                 Constants.Meetings.CREATE_TYPE: Constants.Meetings.TYPE_SCHEDULED,
             },

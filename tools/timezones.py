@@ -32,6 +32,19 @@ def _requireAcceptedZone(zoneName: str) -> None:
             f"DateTimeWithAcceptedTimeZone: unknown time zone {zoneName!r}"
         )
 
+TZ_TO_AN_TZ = {
+        'US/Central': "Central",
+        'US/Eastern': "Eastern",
+        'US/Mountain': "Mountain",
+        'US/Pacific' : "Pacific"
+    }
+
+TZ_TO_ZOOM_TZ = {
+    'US/Central': "America/Chicago",
+    'US/Eastern': "America/New_York",
+    'US/Mountain': "America/Denver",
+    'US/Pacific' : "America/Los_Angeles"
+}
 
 class DateTimeWithAcceptedTimeZone:
     """A literal wall time plus the accepted IANA zone it is read in.
@@ -78,6 +91,11 @@ class DateTimeWithAcceptedTimeZone:
     def zoneName(self) -> str:
         return self._zoneName
 
+    @property
+    def wallTime(self) -> datetime.datetime:
+        """Returns the naiive walltime"""
+        return self._wall
+
     def localized(self) -> datetime.datetime:
         """The wall time as an aware, pytz-localized datetime.
 
@@ -110,3 +128,16 @@ class DateTimeWithAcceptedTimeZone:
             f"DateTimeWithAcceptedTimeZone("
             f"{self._wall.isoformat()}, {self._zoneName!r})"
         )
+    
+    def toDict(self) -> dict[str,str]:
+        return {
+            "wall" : self._wall.isoformat(),
+            "zoneName" : self._zoneName
+        }
+    
+    @classmethod
+    def fromDict(cls, d: dict) -> "DateTimeWithAcceptedTimeZone":
+        return cls.fromWallIso(wallIso=d["wall"], zoneName=d["zoneName"])
+
+    def prettyString(self) -> str:
+        return f'{self._wall.strftime("%Y-%m-%d %H:%M")} ({self._zoneName})'

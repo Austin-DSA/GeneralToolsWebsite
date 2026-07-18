@@ -7,7 +7,7 @@ import pytz
 from django.urls import reverse
 from . import permissions
 from . import utils
-
+from .timezones import DateTimeWithAcceptedTimeZone
 # Approving a committee (EventOwner) join grants the full event-lead capability
 # through this managed role group. The EventOwner's authorizer list scopes which
 # owner the member may act for; this group carries the page-level event
@@ -132,8 +132,8 @@ class PostedEvents(models.Model):
     
     def getEventInfo(self) -> EventInfo:
         return EventInfo(title=self.title,
-                         start=self.getStartLocalized(),
-                         end=self.getEndLocalized(),
+                         start=DateTimeWithAcceptedTimeZone(wallTime=self.getStartLocalized().replace(tzinfo=None), zoneName=self.timezone),
+                         end=DateTimeWithAcceptedTimeZone(wallTime=self.getEndLocalized().replace(tzinfo=None), zoneName=self.timezone),
                          locationName=self.locationName,
                          streetAddress=self.streetAddress,
                          city=self.city,
@@ -251,8 +251,8 @@ class DelegatedEvents(models.Model):
 
     def getEventInfo(self) -> EventInfo:
         return EventInfo(title=self.title,
-                         start=self.getStartLocalized(),
-                         end=self.getEndLocalized(),
+                         start=DateTimeWithAcceptedTimeZone(wallTime=self.getStartLocalized().replace(tzinfo=None), zoneName=self.timezone),
+                         end=DateTimeWithAcceptedTimeZone(wallTime=self.getEndLocalized().replace(tzinfo=None), zoneName=self.timezone),
                          locationName=self.locationName,
                          streetAddress=self.streetAddress,
                          city=self.city,
@@ -361,15 +361,13 @@ class PublishJob(models.Model):
                 "zoomAccount": event.zoomAccount if event else "",
             }
         if self.status in (PublishJob.Status.CONFLICT, PublishJob.Status.UNRESOLVEABLE):
-            # Reconstruct naive datetimes so conflictList.html renders through
-            # Django's default formatting exactly as the inline views did.
             return {"conflicts": [
                 {
                     "type": conflict["type"],
                     "title": conflict["title"],
                     "zoomUser": conflict["zoomUser"],
-                    "start": datetime.datetime.fromisoformat(conflict["startIso"]),
-                    "end": datetime.datetime.fromisoformat(conflict["endIso"]),
+                    "start": DateTimeWithAcceptedTimeZone.fromDict(conflict["start"]),
+                    "end": DateTimeWithAcceptedTimeZone.fromDict(conflict["end"]),
                 }
                 for conflict in self.conflicts
             ]}

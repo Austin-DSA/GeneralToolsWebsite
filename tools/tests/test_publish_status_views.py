@@ -17,7 +17,7 @@ from tools.EventAutomation import EventAutomationDriver
 from tools.eventViews import _buildEventPayload
 from tools.models import DelegatedEvents, EventOwners, PostedEvents, PublishJob
 from tools.tests.support import LoginClientMixin, UserFactory, fastHashing
-
+from tools.timezones import DateTimeWithAcceptedTimeZone
 
 FUTURE = datetime.datetime(2030, 1, 1, tzinfo=datetime.UTC)
 CHICAGO = pytz.timezone("America/Chicago")
@@ -54,8 +54,8 @@ def makeEventInfo(**overrides):
     fields = dict(
         title="Reading Group",
         eventType=2,  # HYBRID
-        start=CHICAGO.localize(datetime.datetime(2030, 7, 1, 18, 0)),
-        end=CHICAGO.localize(datetime.datetime(2030, 7, 1, 19, 0)),
+        start=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 18, 0), zoneName="America/Chicago"),
+        end=DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030, 7, 1, 19, 0), zoneName="America/Chicago"),
         locationName="Little Walnut Creek Library",
         streetAddress="835 W Rundberg Ln",
         city="Austin",
@@ -88,8 +88,8 @@ def serializedGCalConflict(title="Tenant union mixer"):
         "type": EventAutomationDriver.Conflict.ConflictType.GCAL,
         "title": title,
         "zoomUser": None,
-        "startIso": "2030-07-01T18:00:00",
-        "endIso": "2030-07-01T19:30:00",
+        "start": DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030,7,1,18,0,0), zoneName="UTC").toDict(),
+        "end": DateTimeWithAcceptedTimeZone(wallTime=datetime.datetime(2030,7,1,19,30,0), zoneName="UTC").toDict(),
     }
 
 
@@ -389,7 +389,7 @@ class PublishAnywayTests(LoginClientMixin, TestCase):
         self.owner = makeOwner("Education Committee", authorizers=[self.creator])
 
     def makeConflictJob(self, **payloadOverrides):
-        payload = _buildEventPayload(makeEventInfo(), "America/Chicago", False)
+        payload = _buildEventPayload(makeEventInfo(), False)
         payload.update(payloadOverrides)
         return PublishJob.objects.create(
             kind=PublishJob.Kind.DIRECT, status=PublishJob.Status.CONFLICT,
@@ -496,7 +496,7 @@ class PublishAnywayTests(LoginClientMixin, TestCase):
         publishEvent.return_value = publishedResult()
         job = self.makeConflictJob()
         otherPayload = _buildEventPayload(
-            makeEventInfo(title="Different Event"), "America/Chicago", False,
+            makeEventInfo(title="Different Event"), False,
         )
         PublishJob.objects.create(
             kind=PublishJob.Kind.DIRECT, status=PublishJob.Status.RUNNING,

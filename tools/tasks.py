@@ -67,12 +67,7 @@ def _rehydrateEventInfo(payload: dict) -> EventAutomationDriver.EventInfo:
     """Rebuild the EventInfo serialized by eventViews._buildEventPayload.
 
     startIso/endIso are the literal LOCAL WALL time (naive ISO) and "timezone"
-    is the accepted IANA zone name. DateTimeWithAcceptedTimeZone reattaches the
-    named zone and returns a pytz-aware localized datetime, so downstream
-    consumers that read the zone off the datetime keep working: GoogleCalendarAPI
-    and ActionNetworkAutomation read pytz's .tzinfo.zone, and ZoomAPI reads
-    .tzinfo.tzname(). Reconstructing from the offset alone (the removed issue
-    #26 code) could not recover a named zone at all."""
+    is the accepted IANA zone name."""
     startDt = DateTimeWithAcceptedTimeZone.fromWallIso(
         payload["startIso"], payload["timezone"]
     )
@@ -82,8 +77,8 @@ def _rehydrateEventInfo(payload: dict) -> EventAutomationDriver.EventInfo:
     return EventAutomationDriver.EventInfo(
         title=payload["title"],
         eventType=payload["eventType"],
-        start=startDt.localized(),
-        end=endDt.localized(),
+        start=startDt,
+        end=endDt,
         locationName=payload["locationName"],
         streetAddress=payload["streetAddress"],
         city=payload["city"],
@@ -96,22 +91,15 @@ def _rehydrateEventInfo(payload: dict) -> EventAutomationDriver.EventInfo:
     )
 
 
-def _serializeConflicts(conflicts, timezoneStr: str) -> list:
-    """Conflict times go into the job row as NAIVE ISO strings localized to the
-    payload timezone - exactly the localize-then-strip the views used to do
-    inline before rendering, so getResultContext() can hand conflictList.html
-    the same naive datetimes it has always rendered."""
-    timezone = pytz.timezone(timezoneStr)
+def _serializeConflicts(conflicts : list[EventAutomationDriver.Conflict]) -> list:
     serialized = []
     for conflict in conflicts:
-        start = conflict.start.astimezone(timezone).replace(tzinfo=None)
-        end = conflict.end.astimezone(timezone).replace(tzinfo=None)
         serialized.append({
             "type": conflict.type,
             "title": conflict.title,
             "zoomUser": conflict.zoomUser,
-            "startIso": start.isoformat(),
-            "endIso": end.isoformat(),
+            "start": conflict.start.toDict(),
+            "end": conflict.end.toDict()
         })
     return serialized
 
@@ -120,8 +108,8 @@ def _finishDirectPublish(job: PublishJob, eventInfo, result) -> None:
     """Persist a successful DIRECT publish: the PostedEvents row and the
     confirmation email, mirroring what new_event used to do inline."""
     # Convert event start and end dates to utc
-    utcStart = eventInfo.start.astimezone(pytz.utc)
-    utcEnd = eventInfo.end.astimezone(pytz.utc)
+    utcStart = eventInfo.start.utc()
+    utcEnd = eventInfo.end.utc()
     utcNow = datetime.datetime.now(datetime.UTC)
     e = PostedEvents.objects.create(title = eventInfo.title,
                                     start = utcStart,
@@ -300,11 +288,11 @@ def publishEventJob(jobId):
             job.status = PublishJob.Status.PUBLISHED
         elif result.type == EventAutomationDriver.Result.ResultType.UNRESOLVEABLE_CONFLICT:
             logger.info("PublishEventJob: Publish failed with unresolveable conflicts %s", str(result))
-            job.conflicts = _serializeConflicts(result.conflicts, payload["timezone"])
+            job.conflicts = _serializeConflicts(result.conflicts)
             job.status = PublishJob.Status.UNRESOLVEABLE
         elif result.type == EventAutomationDriver.Result.ResultType.CONFLICT:
             logger.info("PublishEventJob: Publish failed with resolveable conflicts %s", str(result))
-            job.conflicts = _serializeConflicts(result.conflicts, payload["timezone"])
+            job.conflicts = _serializeConflicts(result.conflicts)
             job.status = PublishJob.Status.CONFLICT
         else:
             logger.error("PublishEventJob: Unexpected error when publishing event %s", str(result))
