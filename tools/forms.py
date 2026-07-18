@@ -158,7 +158,8 @@ class NewEventForm(forms.Form):
         If you are doing an in person event where the location is secret and will be sent by email to RSVPs, you can put '-' in the Location name and address and then fill out the city and zip code.
         """,
         widget=StaticTextWidget(),
-        required=False
+        required=False,
+        label="Time Zone Warning"
     )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
