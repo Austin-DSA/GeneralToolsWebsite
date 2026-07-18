@@ -15,7 +15,7 @@ import settings
 import selenium.webdriver.support
 import selenium.webdriver.support.select
 
-from ..timezones import DateTimeWithAcceptedTimeZone
+from ..timezones import DateTimeWithAcceptedTimeZone, TZ_TO_AN_TZ
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +29,12 @@ class ANTypes:
 # Then we look for AN timezones that have the correct keywords and hour offset
 @dataclasses.dataclass
 class TimeZone:
-    TZ_TO_AN_TZ = {
-        'US/Central': "Central",
-        'US/Eastern': "Eastern",
-        'US/Mountain': "Mountain",
-        'US/Pacific' : "Pacific"
-    }
     timezone : str
     hourOffsetStr : str
     qualifier : str = "(US & Canada)"
 
     def matches(self, anTzValue):
-        anTz = TimeZone.TZ_TO_AN_TZ[self.timezone]
+        anTz = TZ_TO_AN_TZ[self.timezone]
         return anTz in anTzValue and self.hourOffsetStr in anTzValue and self.qualifier in anTzValue
 
 @dataclasses.dataclass

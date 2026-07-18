@@ -8,7 +8,7 @@ import base64
 import pytz
 import requests.auth
 
-from ..timezones import DateTimeWithAcceptedTimeZone
+from ..timezones import DateTimeWithAcceptedTimeZone, TZ_TO_ZOOM_TZ
 
 logger = logging.getLogger(__name__)
 
@@ -353,7 +353,7 @@ class ZoomAPI:
         params = {
             Constants.Meetings.QUERY_PARAM_FROM_DATE: fromDate.wallIso(),
             Constants.Meetings.QUERY_PARAM_TO_DATE: toDate.wallIso(),
-            Constants.Meetings.QUERY_PARAM_TIMEZONE: fromDate.zoneName,
+            Constants.Meetings.QUERY_PARAM_TIMEZONE: TZ_TO_ZOOM_TZ[fromDate.zoneName],
             Constants.Meetings.QUERY_PARAM_TYPE: Constants.Meetings.QUERY_PARAM_TYPE_UPCOMING,
         }
         req = requests.get(
@@ -466,7 +466,7 @@ class ZoomAPI:
             json={
                 Constants.Meetings.CREATE_TOPIC: title,
                 Constants.Meetings.CREATE_START_TIME: start.wallIso(),
-                Constants.Meetings.CREATE_START_TIMEZONE: start.zoneName,
+                Constants.Meetings.CREATE_START_TIMEZONE: TZ_TO_ZOOM_TZ[start.zoneName],
                 Constants.Meetings.CREATE_DURATION: duration.seconds // 60,
                 Constants.Meetings.CREATE_TYPE: Constants.Meetings.TYPE_SCHEDULED,
             },

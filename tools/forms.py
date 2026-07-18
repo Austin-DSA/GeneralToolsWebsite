@@ -12,7 +12,7 @@ from django.db.models import Count, Q
 from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 
-from .timezones import DateTimeWithAcceptedTimeZone
+from .timezones import DateTimeWithAcceptedTimeZone, TZ_TO_AN_TZ
 from .EventAutomation import EventAutomationDriver, ActionNetworkAutomation
 
 from . import permissions
@@ -162,7 +162,7 @@ class NewEventForm(forms.Form):
     )
     timezone = forms.ChoiceField(
         widget=forms.Select(attrs={"class": "form-field w-full"}),
-        choices={timezone: timezone for timezone in ActionNetworkAutomation.TimeZone.TZ_TO_AN_TZ.keys()},
+        choices={timezone: timezone for timezone in TZ_TO_AN_TZ.keys()},
         initial="America/Chicago",
     )
     # type="datetime-local" gives the native browser date/time picker; its

@@ -361,8 +361,6 @@ class PublishJob(models.Model):
                 "zoomAccount": event.zoomAccount if event else "",
             }
         if self.status in (PublishJob.Status.CONFLICT, PublishJob.Status.UNRESOLVEABLE):
-            # Reconstruct naive datetimes so conflictList.html renders through
-            # Django's default formatting exactly as the inline views did.
             return {"conflicts": [
                 {
                     "type": conflict["type"],

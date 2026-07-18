@@ -32,6 +32,19 @@ def _requireAcceptedZone(zoneName: str) -> None:
             f"DateTimeWithAcceptedTimeZone: unknown time zone {zoneName!r}"
         )
 
+TZ_TO_AN_TZ = {
+        'US/Central': "Central",
+        'US/Eastern': "Eastern",
+        'US/Mountain': "Mountain",
+        'US/Pacific' : "Pacific"
+    }
+
+TZ_TO_ZOOM_TZ = {
+    'US/Central': "America/Chicago",
+    'US/Eastern': "America/New_York",
+    'US/Mountain': "America/Denver",
+    'US/Pacific' : "America/Los_Angeles"
+}
 
 class DateTimeWithAcceptedTimeZone:
     """A literal wall time plus the accepted IANA zone it is read in.
