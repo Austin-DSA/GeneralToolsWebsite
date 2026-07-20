@@ -64,7 +64,9 @@ class Event:
     @staticmethod
     def fromApiDict(d: dict):
         title = d[Constants.EventKeys.TITLE]
-        description = d[Constants.EventKeys.DESCRIPTION]
+        description = ""
+        if Constants.EventKeys.DESCRIPTION in d:
+            description = d[Constants.EventKeys.DESCRIPTION]
         start = Event.convertDictToDatetime(d[Constants.EventKeys.START])
         end = Event.convertDictToDatetime(d[Constants.EventKeys.END])
         location = None
