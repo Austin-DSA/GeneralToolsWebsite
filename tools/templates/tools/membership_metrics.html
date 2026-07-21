@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load navigation_tags %}
+{% block title %}Membership Metrics{% endblock title %}
+{% block breadcrumbs %}{% breadcrumbs %}{% endblock breadcrumbs %}
+{% block page_content %}
+<h1 class="page-title">Membership Metrics</h1>
+<p class="page-subtitle">The membership curve: totals and the good standing / member / lapsed split, one point per national monthly list.</p>
+
+{% if not hasData %}
+  <div class="page-card page-card-narrow">
+    <p class="text-secondary">No membership snapshots yet. Run the ingest (<code>manage.py ingest_membership_lists</code>) to populate the series.</p>
+  </div>
+{% else %}
+  <div class="stat-grid">
+    <div class="stat-card">
+      <span class="stat-card-number">{{ latest.total }}</span>
+      <span class="stat-card-label">Total ({{ latest.listDate|date:"M Y" }})</span>
+      {% if latestDelta is not None %}
+        <span class="curve-delta {% if latestDelta < 0 %}curve-delta-down{% elif latestDelta > 0 %}curve-delta-up{% endif %}">
+          {% if latestDelta > 0 %}+{% endif %}{{ latestDelta }} vs prior month
+        </span>
+      {% endif %}
+    </div>
+    <div class="stat-card"><span class="stat-card-number">{{ latest.goodStanding }}</span><span class="stat-card-label">Good standing</span></div>
+    <div class="stat-card"><span class="stat-card-number">{{ latest.member }}</span><span class="stat-card-label">Member</span></div>
+    <div class="stat-card"><span class="stat-card-number">{{ latest.lapsed }}</span><span class="stat-card-label">Lapsed</span></div>
+  </div>
+
+  <div class="page-card">
+    <h2 class="section-title pt-0">Membership over time</h2>
+    <svg class="curve-chart" viewBox="0 0 {{ chartWidth }} {{ chartHeight }}" role="img"
+         aria-label="Line chart of membership counts per monthly list: total, good standing, member, and lapsed.">
+      {% for g in gridlines %}
+        <line class="curve-grid" x1="{{ plotLeft }}" y1="{{ g.y }}" x2="{{ plotRight }}" y2="{{ g.y }}" />
+        <text class="curve-axis-label" x="{{ plotLeft }}" y="{{ g.y }}" dx="-6" dy="3" text-anchor="end">{{ g.value }}</text>
+      {% endfor %}
+      {% for l in xLabels %}
+        <text class="curve-axis-label" x="{{ l.x }}" y="{{ plotBottom }}" dy="16" text-anchor="middle">{{ l.label }}</text>
+      {% endfor %}
+      {% for s in series %}
+        <polyline class="curve-line curve-line-{{ s.key }}" points="{{ s.points }}" />
+      {% endfor %}
+    </svg>
+    <div class="curve-legend" aria-hidden="true">
+      {% for s in series %}
+        <span class="curve-legend-item"><span class="curve-swatch curve-swatch-{{ s.key }}"></span>{{ s.label }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="page-card">
+    <h2 class="section-title pt-0">Monthly snapshots</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>List date</th>
+          <th class="text-right">Total</th>
+          <th class="text-right">Change</th>
+          <th class="text-right">Good standing</th>
+          <th class="text-right">Member</th>
+          <th class="text-right">Lapsed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.snapshot.listDate|date:"M Y" }}</td>
+            <td data-label="Total" class="text-right">{{ row.snapshot.total }}</td>
+            <td data-label="Change" class="text-right">
+              {% if row.delta is None %}<span class="text-secondary">-</span>
+              {% else %}<span class="{% if row.delta < 0 %}curve-delta-down{% elif row.delta > 0 %}curve-delta-up{% endif %}">{% if row.delta > 0 %}+{% endif %}{{ row.delta }}</span>{% endif %}
+            </td>
+            <td data-label="Good standing" class="text-right">{{ row.snapshot.goodStanding }}</td>
+            <td data-label="Member" class="text-right">{{ row.snapshot.member }}</td>
+            <td data-label="Lapsed" class="text-right">{{ row.snapshot.lapsed }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="text-secondary">No snapshots yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
+{% endblock page_content %}

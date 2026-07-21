@@ -70,6 +70,7 @@
   @import "./components/_access.css";
   @import "./components/_registration.css";
   @import "./components/_metrics.css";
+  @import "./components/_membership-metrics.css";
   @import "./components/_home.css";
   @import "./components/_menu-section.css";
 }

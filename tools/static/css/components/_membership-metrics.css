@@ -1,0 +1,44 @@
+/* Membership retention curve (membership_metrics.html): server-rendered SVG
+   line chart + legend + up/down deltas. Colors come from the @theme tokens. */
+.curve-chart {
+  @apply block w-full h-auto py-2;
+}
+.curve-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.curve-line-total { stroke: var(--color-dark); }
+.curve-line-good { stroke: var(--color-success); }
+.curve-line-member { stroke: var(--color-primary); }
+.curve-line-lapsed { stroke: var(--color-gray-med); }
+.curve-grid {
+  stroke: var(--color-gray-med);
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+}
+.curve-axis-label {
+  @apply text-xs;
+  fill: var(--color-secondary);
+}
+.curve-legend {
+  @apply flex flex-wrap gap-4 pt-1 text-sm text-secondary;
+}
+.curve-legend-item {
+  @apply inline-flex items-center gap-1.5;
+}
+.curve-swatch {
+  @apply inline-block rounded-full;
+  width: 10px;
+  height: 10px;
+}
+.curve-swatch-total { background-color: var(--color-dark); }
+.curve-swatch-good { background-color: var(--color-success); }
+.curve-swatch-member { background-color: var(--color-primary); }
+.curve-swatch-lapsed { background-color: var(--color-gray-med); }
+.curve-delta {
+  @apply block text-xs font-semibold pt-1 text-secondary;
+}
+.curve-delta-down { color: var(--color-danger); }
+.curve-delta-up { color: var(--color-success); }

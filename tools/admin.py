@@ -216,3 +216,20 @@ class LinkEventAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+@admin.register(MembershipSnapshot)
+class MembershipSnapshotAdmin(admin.ModelAdmin):
+    """Read-only spot-check view - rows are written only by the
+    ingest_membership_lists management command (update_or_create keyed on
+    listDate), never hand-edited."""
+
+    list_display = ("listDate", "goodStanding", "member", "lapsed", "total", "sourceEmailDate", "ingestedAt")
+    ordering = ("listDate",)
+    readonly_fields = ("listDate", "goodStanding", "member", "lapsed", "total", "sourceEmailDate", "ingestedAt")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

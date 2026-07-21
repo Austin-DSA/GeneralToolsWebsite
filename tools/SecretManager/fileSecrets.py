@@ -16,17 +16,26 @@ class Keys:
     GOOGLE_DELEGATE_ACCOUNT = "GoogleDelegateAccount"
     WEBSITE_EMAIL_ACCOUNT_USERNAME = "WebsiteEmailAccountUsername"
     WEBSITE_EMAIL_ACCOUNT_PASSWORD = "WebsiteEmailAccountPassword"
-    # Outline wiki — Link Tree read-only service account. OPTIONAL (see
+    # Outline wiki - Link Tree read-only service account. OPTIONAL (see
     # OPTIONAL_KEYS): when absent, wiki-backed link items simply stay unresolved
     # and hidden, so the app still boots without these configured.
     OUTLINE_BASE_URL = "OutlineBaseUrl"
     OUTLINE_READ_API_TOKEN = "OutlineReadApiToken"
+    # Membership-list ingest (austindsalistbot inbox) - Garrigan fills these
+    # in (a Gmail app password, not the raw account password) once he's ready
+    # to run the historical backfill / wire up the live schedule. OPTIONAL:
+    # ingest_membership_lists warns-and-exits-0 when unset (see its --from-dir
+    # path, which needs no email creds at all).
+    MEMBERSHIP_BOT_EMAIL_USERNAME = "MembershipBotEmailUsername"
+    MEMBERSHIP_BOT_EMAIL_PASSWORD = "MembershipBotEmailPassword"
 
 # Keys that are not required at import. The accessors below return None when an
 # optional key is missing; callers must handle the unconfigured case.
 OPTIONAL_KEYS = frozenset({
     Keys.OUTLINE_BASE_URL,
     Keys.OUTLINE_READ_API_TOKEN,
+    Keys.MEMBERSHIP_BOT_EMAIL_USERNAME,
+    Keys.MEMBERSHIP_BOT_EMAIL_PASSWORD,
 })
 
 def _readSecretsFromFile():
@@ -89,11 +98,21 @@ def WebsiteEmailAccountPassword():
 
 
 def OutlineBaseUrl():
-    # Optional — None when not configured (see OPTIONAL_KEYS).
+    # Optional - None when not configured (see OPTIONAL_KEYS).
     return secretObject.get(Keys.OUTLINE_BASE_URL)
 
 
 def OutlineReadApiToken():
-    # Optional — None when not configured (see OPTIONAL_KEYS).
+    # Optional - None when not configured (see OPTIONAL_KEYS).
     return secretObject.get(Keys.OUTLINE_READ_API_TOKEN)
+
+
+def MembershipBotEmailUsername():
+    # Optional - None when not configured (see OPTIONAL_KEYS).
+    return secretObject.get(Keys.MEMBERSHIP_BOT_EMAIL_USERNAME)
+
+
+def MembershipBotEmailPassword():
+    # Optional - None when not configured (see OPTIONAL_KEYS).
+    return secretObject.get(Keys.MEMBERSHIP_BOT_EMAIL_PASSWORD)
 
